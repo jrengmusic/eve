@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<@product@ version="1.0.0">
+  <SETTINGS>
+    <UI_SCALE value="MEDIUM"/>
+    <APPEARANCE value="DESKTOP"/>
+  </SETTINGS>
+</@product@>

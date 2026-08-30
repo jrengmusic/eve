@@ -1,0 +1,127 @@
+/*
+ * style.css — dual-renderer single source of truth for END's appearance.
+ *
+ * Two consumers read this exact file, unmodified:
+ *   1. Any web browser, opened directly, for visual design preview.
+ *   2. jam_plugin_bootstrap StyleManager/StyleTheme, at runtime, parsed into
+ *      the plugin editor's palette/font/window registries and LookAndFeel
+ *      colour ids.
+ *
+ * One document, one contract, no generated forks. There is no preview-only
+ * variant of this file and none may ever be created — a fork breaks the
+ * guarantee that what is seen in a browser is what the plugin renders. This
+ * file stays hand-written for that reason: every property that exists here
+ * exists because both renderers depend on it identically.
+ *
+ * Extension philosophy: add values within a tier, never introduce a new tier
+ * shape. New palette colours go in :root, named verbatim as authored (no
+ * casing transform). New appearance colour ids go in the appearance records —
+ * one entry per record (.appearance.DARK, .appearance.LIGHT); a product with
+ * a single appearance declares one .appearance block with no id. New fonts get one
+ * @font-face record
+ * carrying the complete record — font-family (the font alias id) plus src,
+ * and the --height/--kerning customs; --rasterizer/--gamma/--contrast/
+ * --embolden live once, on the first @font-face record only.
+ *
+ * Section index:
+ *   1. :root              — palette customs
+ *   2. .appearance.DARK / .appearance.LIGHT — appearance records, one block per appearance id
+ *   3. .window            — runtime window chrome customs
+ *   4. @font-face         — font alias id to binary binding, one record per FONT
+ *   5. golden preview rules — [data-content] and body background, verbatim-invariant
+ */
+:root {
+    /* palette
+     * Named colour customs, named verbatim as authored (no casing
+     * transform). Consumed by both renderers: the browser resolves var()
+     * references directly; the runtime parses this block into its palette
+     * registry, keyed by these same custom-property names. Per-product
+     * authored — every product owns its own colour set.
+     */
+    --umbra: #191817; /* background, dark */
+    --platinum: #EBDFD3; /* background, light */
+}
+
+.appearance.DARK {
+    /* DARK appearance
+     * Appearance record applied when the model's appearance is DARK. Each
+     * name is an unprefixed, two-segment custom-property spelling of the
+     * colour id, resolving through var() to a palette colour above.
+     * Per-product authored.
+     */
+    --ResizableWindow--backgroundColourId: var(--umbra);
+}
+
+.appearance.LIGHT {
+    /* LIGHT appearance — same contract as .DARK, applied when the model's
+     * appearance is LIGHT.
+     */
+    --ResizableWindow--backgroundColourId: var(--platinum);
+}
+
+.window {
+    /* window
+     * Runtime window chrome configuration (platform blur mode, opacity,
+     * blur radius), parsed into the window registry. No browser equivalent.
+     * Per-product authored. Entries are read by the runtime by id, scoped by
+     * this rule — names are the contract, used verbatim.
+     */
+    --mac: backgroundBlur;
+    --win: acrylic10;
+    --opacity: 0.5;
+    --blur: 20;
+}
+
+/*
+ * @font-face — the complete font record, one block per FONT id. font-family
+ * carries the FONT id verbatim (the font alias); src carries the bound file —
+ * the runtime reads only the basename, resolved from BinaryData; the path
+ * exists for browser preview. The runtime reads font-family and src plus the
+ * custom properties (--height, --kerning, --rasterizer, --gamma, --contrast,
+ * --embolden) to populate its font registry. The browser reads
+ * font-family/src for preview rendering and ignores the customs — custom
+ * properties in an at-rule body are inert for preview, harmless per spec
+ * error-handling. --rasterizer/--gamma/--contrast/--embolden are declared
+ * once, on the first record. Per-product authored. Extend by adding one
+ * block per FONT id, with font-family/src/--height/--kerning present.
+ */
+@font-face {
+    font-family: common;
+    src: url(../../../jam/resources/fonts/DisplayMonoMedium.ttf);
+    --height: 12;
+    --kerning: 0.1;
+    --rasterizer: native;
+    --gamma: 2.2;
+    --contrast: 0.0;
+    --embolden: false;
+}
+
+/*
+ * Golden preview rules — verbatim-invariant, copied into every product's
+ * style.css unedited. Never forked into a preview-only file: these two
+ * rules exist precisely so no preview-only file is ever needed.
+ *
+ * [data-content]:empty::before displays the runtime contract key itself
+ * inside every empty content slot. The word the browser shows is not a
+ * placeholder or a guess — it is the exact data-content attribute value
+ * the bootstrap binds dynamic text to at runtime. An empty slot in the
+ * browser tells the truth about what the runtime will fill there; nothing
+ * is invented for preview purposes. This rule is inert at runtime — the
+ * bootstrap reads the data-content attribute directly and never evaluates
+ * this ::before rule.
+ *
+ * body's background-color mirrors the same background the bootstrap paints
+ * via its window background colour id, so the browser preview sits on the
+ * identical backdrop the plugin window will show.
+ *
+ * Editing either rule, or forking them into a separate preview-only
+ * stylesheet, breaks the guarantee that the browser preview is truthful —
+ * it would start showing something the runtime does not actually do.
+ */
+[data-content]:empty::before {
+    content: attr(data-content);
+}
+
+body {
+    background-color: var(--umbra);
+}
