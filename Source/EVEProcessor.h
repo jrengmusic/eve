@@ -1,11 +1,11 @@
 #pragma once
 #include <JuceHeader.h>
 
-class ENDProcessor : public juce::AudioProcessor
+class EVEProcessor : public juce::AudioProcessor
 {
 public:
-    ENDProcessor();
-    ~ENDProcessor() override = default;
+    EVEProcessor();
+    ~EVEProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -37,5 +37,5 @@ private:
     jam::PluginEditorLayout layout { files::interfaceLayout, BinaryData::fetcher };
 
     //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ENDProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEProcessor)
 };

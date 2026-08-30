@@ -1,6 +1,8 @@
-#include "ENDView.h"
+#include "EVEView.h"
 
-ENDView::ENDView (jam::AudioModel& newModel, jam::PluginEditorLayout& newLayout, juce::AudioProcessor& processorToConnectTo)
+EVEView::EVEView (jam::AudioModel& newModel,
+                  jam::PluginEditorLayout& newLayout,
+                  juce::AudioProcessor& processorToConnectTo)
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
 {
     if (layout.isReady (model))
@@ -14,7 +16,7 @@ ENDView::ENDView (jam::AudioModel& newModel, jam::PluginEditorLayout& newLayout,
     }
 }
 
-void ENDView::initialiseTheme()
+void EVEView::initialiseTheme()
 {
     styleManager.create (layout.fonts);
 
@@ -22,7 +24,7 @@ void ENDView::initialiseTheme()
     juce::LookAndFeel::setDefaultLookAndFeel (theme.get());
 }
 
-void ENDView::initialiseView()
+void EVEView::initialiseView()
 {
     auto newView { std::make_unique<jam::ViewEditor>() };
 

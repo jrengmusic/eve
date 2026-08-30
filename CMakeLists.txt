@@ -34,10 +34,10 @@ elseif(MSVC)
     )
 endif()
 
-project(END
+project(EVE
     VERSION 0.1.0
     LANGUAGES C CXX
-    DESCRIPTION "END Audio Plugin"
+    DESCRIPTION "EVE Audio Plugin"
 )
 
 set(JUCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../JUCE")
@@ -46,7 +46,7 @@ find_package(Git REQUIRED)
 
 set(PATCHES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../jam/patch")
 
-set(END_JUCE_PATCHES
+set(EVE_JUCE_PATCHES
     "${PATCHES_PATH}/juce-cached-image-factory-hook.patch"
     "${PATCHES_PATH}/juce-direct2d-helpers-visibility-hook.patch"
     "${PATCHES_PATH}/juce-image-subsection-hook.patch"
@@ -55,73 +55,73 @@ set(END_JUCE_PATCHES
 )
 
 if(WIN32)
-    set(END_JUCE_TEMP_DIR "$ENV{TEMP}")
+    set(EVE_JUCE_TEMP_DIR "$ENV{TEMP}")
 elseif(DEFINED ENV{TMPDIR})
-    set(END_JUCE_TEMP_DIR "$ENV{TMPDIR}")
+    set(EVE_JUCE_TEMP_DIR "$ENV{TMPDIR}")
 else()
-    set(END_JUCE_TEMP_DIR "/tmp")
+    set(EVE_JUCE_TEMP_DIR "/tmp")
 endif()
 
-set(END_PATCHED_JUCE_PATH "${END_JUCE_TEMP_DIR}/juce-patched")
-set(END_JUCE_PATCH_STAMP_FILE "${END_PATCHED_JUCE_PATH}/.patch-stamp")
+set(EVE_PATCHED_JUCE_PATH "${EVE_JUCE_TEMP_DIR}/juce-patched")
+set(EVE_JUCE_PATCH_STAMP_FILE "${EVE_PATCHED_JUCE_PATH}/.patch-stamp")
 
-set(END_JUCE_PATCH_SET_CONCAT "")
-foreach(END_JUCE_PATCH ${END_JUCE_PATCHES})
-    file(READ "${END_JUCE_PATCH}" END_JUCE_PATCH_CONTENT)
-    string(APPEND END_JUCE_PATCH_SET_CONCAT "${END_JUCE_PATCH_CONTENT}")
+set(EVE_JUCE_PATCH_SET_CONCAT "")
+foreach(EVE_JUCE_PATCH ${EVE_JUCE_PATCHES})
+    file(READ "${EVE_JUCE_PATCH}" EVE_JUCE_PATCH_CONTENT)
+    string(APPEVE EVE_JUCE_PATCH_SET_CONCAT "${EVE_JUCE_PATCH_CONTENT}")
 endforeach()
 
-set(END_JUCE_PATCH_SET_CONCAT_FILE "${CMAKE_BINARY_DIR}/end_juce_patch_set_concat.tmp")
-file(WRITE "${END_JUCE_PATCH_SET_CONCAT_FILE}" "${END_JUCE_PATCH_SET_CONCAT}")
-file(SHA256 "${END_JUCE_PATCH_SET_CONCAT_FILE}" END_JUCE_PATCH_SET_HASH)
-file(REMOVE "${END_JUCE_PATCH_SET_CONCAT_FILE}")
+set(EVE_JUCE_PATCH_SET_CONCAT_FILE "${CMAKE_BINARY_DIR}/end_juce_patch_set_concat.tmp")
+file(WRITE "${EVE_JUCE_PATCH_SET_CONCAT_FILE}" "${EVE_JUCE_PATCH_SET_CONCAT}")
+file(SHA256 "${EVE_JUCE_PATCH_SET_CONCAT_FILE}" EVE_JUCE_PATCH_SET_HASH)
+file(REMOVE "${EVE_JUCE_PATCH_SET_CONCAT_FILE}")
 
-set(END_JUCE_PATCH_STAMP_CURRENT "")
-if(EXISTS "${END_JUCE_PATCH_STAMP_FILE}")
-    file(READ "${END_JUCE_PATCH_STAMP_FILE}" END_JUCE_PATCH_STAMP_CURRENT)
-    string(STRIP "${END_JUCE_PATCH_STAMP_CURRENT}" END_JUCE_PATCH_STAMP_CURRENT)
+set(EVE_JUCE_PATCH_STAMP_CURRENT "")
+if(EXISTS "${EVE_JUCE_PATCH_STAMP_FILE}")
+    file(READ "${EVE_JUCE_PATCH_STAMP_FILE}" EVE_JUCE_PATCH_STAMP_CURRENT)
+    string(STRIP "${EVE_JUCE_PATCH_STAMP_CURRENT}" EVE_JUCE_PATCH_STAMP_CURRENT)
 endif()
 
-if(NOT (EXISTS "${END_PATCHED_JUCE_PATH}" AND END_JUCE_PATCH_STAMP_CURRENT STREQUAL END_JUCE_PATCH_SET_HASH))
-    if(EXISTS "${END_PATCHED_JUCE_PATH}")
-        file(REMOVE_RECURSE "${END_PATCHED_JUCE_PATH}")
+if(NOT (EXISTS "${EVE_PATCHED_JUCE_PATH}" AND EVE_JUCE_PATCH_STAMP_CURRENT STREQUAL EVE_JUCE_PATCH_SET_HASH))
+    if(EXISTS "${EVE_PATCHED_JUCE_PATH}")
+        file(REMOVE_RECURSE "${EVE_PATCHED_JUCE_PATH}")
     endif()
 
     file(COPY "${JUCE_PATH}/"
-        DESTINATION "${END_PATCHED_JUCE_PATH}"
+        DESTINATION "${EVE_PATCHED_JUCE_PATH}"
         PATTERN ".git" EXCLUDE
         PATTERN "docs" EXCLUDE
         PATTERN "DOCS.html" EXCLUDE
     )
 
-    foreach(END_JUCE_PATCH ${END_JUCE_PATCHES})
-        get_filename_component(END_JUCE_PATCH_NAME "${END_JUCE_PATCH}" NAME)
+    foreach(EVE_JUCE_PATCH ${EVE_JUCE_PATCHES})
+        get_filename_component(EVE_JUCE_PATCH_NAME "${EVE_JUCE_PATCH}" NAME)
 
         execute_process(
-            COMMAND "${GIT_EXECUTABLE}" apply --check --ignore-whitespace "${END_JUCE_PATCH}"
-            WORKING_DIRECTORY "${END_PATCHED_JUCE_PATH}"
-            RESULT_VARIABLE END_JUCE_PATCH_CHECK_RESULT
-            ERROR_VARIABLE END_JUCE_PATCH_CHECK_ERROR
+            COMMAND "${GIT_EXECUTABLE}" apply --check --ignore-whitespace "${EVE_JUCE_PATCH}"
+            WORKING_DIRECTORY "${EVE_PATCHED_JUCE_PATH}"
+            RESULT_VARIABLE EVE_JUCE_PATCH_CHECK_RESULT
+            ERROR_VARIABLE EVE_JUCE_PATCH_CHECK_ERROR
         )
-        if(NOT END_JUCE_PATCH_CHECK_RESULT EQUAL 0)
-            message(FATAL_ERROR "JUCE patch failed --check: ${END_JUCE_PATCH_NAME}\n${END_JUCE_PATCH_CHECK_ERROR}")
+        if(NOT EVE_JUCE_PATCH_CHECK_RESULT EQUAL 0)
+            message(FATAL_ERROR "JUCE patch failed --check: ${EVE_JUCE_PATCH_NAME}\n${EVE_JUCE_PATCH_CHECK_ERROR}")
         endif()
 
         execute_process(
-            COMMAND "${GIT_EXECUTABLE}" apply --ignore-whitespace "${END_JUCE_PATCH}"
-            WORKING_DIRECTORY "${END_PATCHED_JUCE_PATH}"
-            RESULT_VARIABLE END_JUCE_PATCH_RESULT
-            ERROR_VARIABLE END_JUCE_PATCH_ERROR
+            COMMAND "${GIT_EXECUTABLE}" apply --ignore-whitespace "${EVE_JUCE_PATCH}"
+            WORKING_DIRECTORY "${EVE_PATCHED_JUCE_PATH}"
+            RESULT_VARIABLE EVE_JUCE_PATCH_RESULT
+            ERROR_VARIABLE EVE_JUCE_PATCH_ERROR
         )
-        if(NOT END_JUCE_PATCH_RESULT EQUAL 0)
-            message(FATAL_ERROR "Failed to apply JUCE patch: ${END_JUCE_PATCH_NAME}\n${END_JUCE_PATCH_ERROR}")
+        if(NOT EVE_JUCE_PATCH_RESULT EQUAL 0)
+            message(FATAL_ERROR "Failed to apply JUCE patch: ${EVE_JUCE_PATCH_NAME}\n${EVE_JUCE_PATCH_ERROR}")
         endif()
     endforeach()
 
-    file(WRITE "${END_JUCE_PATCH_STAMP_FILE}" "${END_JUCE_PATCH_SET_HASH}")
+    file(WRITE "${EVE_JUCE_PATCH_STAMP_FILE}" "${EVE_JUCE_PATCH_SET_HASH}")
 endif()
 
-set(JUCE_PATH "${END_PATCHED_JUCE_PATH}")
+set(JUCE_PATH "${EVE_PATCHED_JUCE_PATH}")
 
 add_subdirectory("${JUCE_PATH}" "${CMAKE_BINARY_DIR}/JUCE")
 
@@ -142,20 +142,20 @@ juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_web")
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_terminal")
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_plugin_bootstrap")
 
-juce_add_plugin(END
+juce_add_plugin(EVE
     COMPANY_NAME "JRENG"
     COMPANY_COPYRIGHT "© 2025. JRENG. All rights reserved."
     COMPANY_WEBSITE "https://jrengmusic.com"
     COMPANY_EMAIL "info@jrengmusic.com"
 
     PLUGIN_MANUFACTURER_CODE JRNG
-    PLUGIN_CODE END.
-    BUNDLE_ID "com.jreng.END"
+    PLUGIN_CODE EVE.
+    BUNDLE_ID "com.jreng.EVE"
 
     FORMATS Standalone VST3 AU
     VST3_CATEGORIES Fx
 
-    PRODUCT_NAME "END"
+    PRODUCT_NAME "EVE"
     VERSION 0.1.0
 
     IS_SYNTH FALSE
@@ -167,16 +167,16 @@ juce_add_plugin(END
     COPY_PLUGIN_AFTER_BUILD TRUE
 )
 
-juce_generate_juce_header(END)
+juce_generate_juce_header(EVE)
 
-target_sources(END PRIVATE
-    Source/ENDProcessor.h
-    Source/ENDProcessor.cpp
-    Source/ENDView.h
-    Source/ENDView.cpp
+target_sources(EVE PRIVATE
+    Source/EVEProcessor.h
+    Source/EVEProcessor.cpp
+    Source/EVEView.h
+    Source/EVEView.cpp
 )
 
-target_compile_definitions(END PUBLIC
+target_compile_definitions(EVE PUBLIC
     DONT_SET_USING_JUCE_NAMESPACE=1
     JAM_USING_OVERSAMPLING=0
     JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1
@@ -189,15 +189,15 @@ target_compile_definitions(END PUBLIC
     $<$<CONFIG:Release>:NDEBUG=1>
 )
 
-target_include_directories(END PRIVATE
+target_include_directories(EVE PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/Source"
 )
 
-target_include_directories(END PRIVATE
+target_include_directories(EVE PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/generated"
 )
 
-target_link_libraries(END
+target_link_libraries(EVE
     PRIVATE
         juce::juce_audio_utils
         juce::juce_audio_devices
@@ -219,15 +219,15 @@ target_link_libraries(END
 )
 
 if(APPLE)
-    target_include_directories(END BEFORE PRIVATE
+    target_include_directories(EVE BEFORE PRIVATE
         "${VULKAN_PATH}/macOS/include")
 endif()
 
 if(WIN32)
-    target_include_directories(END BEFORE PRIVATE
+    target_include_directories(EVE BEFORE PRIVATE
         "${VULKAN_PATH}/Include")
 
-    target_compile_definitions(END PRIVATE
+    target_compile_definitions(EVE PRIVATE
         WIN32_LEAN_AND_MEAN=1
         NOMINMAX=1
         _WIN32_IE=0x0A00
@@ -236,7 +236,7 @@ if(WIN32)
         JUCE_CORE_INCLUDE_COM_SMART_PTR=1)
 endif()
 
-target_include_directories(END PRIVATE
+target_include_directories(EVE PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_freetype/freetype/include")
 
 if(MSVC)
@@ -252,10 +252,10 @@ else()
     )
 endif()
 
-target_include_directories(END PRIVATE
+target_include_directories(EVE PRIVATE
     "${JUCE_PATH}/modules/juce_graphics/fonts/harfbuzz")
 
-target_compile_definitions(END PRIVATE VMA_VULKAN_VERSION=1002000)
+target_compile_definitions(EVE PRIVATE VMA_VULKAN_VERSION=1002000)
 
 if(APPLE)
     add_library(moltenVK STATIC IMPORTED GLOBAL)
@@ -265,17 +265,17 @@ if(APPLE)
         INTERFACE_INCLUDE_DIRECTORIES
             "${VULKAN_PATH}/macOS/include"
     )
-    target_link_libraries(END PRIVATE moltenVK)
-    target_link_libraries(END PRIVATE
+    target_link_libraries(EVE PRIVATE moltenVK)
+    target_link_libraries(EVE PRIVATE
         "-framework IOKit" "-framework IOSurface")
 endif()
 
 if(WIN32)
-    find_library(END_VULKAN_LOADER_LIB vulkan-1
+    find_library(EVE_VULKAN_LOADER_LIB vulkan-1
         PATHS "${VULKAN_PATH}/Lib"
         NO_DEFAULT_PATH
         REQUIRED)
-    target_link_libraries(END PRIVATE "${END_VULKAN_LOADER_LIB}")
+    target_link_libraries(EVE PRIVATE "${EVE_VULKAN_LOADER_LIB}")
 endif()
 
 if(NOT MSVC)
@@ -287,63 +287,63 @@ if(NOT MSVC)
 endif()
 
 if(APPLE)
-    set(END_VULKAN_GLSLC "${VULKAN_PATH}/macOS/bin/glslc")
+    set(EVE_VULKAN_GLSLC "${VULKAN_PATH}/macOS/bin/glslc")
 elseif(WIN32)
-    set(END_VULKAN_GLSLC "${VULKAN_PATH}/Bin/glslc.exe")
+    set(EVE_VULKAN_GLSLC "${VULKAN_PATH}/Bin/glslc.exe")
 endif()
 
-set(END_VULKAN_SHADER_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/shaders")
+set(EVE_VULKAN_SHADER_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/shaders")
 
-file(GLOB_RECURSE END_VULKAN_SHADER_SRCS CONFIGURE_DEPENDS
+file(GLOB_RECURSE EVE_VULKAN_SHADER_SRCS CONFIGURE_DEPEVES
     "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/shaders/*.vert"
     "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/shaders/*.frag"
     "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/shaders/*.comp"
 )
 
-foreach(END_SHADER_SRC ${END_VULKAN_SHADER_SRCS})
-    get_filename_component(END_SHADER_NAME "${END_SHADER_SRC}" NAME)
-    set(END_SHADER_SPV "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/spv/${END_SHADER_NAME}.spv")
-    set(END_SHADER_DEPFILE "${END_SHADER_SPV}.d")
+foreach(EVE_SHADER_SRC ${EVE_VULKAN_SHADER_SRCS})
+    get_filename_component(EVE_SHADER_NAME "${EVE_SHADER_SRC}" NAME)
+    set(EVE_SHADER_SPV "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/spv/${EVE_SHADER_NAME}.spv")
+    set(EVE_SHADER_DEPFILE "${EVE_SHADER_SPV}.d")
     add_custom_command(
-        OUTPUT  "${END_SHADER_SPV}"
-        COMMAND "${END_VULKAN_GLSLC}"
-                -I "${END_VULKAN_SHADER_INCLUDE_DIR}"
-                -MD -MF "${END_SHADER_DEPFILE}"
-                "${END_SHADER_SRC}" -o "${END_SHADER_SPV}"
-        DEPENDS "${END_SHADER_SRC}"
-        DEPFILE "${END_SHADER_DEPFILE}"
-        COMMENT "glslc: ${END_SHADER_NAME} -> spv"
+        OUTPUT  "${EVE_SHADER_SPV}"
+        COMMAND "${EVE_VULKAN_GLSLC}"
+                -I "${EVE_VULKAN_SHADER_INCLUDE_DIR}"
+                -MD -MF "${EVE_SHADER_DEPFILE}"
+                "${EVE_SHADER_SRC}" -o "${EVE_SHADER_SPV}"
+        DEPEVES "${EVE_SHADER_SRC}"
+        DEPFILE "${EVE_SHADER_DEPFILE}"
+        COMMENT "glslc: ${EVE_SHADER_NAME} -> spv"
         VERBATIM
     )
 endforeach()
 
-file(GLOB END_VULKAN_ALL_SPV_FILES CONFIGURE_DEPENDS
+file(GLOB EVE_VULKAN_ALL_SPV_FILES CONFIGURE_DEPEVES
     "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/spv/*.spv"
 )
 
-if(END_VULKAN_ALL_SPV_FILES)
+if(EVE_VULKAN_ALL_SPV_FILES)
     juce_add_binary_data(jam_vulkan_ShaderData
         NAMESPACE   "jam"
         HEADER_NAME "JamVulkanShaderData.h"
-        SOURCES     ${END_VULKAN_ALL_SPV_FILES}
+        SOURCES     ${EVE_VULKAN_ALL_SPV_FILES}
     )
-    target_link_libraries(END PRIVATE jam_vulkan_ShaderData)
+    target_link_libraries(EVE PRIVATE jam_vulkan_ShaderData)
 endif()
 
-file(GLOB END_JAM_GRAPHICS_FONT_FILES CONFIGURE_DEPENDS
+file(GLOB EVE_JAM_GRAPHICS_FONT_FILES CONFIGURE_DEPEVES
     "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/fonts/*.ttf"
 )
 
-if(END_JAM_GRAPHICS_FONT_FILES)
+if(EVE_JAM_GRAPHICS_FONT_FILES)
     juce_add_binary_data(jam_graphics_FontData
         NAMESPACE   "jam::fonts"
         HEADER_NAME "JamFontsBinaryData.h"
-        SOURCES     ${END_JAM_GRAPHICS_FONT_FILES}
+        SOURCES     ${EVE_JAM_GRAPHICS_FONT_FILES}
     )
-    target_link_libraries(END PRIVATE jam_graphics_FontData)
+    target_link_libraries(EVE PRIVATE jam_graphics_FontData)
 endif()
 
-target_compile_options(END PRIVATE
+target_compile_options(EVE PRIVATE
     $<$<OR:$<PLATFORM_ID:Darwin>,$<PLATFORM_ID:Linux>>:-Wno-float-equal>
     $<$<OR:$<PLATFORM_ID:Darwin>,$<PLATFORM_ID:Linux>>:-Wno-sign-conversion>
     $<$<OR:$<PLATFORM_ID:Darwin>,$<PLATFORM_ID:Linux>>:-Wno-implicit-float-conversion>
@@ -353,7 +353,7 @@ target_compile_options(END PRIVATE
 )
 
 if(MSVC)
-    target_compile_options(END PRIVATE
+    target_compile_options(EVE PRIVATE
         /permissive-
         /Zc:rvalueCast
         /W4
@@ -373,9 +373,9 @@ if(MSVC)
     )
 endif()
 
-foreach(END_FORMAT Standalone VST3 AU)
-    if(TARGET END_${END_FORMAT})
-        target_compile_options(END_${END_FORMAT} PRIVATE
+foreach(EVE_FORMAT Standalone VST3 AU)
+    if(TARGET EVE_${EVE_FORMAT})
+        target_compile_options(EVE_${EVE_FORMAT} PRIVATE
             $<$<OR:$<PLATFORM_ID:Darwin>,$<PLATFORM_ID:Linux>>:-Wno-float-equal>
             $<$<OR:$<PLATFORM_ID:Darwin>,$<PLATFORM_ID:Linux>>:-Wno-sign-conversion>
             $<$<OR:$<PLATFORM_ID:Darwin>,$<PLATFORM_ID:Linux>>:-Wno-implicit-float-conversion>
@@ -384,7 +384,7 @@ foreach(END_FORMAT Standalone VST3 AU)
             $<$<OR:$<PLATFORM_ID:Darwin>,$<PLATFORM_ID:Linux>>:-Wno-unused-parameter>
         )
         if(MSVC)
-            target_compile_options(END_${END_FORMAT} PRIVATE
+            target_compile_options(EVE_${EVE_FORMAT} PRIVATE
                 /permissive-
                 /Zc:rvalueCast
                 /W4
@@ -407,23 +407,23 @@ foreach(END_FORMAT Standalone VST3 AU)
 endforeach()
 
 if(WIN32)
-    target_link_libraries(END PRIVATE
+    target_link_libraries(EVE PRIVATE
         dwmapi.lib
         user32.lib
     )
 endif()
 
-file(GLOB END_BINARY_DATA_FILES CONFIGURE_DEPENDS
+file(GLOB EVE_BINARY_DATA_FILES CONFIGURE_DEPEVES
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md"
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css"
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml"
     "${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/fonts/*.ttf"
 )
 
-juce_add_binary_data(END_BinaryData
+juce_add_binary_data(EVE_BinaryData
     NAMESPACE "BinaryData"
-    SOURCES ${END_BINARY_DATA_FILES}
-            ${END_VULKAN_ALL_SPV_FILES}
+    SOURCES ${EVE_BINARY_DATA_FILES}
+            ${EVE_VULKAN_ALL_SPV_FILES}
 )
 
-target_link_libraries(END PRIVATE END_BinaryData)
+target_link_libraries(EVE PRIVATE EVE_BinaryData)
