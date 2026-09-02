@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/dev/jam/jam_plugin_bootstrap/standalone/jam_AudioStandaloneApp.h

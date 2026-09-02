@@ -5,19 +5,15 @@ EVEView::EVEView (jam::AudioModel& newModel,
                   juce::AudioProcessor& processorToConnectTo)
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
 {
-    jassert (layout.isReady (model));
+    if (layout.isReady (model))
+    {
+        initialise();
 
-    initialise();
+        setResizable (false, false);
 
-    setResizable (false, false);
-
-    const auto [width, height] { jam::ViewManager::getUISize (layout.getMaster()) };
-    setSize (width, height);
-}
-
-EVEView::~EVEView()
-{
-    juce::LookAndFeel::setDefaultLookAndFeel (nullptr);
+        const auto [width, height] { jam::ViewManager::getUISize (layout.getMaster()) };
+        setSize (width, height);
+    }
 }
 
 void EVEView::initialiseTheme()

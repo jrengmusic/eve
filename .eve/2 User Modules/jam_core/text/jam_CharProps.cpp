@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/dev/jam/jam_core/text/jam_CharProps.cpp

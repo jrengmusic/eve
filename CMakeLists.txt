@@ -86,7 +86,7 @@ endif()
 # ==============================================================================
 
 set(CAST_JUCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../JUCE")
-set(CAST_JAM_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../jam")
+set(CAST_USER_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../jam")
 set(CAST_VULKAN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Vulkan")
 
 # ==============================================================================
@@ -98,11 +98,11 @@ set(CAST_JUCE_VERSION 8.0.14)
 find_package(Git REQUIRED)
 
 set(CAST_JUCE_PATCHES
-"${CAST_JAM_PATH}/patch/juce-cached-image-factory-hook.patch"       # External CachedComponentImage factory
-"${CAST_JAM_PATH}/patch/juce-direct2d-helpers-visibility-hook.patch"# Direct2D helpers visibility gate
-"${CAST_JAM_PATH}/patch/juce-image-subsection-hook.patch"           # Root image and subsection bounds hooks
-"${CAST_JAM_PATH}/patch/juce-vulkan-engine-hook.patch"              # External graphics context factory for Vulkan
-"${CAST_JAM_PATH}/patch/juce-paint-update-rect-hook.patch"          # OS dirty rectangle before native paint
+"${CAST_USER_MODULE_PATH}/patch/juce-cached-image-factory-hook.patch"       # External CachedComponentImage factory
+"${CAST_USER_MODULE_PATH}/patch/juce-direct2d-helpers-visibility-hook.patch"# Direct2D helpers visibility gate
+"${CAST_USER_MODULE_PATH}/patch/juce-image-subsection-hook.patch"           # Root image and subsection bounds hooks
+"${CAST_USER_MODULE_PATH}/patch/juce-vulkan-engine-hook.patch"              # External graphics context factory for Vulkan
+"${CAST_USER_MODULE_PATH}/patch/juce-paint-update-rect-hook.patch"          # OS dirty rectangle before native paint
 )
 
 if(WIN32)
@@ -190,27 +190,28 @@ message(STATUS "CAST: JUCE ${CAST_FOUND_JUCE_VERSION} patched at ${CAST_JUCE_PAT
 # MODULES — JAM framework modules
 # ==============================================================================
 
-juce_add_module("${CAST_JAM_PATH}/jam_core")            # JAM Core
-juce_add_module("${CAST_JAM_PATH}/jam_debug")           # Debug instruments — console, log, model monitor
-juce_add_module("${CAST_JAM_PATH}/jam_data_structures") # ValueTree management and data model utilities — model, parameters, JSON conversion
-juce_add_module("${CAST_JAM_PATH}/jam_dsp")             # DSP processors — filters, waveshaping, hysteresis modelling, transient control, oversampling, FIR, noise generation, spectrum analysis
-juce_add_module("${CAST_JAM_PATH}/jam_gui")             # GUI foundation — Window, Modal, Glass
-juce_add_module("${CAST_JAM_PATH}/jam_graphics")        # Graphics utilities, blur, shadows, colours, fonts, mesh
-juce_add_module("${CAST_JAM_PATH}/jam_animation")       # Foundation animation classes (Animator, AnimationBase, AnimationScrollingText)
-juce_add_module("${CAST_JAM_PATH}/jam_freetype")        # Vendored FreeType font rasterization library
-juce_add_module("${CAST_JAM_PATH}/jam_vulkan")          # Vulkan rendering backend
-juce_add_module("${CAST_JAM_PATH}/jam_style")           # JAM Style — LookAndFeel base + ColourScheme-backed colour registry
-juce_add_module("${CAST_JAM_PATH}/jam_markdown")        # Clean-room native CommonMark + GFM markdown parsing and rendering
-juce_add_module("${CAST_JAM_PATH}/jam_web")             # HTML authored-subset and CSS Syntax Level 3 subset tokenizers and parsers
-juce_add_module("${CAST_JAM_PATH}/jam_plugin_bootstrap")# Document-driven plugin bootstrap — view construction, style management, plugin editor base, standalone shell
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_core")            # JAM Core
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_debug")           # Debug instruments — console, log, model monitor
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_data_structures") # ValueTree management and data model utilities — model, parameters, JSON conversion
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_dsp")             # DSP processors — filters, waveshaping, hysteresis modelling, transient control, oversampling, FIR, noise generation, spectrum analysis
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_gui")             # GUI foundation — Window, Modal, Glass
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_graphics")        # Graphics utilities, blur, shadows, colours, fonts, mesh
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_animation")       # Foundation animation classes (Animator, AnimationBase, AnimationScrollingText)
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_freetype")        # Vendored FreeType font rasterization library
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_vulkan")          # Vulkan rendering backend
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_style")           # JAM Style — LookAndFeel base + ColourScheme-backed colour registry
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_markdown")        # Clean-room native CommonMark + GFM markdown parsing and rendering
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_web")             # HTML authored-subset and CSS Syntax Level 3 subset tokenizers and parsers
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_plugin_bootstrap")# Document-driven plugin bootstrap — view construction, style management, plugin editor base, standalone shell
 
-message(STATUS "CAST: JAM modules added from ${CAST_JAM_PATH}")
+message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 
 # ==============================================================================
 # TARGET — the plugin declaration
 # ==============================================================================
 
 juce_add_plugin(${PROJECT_NAME}
+    PRODUCT_NAME "EVE"
     COMPANY_NAME "JRENG"
     COMPANY_COPYRIGHT "(c) 2025 JRENG. All rights reserved."
     COMPANY_WEBSITE "https://jrengmusic.com"
@@ -272,7 +273,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 target_include_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/Source"
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/generated"
-    "${CAST_JAM_PATH}/jam_freetype/freetype/include"
+    "${CAST_USER_MODULE_PATH}/jam_freetype/freetype/include"
     "${CAST_JUCE_PATH}/modules/juce_graphics/fonts/harfbuzz"
 )
 
@@ -288,8 +289,8 @@ endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-        juce::juce_audio_utils
-        juce::juce_audio_devices
+        juce_audio_utils
+        juce_audio_devices
         jam_core
         jam_debug
         jam_data_structures
@@ -330,18 +331,18 @@ endif()
 
 if(MSVC)
     set_source_files_properties(
-        "${CAST_JAM_PATH}/jam_freetype/jam_freetype.cpp"
+        "${CAST_USER_MODULE_PATH}/jam_freetype/jam_freetype.cpp"
         PROPERTIES COMPILE_FLAGS "/wd4005 /wd4804"
     )
 else()
     set_source_files_properties(
-        "${CAST_JAM_PATH}/jam_freetype/jam_freetype.cpp"
-        "${CAST_JAM_PATH}/jam_freetype/jam_freetype.mm"
+        "${CAST_USER_MODULE_PATH}/jam_freetype/jam_freetype.cpp"
+        "${CAST_USER_MODULE_PATH}/jam_freetype/jam_freetype.mm"
         PROPERTIES COMPILE_FLAGS "-Wno-macro-redefined"
     )
     set_source_files_properties(
-        "${CAST_JAM_PATH}/jam_vulkan/jam_vulkan.cpp"
-        "${CAST_JAM_PATH}/jam_vulkan/jam_vulkan.mm"
+        "${CAST_USER_MODULE_PATH}/jam_vulkan/jam_vulkan.cpp"
+        "${CAST_USER_MODULE_PATH}/jam_vulkan/jam_vulkan.mm"
         PROPERTIES COMPILE_FLAGS "-Wno-nullability-completeness -Wno-nullability-extension -fno-strict-aliasing"
     )
 endif()
@@ -369,17 +370,17 @@ if(NOT EXISTS "${CAST_VULKAN_GLSLC}")
     message(FATAL_ERROR "CAST: glslc not found at ${CAST_VULKAN_GLSLC}")
 endif()
 
-set(CAST_SHADER_INCLUDE_DIR "${CAST_JAM_PATH}/resources/shaders")
+set(CAST_SHADER_INCLUDE_DIR "${CAST_USER_MODULE_PATH}/resources/shaders")
 
 file(GLOB_RECURSE CAST_SHADER_SOURCES CONFIGURE_DEPENDS
-    "${CAST_JAM_PATH}/resources/shaders/*.vert"
-    "${CAST_JAM_PATH}/resources/shaders/*.frag"
-    "${CAST_JAM_PATH}/resources/shaders/*.comp"
+    "${CAST_USER_MODULE_PATH}/resources/shaders/*.vert"
+    "${CAST_USER_MODULE_PATH}/resources/shaders/*.frag"
+    "${CAST_USER_MODULE_PATH}/resources/shaders/*.comp"
 )
 
 foreach(CAST_SHADER_SOURCE ${CAST_SHADER_SOURCES})
     get_filename_component(CAST_SHADER_NAME "${CAST_SHADER_SOURCE}" NAME)
-    set(CAST_SHADER_SPV "${CAST_JAM_PATH}/resources/spv/${CAST_SHADER_NAME}.spv")
+    set(CAST_SHADER_SPV "${CAST_USER_MODULE_PATH}/resources/spv/${CAST_SHADER_NAME}.spv")
     set(CAST_SHADER_DEPFILE "${CAST_SHADER_SPV}.d")
     add_custom_command(
         OUTPUT  "${CAST_SHADER_SPV}"
@@ -398,7 +399,7 @@ endforeach()
 # RESOURCES — embedded binary data: shaders, fonts, layout
 # ==============================================================================
 
-file(GLOB CAST_SHADER_SPV_FILES CONFIGURE_DEPENDS "${CAST_JAM_PATH}/resources/spv/*.spv")
+file(GLOB CAST_SHADER_SPV_FILES CONFIGURE_DEPENDS "${CAST_USER_MODULE_PATH}/resources/spv/*.spv")
 
 if(CAST_SHADER_SPV_FILES)
     juce_add_binary_data(jam_vulkan_ShaderData
@@ -409,7 +410,7 @@ if(CAST_SHADER_SPV_FILES)
     target_link_libraries(${PROJECT_NAME} PRIVATE jam_vulkan_ShaderData)
 endif()
 
-file(GLOB CAST_FONT_FILES CONFIGURE_DEPENDS "${CAST_JAM_PATH}/resources/fonts/*.ttf")
+file(GLOB CAST_FONT_FILES CONFIGURE_DEPENDS "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf")
 
 if(CAST_FONT_FILES)
     juce_add_binary_data(jam_graphics_FontData
@@ -424,7 +425,7 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md"
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css"
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml"
-    "${CAST_JAM_PATH}/resources/fonts/*.ttf"
+    "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf"
 )
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData
@@ -523,11 +524,6 @@ COMMAND ditto "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_INST
         endif()
     endforeach()
 endif()
-
-add_custom_command(TARGET post-build POST_BUILD
-COMMAND ${CMAKE_COMMAND} -DPROJECT_ROOT=${CMAKE_SOURCE_DIR} -DBUILD_DIR=${CMAKE_BINARY_DIR} -DJAM_ROOT=${CAST_JAM_PATH} -DTARGET_NAME=${PROJECT_NAME} -DAPPLE=${APPLE} -DWIN32=${WIN32} -P ${CAST_JAM_PATH}/cmake/ClangdConfig.cmake
-    COMMENT "CAST: clangd"
-)
 
 # ==============================================================================
 # REPORT

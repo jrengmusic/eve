@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/dev/jam/jam_animation/strip/jam_AnimationStrip.cpp

@@ -63,7 +63,7 @@ endif()
 # ==============================================================================
 
 set(CAST_JUCE_PATH ":::jucePath:::")
-set(CAST_JAM_PATH ":::jamPath:::")
+set(CAST_USER_MODULE_PATH ":::userModulePath:::")
 set(CAST_VULKAN_PATH ":::vulkanPath:::")
 
 # ==============================================================================
@@ -165,13 +165,14 @@ message(STATUS "CAST: JUCE ${CAST_FOUND_JUCE_VERSION} patched at ${CAST_JUCE_PAT
 
 :::list:::
 
-message(STATUS "CAST: JAM modules added from ${CAST_JAM_PATH}")
+message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 
 # ==============================================================================
 # TARGET — the plugin declaration
 # ==============================================================================
 
-juce_add_plugin(${PROJECT_NAME}
+:::juceTargetFunction:::(${PROJECT_NAME}
+    PRODUCT_NAME ":::productName:::"
     COMPANY_NAME :::companyName:::
     COMPANY_COPYRIGHT :::companyCopyright:::
     COMPANY_WEBSITE :::productWebsite:::
@@ -179,7 +180,7 @@ juce_add_plugin(${PROJECT_NAME}
 
     PLUGIN_MANUFACTURER_CODE :::manufacturerCode:::
     PLUGIN_CODE :::pluginCode:::
-    BUNDLE_ID :::bundleId:::
+    BUNDLE_ID :::bundleIdentifier:::
 
     FORMATS ${CAST_FORMATS}
     VST3_CATEGORIES :::vst3Categories:::
@@ -256,18 +257,18 @@ endif()
 
 if(MSVC)
     set_source_files_properties(
-        "${CAST_JAM_PATH}/jam_freetype/jam_freetype.cpp"
+        "${CAST_USER_MODULE_PATH}/jam_freetype/jam_freetype.cpp"
         PROPERTIES COMPILE_FLAGS "/wd4005 /wd4804"
     )
 else()
     set_source_files_properties(
-        "${CAST_JAM_PATH}/jam_freetype/jam_freetype.cpp"
-        "${CAST_JAM_PATH}/jam_freetype/jam_freetype.mm"
+        "${CAST_USER_MODULE_PATH}/jam_freetype/jam_freetype.cpp"
+        "${CAST_USER_MODULE_PATH}/jam_freetype/jam_freetype.mm"
         PROPERTIES COMPILE_FLAGS "-Wno-macro-redefined"
     )
     set_source_files_properties(
-        "${CAST_JAM_PATH}/jam_vulkan/jam_vulkan.cpp"
-        "${CAST_JAM_PATH}/jam_vulkan/jam_vulkan.mm"
+        "${CAST_USER_MODULE_PATH}/jam_vulkan/jam_vulkan.cpp"
+        "${CAST_USER_MODULE_PATH}/jam_vulkan/jam_vulkan.mm"
         PROPERTIES COMPILE_FLAGS "-Wno-nullability-completeness -Wno-nullability-extension -fno-strict-aliasing"
     )
 endif()
@@ -295,17 +296,17 @@ if(NOT EXISTS "${CAST_VULKAN_GLSLC}")
     message(FATAL_ERROR "CAST: glslc not found at ${CAST_VULKAN_GLSLC}")
 endif()
 
-set(CAST_SHADER_INCLUDE_DIR "${CAST_JAM_PATH}/resources/shaders")
+set(CAST_SHADER_INCLUDE_DIR "${CAST_USER_MODULE_PATH}/resources/shaders")
 
 file(GLOB_RECURSE CAST_SHADER_SOURCES CONFIGURE_DEPENDS
-    "${CAST_JAM_PATH}/resources/shaders/*.vert"
-    "${CAST_JAM_PATH}/resources/shaders/*.frag"
-    "${CAST_JAM_PATH}/resources/shaders/*.comp"
+    "${CAST_USER_MODULE_PATH}/resources/shaders/*.vert"
+    "${CAST_USER_MODULE_PATH}/resources/shaders/*.frag"
+    "${CAST_USER_MODULE_PATH}/resources/shaders/*.comp"
 )
 
 foreach(CAST_SHADER_SOURCE ${CAST_SHADER_SOURCES})
     get_filename_component(CAST_SHADER_NAME "${CAST_SHADER_SOURCE}" NAME)
-    set(CAST_SHADER_SPV "${CAST_JAM_PATH}/resources/spv/${CAST_SHADER_NAME}.spv")
+    set(CAST_SHADER_SPV "${CAST_USER_MODULE_PATH}/resources/spv/${CAST_SHADER_NAME}.spv")
     set(CAST_SHADER_DEPFILE "${CAST_SHADER_SPV}.d")
     add_custom_command(
         OUTPUT  "${CAST_SHADER_SPV}"
@@ -324,7 +325,7 @@ endforeach()
 # RESOURCES — embedded binary data: shaders, fonts, layout
 # ==============================================================================
 
-file(GLOB CAST_SHADER_SPV_FILES CONFIGURE_DEPENDS "${CAST_JAM_PATH}/resources/spv/*.spv")
+file(GLOB CAST_SHADER_SPV_FILES CONFIGURE_DEPENDS "${CAST_USER_MODULE_PATH}/resources/spv/*.spv")
 
 if(CAST_SHADER_SPV_FILES)
     juce_add_binary_data(jam_vulkan_ShaderData
@@ -335,7 +336,7 @@ if(CAST_SHADER_SPV_FILES)
     target_link_libraries(${PROJECT_NAME} PRIVATE jam_vulkan_ShaderData)
 endif()
 
-file(GLOB CAST_FONT_FILES CONFIGURE_DEPENDS "${CAST_JAM_PATH}/resources/fonts/*.ttf")
+file(GLOB CAST_FONT_FILES CONFIGURE_DEPENDS "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf")
 
 if(CAST_FONT_FILES)
     juce_add_binary_data(jam_graphics_FontData
@@ -443,11 +444,6 @@ if(APPLE)
     endforeach()
 endif()
 
-add_custom_command(TARGET post-build POST_BUILD
-:::clangd:::
-    COMMENT "CAST: clangd"
-)
-
 # ==============================================================================
 # REPORT
 # ==============================================================================
@@ -534,8 +530,4 @@ COMMAND codesign --verify --verbose "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_
 
 ```staple
 COMMAND xcrun stapler staple "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
-```
-
-```clangd
-COMMAND ${CMAKE_COMMAND} -DPROJECT_ROOT=${CMAKE_SOURCE_DIR} -DBUILD_DIR=${CMAKE_BINARY_DIR} -DJAM_ROOT=${CAST_JAM_PATH} -DTARGET_NAME=${PROJECT_NAME} -DAPPLE=${APPLE} -DWIN32=${WIN32} -P ${CAST_JAM_PATH}/cmake/ClangdConfig.cmake
 ```

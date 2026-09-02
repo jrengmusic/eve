@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/dev/jam/jam_core/utilities/detail/jam_IsHashable.h

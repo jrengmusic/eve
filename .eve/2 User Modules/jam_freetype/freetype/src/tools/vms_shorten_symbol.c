@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/dev/jam/jam_freetype/freetype/src/tools/vms_shorten_symbol.c

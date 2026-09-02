@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/JUCE/modules/juce_audio_formats/codecs/oggvorbis/libvorbis-1.3.7/lib/modes/setup_22.h

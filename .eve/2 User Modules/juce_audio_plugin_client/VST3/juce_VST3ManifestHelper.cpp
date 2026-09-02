@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/JUCE/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.cpp

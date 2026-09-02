@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/dev/jam/jam_animation/scrolling_text/jam_AnimationScrollingText.cpp

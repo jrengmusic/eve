@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/dev/jam/jam_plugin_bootstrap/view/jam_PluginEditor.h

@@ -1,6 +1,6 @@
-# END Specification v0.0.1
+# EVE Specification v0.0.1
 
-**Companion:** RFC-END-terminal-grand-scheme.md (architecture, evidence, non-negotiables — normative for all architectural questions; this SPEC does not repeat it)
+**Companion:** RFC-EVE-terminal-grand-scheme.md (architecture, evidence, non-negotiables — normative for all architectural questions; this SPEC does not repeat it)
 
 ## Overview
 
@@ -10,12 +10,12 @@ navigation, built as a JUCE application on the MVP audio-plugin architecture.
 
 **Target End-User:** ARCHITECT (daily driver), then general release.
 
-**Core Workflow:** Launch END → shell session in the center terminal Component →
+**Core Workflow:** Launch EVE → shell session in the center terminal Component →
 navigate the filesystem via docked sidebars (vim keys) exactly like Finder/Explorer
 → preview files → open with configured tools → resize/rearrange freely, content
 always intact, full history always reachable.
 
-**Mental model (binding):** END is a JUCE application, NOT a terminal. Every widget
+**Mental model (binding):** EVE is a JUCE application, NOT a terminal. Every widget
 is a `juce::Component`; all state belongs to `jam::Model`-family state (scalar/mode)
 and the Document SSOT (content). The terminal is one Component — the center core —
 among ours.
@@ -64,7 +64,7 @@ layout event only).
 ### Feature 1: Terminal Session
 
 **Happy path:**
-1. END launches → spawns `$SHELL` (fallback `/bin/zsh` macOS, PowerShell Windows) in a PTY at the terminal Component's cell size
+1. EVE launches → spawns `$SHELL` (fallback `/bin/zsh` macOS, PowerShell Windows) in a PTY at the terminal Component's cell size
 2. Bytes flow: PTY → parser → grid/retirement → CellFifo → SSOT → layout → paint
 3. Keyboard/mouse → TerminalKeyboard/TerminalMouse encoders → PTY write
 4. Shell exits → terminal Component shows: `[process exited — <code>]` on the line after last output; input disabled; history remains browsable
@@ -73,7 +73,7 @@ layout event only).
 
 | Condition | User sees | System action |
 |---|---|---|
-| Shell spawn fails | `END: failed to start '<shell>': <errno string>` in the terminal Component | Component stays open, history empty, retry via app menu |
+| Shell spawn fails | `EVE: failed to start '<shell>': <errno string>` in the terminal Component | Component stays open, history empty, retry via app menu |
 | PTY read error (not EOF) | `[pty error: <errno string>]` appended | Session closed as on exit |
 
 ### Feature 2: Non-Destruction (the headline)
@@ -100,7 +100,7 @@ layout event only).
 
 ### Feature 4: Finder Layer
 
-**cwd tracking:** shell integration emits OSC 7; END updates `cwd` in the Model.
+**cwd tracking:** shell integration emits OSC 7; EVE updates `cwd` in the Model.
 No OSC 7 received → Tree/FileList show the session start directory and a status
 line: `cwd tracking unavailable — install shell integration`.
 
@@ -147,7 +147,7 @@ the status area.
 
 - Markdown tables + CSS, CAST conventions (palette + appearance custom properties;
   data tables for keymaps, open-with rules, shell, fonts)
-- Parse error at launch: END starts with defaults and shows
+- Parse error at launch: EVE starts with defaults and shows
   `config error: <file>:<line> — <message>` in the status area; never fails to launch
 
 ## State Model
@@ -183,7 +183,7 @@ The system:
 - [ ] Dock toggles and resizes never alter SSOT content (hash check)
 
 An end-user can:
-- [ ] Run vim, fzf, lazygit, tmux inside END without visual defects
+- [ ] Run vim, fzf, lazygit, tmux inside EVE without visual defects
 - [ ] Navigate any directory tree entirely by keyboard and open a file with a configured tool
 - [ ] Preview an image and a source file without leaving the keyboard
 - [ ] Resize the window during `yes`-level output flood without losing a line the SSOT retired

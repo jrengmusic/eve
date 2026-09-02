@@ -31,3 +31,6 @@ _preprocess.bat
 
 # Doxygen generated output
 docs/
+
+# Neovim project state (core/project.lua materialisation)
+.project

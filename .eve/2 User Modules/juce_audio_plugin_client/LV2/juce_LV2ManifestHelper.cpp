@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/JUCE/modules/juce_audio_plugin_client/LV2/juce_LV2ManifestHelper.cpp

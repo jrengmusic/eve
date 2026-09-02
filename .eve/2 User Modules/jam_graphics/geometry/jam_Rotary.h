@@ -1,0 +1,1 @@
+/Users/jreng/Documents/Poems/dev/jam/jam_graphics/geometry/jam_Rotary.h

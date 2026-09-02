@@ -2,13 +2,13 @@
 
 ## index
 
-+--------+------------------------+
-| alias  | symbol                 |
-+========+========================+
-| @char  | const char* const      |
-| @jam   | ${CAST_JAM_PATH}       |
-| @patch | ${CAST_JAM_PATH}/patch |
-+--------+------------------------+
++--------------+------------------------------------+
+| alias        | symbol                             |
++==============+====================================+
+| @char        | const char* const                  |
+| @user-module | ${CMAKE_CURRENT_SOURCE_DIR}/../jam |
+| @patch       | ${CAST_USER_MODULE_PATH}/patch     |
++--------------+------------------------------------+
 
 ## project info
 
@@ -18,20 +18,20 @@
 Every field is a complete literal; nothing downstream derives, concatenates, or restates a value.
 ```
 
-+------------------+-------+--------------------------------------+-----------+--------------------------------------------------+
-| name             | type  | value                                | format    | comment                                          |
-+==================+=======+======================================+===========+==================================================+
-| projectName      | @char | EVE                                  | toLiteral | Product name.                                    |
-| companyName      | @char | JRENG                                | toLiteral | Company name.                                    |
-| legalCompanyName | @char | PT JRENG Teknika                     | toLiteral | Full legal company name.                         |
-| versionString    | @char | 0.1.0                                | toLiteral | Product version string.                          |
-| versionNumber    | int   | 0x100                                |           | Product version, JUCE hex encoding.              |
-| productWebsite   | @char | `https://jrengmusic.com`             |           | Product website URL.                             |
-| companyCopyright | @char | (c) 2025 JRENG. All rights reserved. | toLiteral | Company copyright line.                          |
-| companyEmail     | @char | info@jrengmusic.com                  | toLiteral | Company contact email.                           |
-| presetExtension  | @char | endp                                 | toLiteral | Preset file extension, without the leading dot.  |
-| presetDefault    | @char | INIT                                 | toLiteral | Default init preset name, without the extension. |
-+------------------+-------+--------------------------------------+-----------+--------------------------------------------------+
++------------------+-------+--------------------------------------------------+-----------+--------------------------------------------------+
+| name             | type  | value                                            | format    | comment                                          |
++==================+=======+==================================================+===========+==================================================+
+| projectName      | @char | EVE                                              | toLiteral | Product name.                                    |
+| companyName      | @char | JRENG                                            | toLiteral | Company name.                                    |
+| legalCompanyName | @char | Jubilant Research of Eclectic Novelty Generation | toLiteral | Full legal company name.                         |
+| versionString    | @char | 0.1.0                                            | toLiteral | Product version string.                          |
+| versionNumber    | int   | 0x100                                            |           | Product version, JUCE hex encoding.              |
+| productWebsite   | @char | `https://jrengmusic.com`                         |           | Product website URL.                             |
+| companyCopyright | @char | (c) 2025 JRENG. All rights reserved.             | toLiteral | Company copyright line.                          |
+| companyEmail     | @char | info@jrengmusic.com                              | toLiteral | Company contact email.                           |
+| presetExtension  | @char | endp                                             | toLiteral | Preset file extension, without the leading dot.  |
+| presetDefault    | @char | INIT                                             | toLiteral | Default init preset name, without the extension. |
++------------------+-------+--------------------------------------------------+-----------+--------------------------------------------------+
 
 ## cmake
 
@@ -39,49 +39,29 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | key                         | value                                         | comment                                     |
 +=============================+===============================================+=============================================+
 | minimumVersion              | 4.2.0                                         | CMake minimum version                       |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | cxxStandard                 | 17                                            | C++ language standard                       |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
+| juceTargetFunction          | juce_add_plugin                               | JUCE target-creation function               |
 | deploymentTarget            | `11.0`                                        | Minimum macOS deployment target             |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | msvcRuntime                 | `MultiThreaded$<$<CONFIG:Debug>:Debug>`       | MSVC runtime library selection              |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | description                 | `EVE Audio Plugin`                            | Project description                         |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | jucePath                    | ${CMAKE_CURRENT_SOURCE_DIR}/../../JUCE        | JUCE root                                   |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
-| jamPath                     | ${CMAKE_CURRENT_SOURCE_DIR}/../jam            | JAM root                                    |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
+| userModulePath              | @user-module                                  | User module root                            |
 | vulkanPath                  | ${CMAKE_CURRENT_SOURCE_DIR}/../../Vulkan      | Vulkan SDK root                             |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | juceVersion                 | 8.0.14                                        | Required JUCE version, exact                |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | manufacturerCode            | JRNG                                          | Four-character manufacturer code            |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | pluginCode                  | EVE.                                          | Four-character plugin code                  |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
-| bundleId                    | `com.jreng.EVE`                               | Bundle identifier                           |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
+| bundleIdentifier            | `com.jreng.EVE`                               | Bundle identifier                           |
+| productName                 | EVE                                           | JUCE PRODUCT_NAME                           |
 | vst3Categories              | Fx                                            | VST3 plugin categories                      |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | isSynth                     | FALSE                                         | Plugin is a synthesizer                     |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | needsMidiInput              | FALSE                                         | Plugin accepts MIDI                         |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | needsMidiOutput             | FALSE                                         | Plugin produces MIDI                        |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | isMidiEffect                | FALSE                                         | Plugin processes MIDI only                  |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | editorWantsKeyboardFocus    | FALSE                                         | Editor requires keyboard focus              |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | copyPluginAfterBuild        | FALSE                                         | JUCE copy step, replaced by CAST post-build |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | interproceduralOptimization | ON                                            | CMAKE_INTERPROCEDURAL_OPTIMIZATION          |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | qaDirectory                 | `$ENV{HOME}/Documents/Poems/dev/___builds___` | QA release archive root                     |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | clapId                      | com.jreng.EVE                                 | CLAP plugin identifier                      |
-+-----------------------------+-----------------------------------------------+---------------------------------------------+
 | clapFeatures                | audio-effect utility                          | CLAP feature list                           |
 +-----------------------------+-----------------------------------------------+---------------------------------------------+
 
@@ -90,13 +70,19 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +----------+---------+----------------------------------------------------------------------------+
 | argument | command | flag                                                                       |
 +==========+=========+============================================================================+
+|          | cast    | ../jam/cast/CAST.md                                                        |
++----------+---------+----------------------------------------------------------------------------+
 |          | cmake   | -S . -B Builds/Release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=ON  |
 +----------+---------+----------------------------------------------------------------------------+
 |          | ninja   | -C Builds/Release                                                          |
 +----------+---------+----------------------------------------------------------------------------+
+| debug    | cast    | ../jam/cast/CAST.md                                                        |
++----------+---------+----------------------------------------------------------------------------+
 | debug    | cmake   | -S . -B Builds/Debug -G Ninja -DCMAKE_BUILD_TYPE=Debug                     |
 +----------+---------+----------------------------------------------------------------------------+
 | debug    | ninja   | -C Builds/Debug                                                            |
++----------+---------+----------------------------------------------------------------------------+
+| no-sign  | cast    | ../jam/cast/CAST.md                                                        |
 +----------+---------+----------------------------------------------------------------------------+
 | no-sign  | cmake   | -S . -B Builds/Release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=OFF |
 +----------+---------+----------------------------------------------------------------------------+
@@ -257,35 +243,35 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | @patch | juce-paint-update-rect-hook.patch           | OS dirty rectangle before native paint       |
 +--------+---------------------------------------------+----------------------------------------------+
 
-## jam module
+## user module
 
-+------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------+
-| root | name                 | comment                                                                                                                                |
-+======+======================+========================================================================================================================================+
-| @jam | jam_core             | JAM Core                                                                                                                               |
-| @jam | jam_debug            | Debug instruments — console, log, model monitor                                                                                        |
-| @jam | jam_data_structures  | ValueTree management and data model utilities — model, parameters, JSON conversion                                                     |
-| @jam | jam_dsp              | DSP processors — filters, waveshaping, hysteresis modelling, transient control, oversampling, FIR, noise generation, spectrum analysis |
-| @jam | jam_gui              | GUI foundation — Window, Modal, Glass                                                                                                  |
-| @jam | jam_graphics         | Graphics utilities, blur, shadows, colours, fonts, mesh                                                                                |
-| @jam | jam_animation        | Foundation animation classes (Animator, AnimationBase, AnimationScrollingText)                                                         |
-| @jam | jam_freetype         | Vendored FreeType font rasterization library                                                                                           |
-| @jam | jam_vulkan           | Vulkan rendering backend                                                                                                               |
-| @jam | jam_style            | JAM Style — LookAndFeel base + ColourScheme-backed colour registry                                                                     |
-| @jam | jam_markdown         | Clean-room native CommonMark + GFM markdown parsing and rendering                                                                      |
-| @jam | jam_web              | HTML authored-subset and CSS Syntax Level 3 subset tokenizers and parsers                                                              |
-| @jam | jam_plugin_bootstrap | Document-driven plugin bootstrap — view construction, style management, plugin editor base, standalone shell                           |
-+------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------+
++--------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------+
+| root         | name                 | comment                                                                                                                                |
++==============+======================+========================================================================================================================================+
+| @user-module | jam_core             | JAM Core                                                                                                                               |
+| @user-module | jam_debug            | Debug instruments — console, log, model monitor                                                                                        |
+| @user-module | jam_data_structures  | ValueTree management and data model utilities — model, parameters, JSON conversion                                                     |
+| @user-module | jam_dsp              | DSP processors — filters, waveshaping, hysteresis modelling, transient control, oversampling, FIR, noise generation, spectrum analysis |
+| @user-module | jam_gui              | GUI foundation — Window, Modal, Glass                                                                                                  |
+| @user-module | jam_graphics         | Graphics utilities, blur, shadows, colours, fonts, mesh                                                                                |
+| @user-module | jam_animation        | Foundation animation classes (Animator, AnimationBase, AnimationScrollingText)                                                         |
+| @user-module | jam_freetype         | Vendored FreeType font rasterization library                                                                                           |
+| @user-module | jam_vulkan           | Vulkan rendering backend                                                                                                               |
+| @user-module | jam_style            | JAM Style — LookAndFeel base + ColourScheme-backed colour registry                                                                     |
+| @user-module | jam_markdown         | Clean-room native CommonMark + GFM markdown parsing and rendering                                                                      |
+| @user-module | jam_web              | HTML authored-subset and CSS Syntax Level 3 subset tokenizers and parsers                                                              |
+| @user-module | jam_plugin_bootstrap | Document-driven plugin bootstrap — view construction, style management, plugin editor base, standalone shell                           |
++--------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------+
 
 ## juce module
 
-+--------------+--------------------------+------------------------------------------------------------+
-| name         | value                    | comment                                                    |
-+==============+==========================+============================================================+
-| audioUtils   | juce::juce_audio_utils   | Classes for audio-related GUI and miscellaneous tasks.     |
-+--------------+--------------------------+------------------------------------------------------------+
-| audioDevices | juce::juce_audio_devices | Classes to play and record from audio and MIDI I/O devices |
-+--------------+--------------------------+------------------------------------------------------------+
++--------------+--------------------+------------------------------------------------------------+
+| name         | value              | comment                                                    |
++==============+====================+============================================================+
+| audioUtils   | juce_audio_utils   | Classes for audio-related GUI and miscellaneous tasks.     |
++--------------+--------------------+------------------------------------------------------------+
+| audioDevices | juce_audio_devices | Classes to play and record from audio and MIDI I/O devices |
++--------------+--------------------+------------------------------------------------------------+
 
 ## source
 
@@ -329,7 +315,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +===========+==========================================================+=========+
 | source    | `${CMAKE_CURRENT_SOURCE_DIR}/Source`                     |         |
 | generated | `${CMAKE_CURRENT_SOURCE_DIR}/Source/generated`           |         |
-| freetype  | `${CAST_JAM_PATH}/jam_freetype/freetype/include`         |         |
+| freetype  | `${CAST_USER_MODULE_PATH}/jam_freetype/freetype/include` |         |
 | harfbuzz  | `${CAST_JUCE_PATH}/modules/juce_graphics/fonts/harfbuzz` |         |
 +-----------+----------------------------------------------------------+---------+
 
@@ -341,5 +327,5 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | markdown | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md`  |         |
 | css      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css` |         |
 | xml      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml` |         |
-| fonts    | `${CAST_JAM_PATH}/resources/fonts/*.ttf`          |         |
+| fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`  |         |
 +----------+---------------------------------------------------+---------+

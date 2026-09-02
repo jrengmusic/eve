@@ -55,12 +55,12 @@
 | - list: @project-info:release:stage=linker | - list: @semicolon | - list: @cmake:win                            |              |
 | - list: @project-info:debug:stage=         | - list: @semicolon | - list: @cmake:win                            |              |
 | - list: @project-info:patch                |                    | - list: @cmake:patch                          |              |
-| - list: @project-info:jam module           |                    | - list: @cmake:module                         |              |
+| - list: @project-info:user module          |                    | - list: @cmake:module                         |              |
 | > - list: @project-info:source             |                    | > - list: @cmake:entry                        |              |
 | > - list: @project-info:define             |                    | > - list: @cmake:entry                        |              |
 | > - list: @project-info:include            |                    | > - list: @cmake:entry                        |              |
 | > > - list: @project-info:juce module      |                    | > > - list: @cmake:value                      |              |
-| > > - list: @project-info:jam module       |                    | > > - list: @cmake:link                       |              |
+| > > - list: @project-info:user module      |                    | > > - list: @cmake:link                       |              |
 | > - list: @project-info:layout glob        |                    | > - list: @cmake:entry                        |              |
 | - list: @project-info:format               |                    | - list: @cmake:format-install-directory       |              |
 |                                            |                    | - xattr: @cmake:xattr                         |              |
@@ -74,5 +74,4 @@
 |                                            |                    | - qa-copy: @cmake:qa-copy                     |              |
 |                                            |                    | - install-directory: @cmake:install-directory |              |
 |                                            |                    | - install-copy: @cmake:install-copy           |              |
-|                                            |                    | - clangd: @cmake:clangd                       |              |
 +--------------------------------------------+--------------------+-----------------------------------------------+--------------+
