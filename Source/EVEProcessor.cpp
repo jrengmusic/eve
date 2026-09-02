@@ -1,5 +1,5 @@
 #include "EVEProcessor.h"
-#include "ENDView.h"
+#include "EVEView.h"
 
 EVEProcessor::EVEProcessor()
     : AudioProcessor (BusesProperties()
@@ -34,7 +34,7 @@ void EVEProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
 juce::AudioProcessorEditor* EVEProcessor::createEditor()
 {
-    return new ENDView (model, layout, *this);
+    return new EVEView (model, layout, *this);
 }
 
 bool EVEProcessor::hasEditor() const { return true; }
@@ -61,13 +61,13 @@ void EVEProcessor::changeProgramName (int index, const juce::String& newName)
 
 void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto xml { model.copyState().createXml() })
+    if (auto xml { model.copyState().createXml() }; xml != nullptr)
         copyXmlToBinary (*xml, destData);
 }
 
 void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    if (auto xml { getXmlFromBinary (data, sizeInBytes) })
+    if (auto xml { getXmlFromBinary (data, sizeInBytes) }; xml != nullptr)
         model.setState (juce::ValueTree::fromXml (*xml));
 }
 

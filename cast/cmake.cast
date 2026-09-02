@@ -1,57 +1,34 @@
-#[[*****************************************************************************
-                        Codegen Annotated Source of Truth
-————————————————————————————————————————————————————————————————————————————————
-
-            ░░████████████░░████████████░░████████████░░████████████
-            ░░████  ░░████░░████  ░░████░░████  ░░████    ░░████
-            ░░████        ░░████  ░░████░░████            ░░████
-            ░░████        ░░████████████░░████████████    ░░████
-            ░░████        ░░████  ░░████        ░░████    ░░████
-            ░░████  ░░████░░████  ░░████░░████  ░░████    ░░████
-            ░░████████████░░████  ░░████░░████████████    ░░████
-
-————————————————————————————————————————————————————————————————————————————————
-                         FOR YOUR EYES ONLY, DO NOT EDIT
-******************************************************************************]]
-
-#[[
-@file CMakeLists.txt
-@brief EVE build manifest — a self-sufficient JUCE plugin project.
-
-Generated from project-info.md; every value traces to one table row.
-Edit the table, run cast, then configure.
-]]
-
+```cmake
 # ==============================================================================
 # TOOLCHAIN — language standard, platform targets, compile database
 # ==============================================================================
 
-cmake_minimum_required(VERSION 4.2.0)
+cmake_minimum_required(VERSION :::minimumVersion:::)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD :::cxxStandard:::)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 option(CAST_SIGN "Run the codesign/wraptool/notarize POST_BUILD chain on a Release build" ON)
-set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "macOS deployment target")
+set(CMAKE_OSX_DEPLOYMENT_TARGET :::deploymentTarget::: CACHE STRING "macOS deployment target")
 
 if(APPLE)
-    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "macOS architectures")
+    set(CMAKE_OSX_ARCHITECTURES ":::list:::" CACHE STRING "macOS architectures")
 elseif(WIN32)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY :::msvcRuntime:::)
 endif()
 
 # ==============================================================================
 # PROJECT
 # ==============================================================================
 
-project("EVE"
-    VERSION "0.1.0"
+project(:::projectName:::
+    VERSION :::versionString:::
     LANGUAGES C CXX
-    DESCRIPTION "EVE Audio Plugin"
+    DESCRIPTION :::description:::
 )
 
-set(CAST_FORMATS Standalone VST3 AU AAX)
+set(CAST_FORMATS :::list:::)
 
 message(STATUS "CAST: configuring ${PROJECT_NAME} ${PROJECT_VERSION}")
 
@@ -61,23 +38,23 @@ message(STATUS "CAST: configuring ${PROJECT_NAME} ${PROJECT_VERSION}")
 
 if(APPLE)
     set(CAST_RELEASE_COMPILE_FLAGS
--Wno-shadow;-Wno-unused-parameter;-Wno-float-equal;-Wno-sign-conversion;-Wno-switch-enum;-Wno-implicit-float-conversion;-O3;-flto=thin
+:::list:::
     )
     set(CAST_RELEASE_LINK_FLAGS
--dead_strip
+:::list:::
     )
     set(CAST_DEBUG_COMPILE_FLAGS
--Wno-shadow;-Wno-unused-parameter;-Wno-float-equal;-Wno-sign-conversion;-Wno-switch-enum;-Wno-implicit-float-conversion;-O0;-g
+:::list:::
     )
 elseif(WIN32)
     set(CAST_RELEASE_COMPILE_FLAGS
-/wd4456;/wd4459;/wd4100;/wd4189;/wd4505;/wd4267;/wd4065;/wd4244;/wd4996;/wd4611;/wd4324;/wd4200;/wd4702;/permissive-;/Zc:rvalueCast;/W4;/FC;/O2;/GL
+:::list:::
     )
     set(CAST_RELEASE_LINK_FLAGS
-/LTCG;/OPT:REF;/OPT:ICF
+:::list:::
     )
     set(CAST_DEBUG_COMPILE_FLAGS
-/wd4456;/wd4459;/wd4100;/wd4189;/wd4505;/wd4267;/wd4065;/wd4244;/wd4996;/wd4611;/wd4324;/wd4200;/wd4702;/permissive-;/Zc:rvalueCast;/W4;/FC;/Od;/Zi
+:::list:::
     )
 endif()
 
@@ -85,24 +62,20 @@ endif()
 # PATHS — sibling frameworks and SDKs, resolved once
 # ==============================================================================
 
-set(CAST_JUCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../JUCE")
-set(CAST_JAM_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../jam")
-set(CAST_VULKAN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Vulkan")
+set(CAST_JUCE_PATH ":::jucePath:::")
+set(CAST_JAM_PATH ":::jamPath:::")
+set(CAST_VULKAN_PATH ":::vulkanPath:::")
 
 # ==============================================================================
 # JUCE — patched working copy, exact version gate
 # ==============================================================================
 
-set(CAST_JUCE_VERSION 8.0.14)
+set(CAST_JUCE_VERSION :::juceVersion:::)
 
 find_package(Git REQUIRED)
 
 set(CAST_JUCE_PATCHES
-"${CAST_JAM_PATH}/patch/juce-cached-image-factory-hook.patch"       # External CachedComponentImage factory
-"${CAST_JAM_PATH}/patch/juce-direct2d-helpers-visibility-hook.patch"# Direct2D helpers visibility gate
-"${CAST_JAM_PATH}/patch/juce-image-subsection-hook.patch"           # Root image and subsection bounds hooks
-"${CAST_JAM_PATH}/patch/juce-vulkan-engine-hook.patch"              # External graphics context factory for Vulkan
-"${CAST_JAM_PATH}/patch/juce-paint-update-rect-hook.patch"          # OS dirty rectangle before native paint
+:::list:::
 )
 
 if(WIN32)
@@ -190,19 +163,7 @@ message(STATUS "CAST: JUCE ${CAST_FOUND_JUCE_VERSION} patched at ${CAST_JUCE_PAT
 # MODULES — JAM framework modules
 # ==============================================================================
 
-juce_add_module("${CAST_JAM_PATH}/jam_core")            # JAM Core
-juce_add_module("${CAST_JAM_PATH}/jam_debug")           # Debug instruments — console, log, model monitor
-juce_add_module("${CAST_JAM_PATH}/jam_data_structures") # ValueTree management and data model utilities — model, parameters, JSON conversion
-juce_add_module("${CAST_JAM_PATH}/jam_dsp")             # DSP processors — filters, waveshaping, hysteresis modelling, transient control, oversampling, FIR, noise generation, spectrum analysis
-juce_add_module("${CAST_JAM_PATH}/jam_gui")             # GUI foundation — Window, Modal, Glass
-juce_add_module("${CAST_JAM_PATH}/jam_graphics")        # Graphics utilities, blur, shadows, colours, fonts, mesh
-juce_add_module("${CAST_JAM_PATH}/jam_animation")       # Foundation animation classes (Animator, AnimationBase, AnimationScrollingText)
-juce_add_module("${CAST_JAM_PATH}/jam_freetype")        # Vendored FreeType font rasterization library
-juce_add_module("${CAST_JAM_PATH}/jam_vulkan")          # Vulkan rendering backend
-juce_add_module("${CAST_JAM_PATH}/jam_style")           # JAM Style — LookAndFeel base + ColourScheme-backed colour registry
-juce_add_module("${CAST_JAM_PATH}/jam_markdown")        # Clean-room native CommonMark + GFM markdown parsing and rendering
-juce_add_module("${CAST_JAM_PATH}/jam_web")             # HTML authored-subset and CSS Syntax Level 3 subset tokenizers and parsers
-juce_add_module("${CAST_JAM_PATH}/jam_plugin_bootstrap")# Document-driven plugin bootstrap — view construction, style management, plugin editor base, standalone shell
+:::list:::
 
 message(STATUS "CAST: JAM modules added from ${CAST_JAM_PATH}")
 
@@ -211,34 +172,31 @@ message(STATUS "CAST: JAM modules added from ${CAST_JAM_PATH}")
 # ==============================================================================
 
 juce_add_plugin(${PROJECT_NAME}
-    COMPANY_NAME "JRENG"
-    COMPANY_COPYRIGHT "(c) 2025 JRENG. All rights reserved."
-    COMPANY_WEBSITE "https://jrengmusic.com"
-    COMPANY_EMAIL "info@jrengmusic.com"
+    COMPANY_NAME :::companyName:::
+    COMPANY_COPYRIGHT :::companyCopyright:::
+    COMPANY_WEBSITE :::productWebsite:::
+    COMPANY_EMAIL :::companyEmail:::
 
-    PLUGIN_MANUFACTURER_CODE JRNG
-    PLUGIN_CODE EVE.
-    BUNDLE_ID "com.jreng.EVE"
+    PLUGIN_MANUFACTURER_CODE :::manufacturerCode:::
+    PLUGIN_CODE :::pluginCode:::
+    BUNDLE_ID :::bundleId:::
 
     FORMATS ${CAST_FORMATS}
-    VST3_CATEGORIES Fx
+    VST3_CATEGORIES :::vst3Categories:::
 
-    IS_SYNTH FALSE
-    NEEDS_MIDI_INPUT FALSE
-    NEEDS_MIDI_OUTPUT FALSE
-    IS_MIDI_EFFECT FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    IS_SYNTH :::isSynth:::
+    NEEDS_MIDI_INPUT :::needsMidiInput:::
+    NEEDS_MIDI_OUTPUT :::needsMidiOutput:::
+    IS_MIDI_EFFECT :::isMidiEffect:::
+    EDITOR_WANTS_KEYBOARD_FOCUS :::editorWantsKeyboardFocus:::
 
-    COPY_PLUGIN_AFTER_BUILD FALSE
+    COPY_PLUGIN_AFTER_BUILD :::copyPluginAfterBuild:::
 )
 
 juce_generate_juce_header(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE
-    Source/EVEProcessor.h
-    Source/EVEProcessor.cpp
-    Source/EVEView.h
-    Source/EVEView.cpp
+:::list:::
 )
 
 # ==============================================================================
@@ -246,23 +204,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 # ==============================================================================
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC
-    DONT_SET_USING_JUCE_NAMESPACE=1                                      # No using namespace juce in JuceHeader.h
-    JAM_USING_OVERSAMPLING=0                                             # JAM oversampling feature
-    JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1                              # Custom standalone app entry point
-    JUCE_VST3_CAN_REPLACE_VST2=0                                         # VST3 loads VST2-compatible state
-    JUCE_STRICT_REFCOUNTEDPOINTER=1                                      # Strict ReferenceCountedObjectPtr casting
-    JUCE_WEB_BROWSER=0                                                   # WebBrowserComponent support
-    JUCE_USE_CURL=0                                                      # libcurl for http on Linux
-    JUCE_DONT_DECLARE_PROJECTINFO=1                                      # No auto-generated ProjectInfo namespace
-    VMA_VULKAN_VERSION=1002000                                           # Vulkan version for Vulkan Memory Allocator
-    "$<$<CONFIG:Debug>:DEBUG=1>"                                         # Debug configuration
-    "$<$<CONFIG:Release>:NDEBUG=1>"                                      # Release configuration
-    "$<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN=1>"                    # Exclude rarely used Windows headers
-    "$<$<PLATFORM_ID:Windows>:NOMINMAX=1>"                               # No Windows min/max macros
-    "$<$<PLATFORM_ID:Windows>:_WIN32_IE=0x0A00>"                         # Windows IE platform version
-    "$<$<PLATFORM_ID:Windows>:JUCE_CORE_INCLUDE_NATIVE_HEADERS=1>"       # Native platform headers in juce_core
-    "$<$<PLATFORM_ID:Windows>:JUCE_GRAPHICS_INCLUDE_DIRECT2D_HELPERS=1>" # Direct2D helper visibility, from the jam patch
-    "$<$<PLATFORM_ID:Windows>:JUCE_CORE_INCLUDE_COM_SMART_PTR=1>"        # Windows COM smart pointer helpers
+:::list:::
 )
 
 # ==============================================================================
@@ -270,10 +212,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 # ==============================================================================
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/generated"
-    "${CAST_JAM_PATH}/jam_freetype/freetype/include"
-    "${CAST_JUCE_PATH}/modules/juce_graphics/fonts/harfbuzz"
+:::list:::
 )
 
 if(APPLE)
@@ -288,21 +227,8 @@ endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-        juce::juce_audio_utils
-        juce::juce_audio_devices
-        jam_core
-        jam_debug
-        jam_data_structures
-        jam_dsp
-        jam_gui
-        jam_graphics
-        jam_animation
-        jam_freetype
-        jam_vulkan
-        jam_style
-        jam_markdown
-        jam_web
-        jam_plugin_bootstrap
+:::list:::
+:::list:::
     PUBLIC
         juce::juce_recommended_config_flags
 )
@@ -421,10 +347,7 @@ if(CAST_FONT_FILES)
 endif()
 
 file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css"
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml"
-    "${CAST_JAM_PATH}/resources/fonts/*.ttf"
+:::list:::
 )
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData
@@ -441,7 +364,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     check_ipo_supported(RESULT CAST_IPO_SUPPORTED OUTPUT CAST_IPO_ERROR)
 
     if(CAST_IPO_SUPPORTED)
-        set_target_properties(${PROJECT_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ON)
+        set_target_properties(${PROJECT_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION :::interproceduralOptimization:::)
         message(STATUS "CAST: LTO enabled")
     else()
         message(WARNING "CAST: LTO not supported — ${CAST_IPO_ERROR}")
@@ -470,15 +393,12 @@ endforeach()
 # ==============================================================================
 
 string(TIMESTAMP CAST_BUILD_DATE "%Y-%m-%d" UTC)
-set(CAST_QA_PATH "$ENV{HOME}/Documents/Poems/dev/___builds___")
+set(CAST_QA_PATH :::qaDirectory:::)
 set(CAST_QA_DIRECTORY "${CAST_QA_PATH}/${CAST_BUILD_DATE} ${PROJECT_NAME} v${PROJECT_VERSION} macOS")
 
 add_custom_target(post-build ALL)
 
-set(CAST_INSTALL_DIRECTORY_Standalone "")
-set(CAST_INSTALL_DIRECTORY_VST3       "$ENV{HOME}/Library/Audio/Plug-Ins/VST3")
-set(CAST_INSTALL_DIRECTORY_AU         "$ENV{HOME}/Library/Audio/Plug-Ins/Components")
-set(CAST_INSTALL_DIRECTORY_AAX        "/Library/Application Support/Avid/Audio/Plug-Ins")
+:::list:::
 
 foreach(CAST_FORMAT ${CAST_FORMATS})
     if(TARGET ${PROJECT_NAME}_${CAST_FORMAT})
@@ -492,22 +412,21 @@ if(APPLE)
             if(CMAKE_BUILD_TYPE STREQUAL "Release" AND CAST_SIGN)
                 if(CAST_FORMAT STREQUAL "AAX")
                     add_custom_command(TARGET post-build POST_BUILD
-COMMAND wraptool sign --verbose --account bayu@jrengmusic.com --wcguid 4B0468E0-A60A-11F1-BA61-005056928F3B --signid "Developer ID Application: Bayu Ardianto \\(9BDSN9TDX3\\)" --in "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" --out "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" --autoinstall on --notarize-keychain-profile notary
-COMMAND ${CMAKE_COMMAND} -E make_directory "${CAST_QA_DIRECTORY}"
-COMMAND ditto "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_QA_DIRECTORY}/$<TARGET_BUNDLE_DIR_NAME:${PROJECT_NAME}_${CAST_FORMAT}>"
+:::wraptool:::
+:::qa-directory:::
+:::qa-copy:::
                         COMMENT "CAST: sign ${CAST_FORMAT}"
                     )
                 elseif(NOT CAST_FORMAT STREQUAL "Standalone")
                     add_custom_command(TARGET post-build POST_BUILD
-COMMAND xattr -cr "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
-COMMAND codesign --force --options runtime --entitlements "${CMAKE_SOURCE_DIR}/entitlements.plist" --sign "Developer ID Application: Bayu Ardianto \\(9BDSN9TDX3\\)" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
-COMMAND codesign --verify --verbose "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
-COMMAND ditto -c -k --keepParent "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>.zip"
-COMMAND xcrun notarytool submit "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>.zip" --keychain-profile "notary" --wait
-COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>.zip"
-COMMAND xcrun stapler staple "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
-COMMAND ${CMAKE_COMMAND} -E make_directory "${CAST_QA_DIRECTORY}"
-COMMAND ditto "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_QA_DIRECTORY}/$<TARGET_BUNDLE_DIR_NAME:${PROJECT_NAME}_${CAST_FORMAT}>"
+:::xattr:::
+:::codesign:::
+:::verify:::
+:::zip:::
+:::notarize:::
+:::staple:::
+:::qa-directory:::
+:::qa-copy:::
                         COMMENT "CAST: sign ${CAST_FORMAT}"
                     )
                 endif()
@@ -515,8 +434,8 @@ COMMAND ditto "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_QA_D
 
             if(CAST_INSTALL_DIRECTORY_${CAST_FORMAT})
                 add_custom_command(TARGET post-build POST_BUILD
-COMMAND ${CMAKE_COMMAND} -E make_directory "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}"
-COMMAND ditto "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}/$<TARGET_BUNDLE_DIR_NAME:${PROJECT_NAME}_${CAST_FORMAT}>"
+:::install-directory:::
+:::install-copy:::
                     COMMENT "CAST: install ${CAST_FORMAT}"
                 )
             endif()
@@ -525,7 +444,7 @@ COMMAND ditto "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_INST
 endif()
 
 add_custom_command(TARGET post-build POST_BUILD
-COMMAND ${CMAKE_COMMAND} -DPROJECT_ROOT=${CMAKE_SOURCE_DIR} -DBUILD_DIR=${CMAKE_BINARY_DIR} -DJAM_ROOT=${CAST_JAM_PATH} -DTARGET_NAME=${PROJECT_NAME} -DAPPLE=${APPLE} -DWIN32=${WIN32} -P ${CAST_JAM_PATH}/cmake/ClangdConfig.cmake
+:::clangd:::
     COMMENT "CAST: clangd"
 )
 
@@ -538,3 +457,85 @@ message(STATUS "CAST: configuration complete")
 message(STATUS "CAST: generator ${CMAKE_GENERATOR}")
 message(STATUS "CAST: build directory ${CMAKE_BINARY_DIR}")
 message(STATUS "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+```
+
+```entry
+:::value::: :::comment:::
+```
+
+```value
+:::value:::
+```
+
+```link
+:::name:::
+```
+
+```patch
+":::root:::/:::name:::":::comment:::
+```
+
+```module
+juce_add_module(":::root:::/:::name:::"):::comment:::
+```
+
+```mac
+:::mac:::
+```
+
+```win
+:::win:::
+```
+
+```format-install-directory
+set(CAST_INSTALL_DIRECTORY_:::value::: ":::installDirectory:::")
+```
+
+```codesign
+COMMAND codesign --force --options runtime --entitlements "${CMAKE_SOURCE_DIR}/:::entitlementsPath:::" --sign ":::identity:::" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```zip
+COMMAND ditto -c -k --keepParent "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>.zip"
+```
+
+```notarize
+COMMAND xcrun notarytool submit "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>.zip" --keychain-profile ":::notaryProfile:::" --wait
+COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>.zip"
+```
+
+```wraptool
+COMMAND wraptool sign --verbose --account :::edenAccount::: --wcguid :::wrapConfigGuid::: --signid ":::identity:::" --in "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" --out "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" --autoinstall on --notarize-keychain-profile :::notaryProfile:::
+```
+
+```qa-directory
+COMMAND ${CMAKE_COMMAND} -E make_directory "${CAST_QA_DIRECTORY}"
+```
+
+```qa-copy
+COMMAND ditto "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_QA_DIRECTORY}/$<TARGET_BUNDLE_DIR_NAME:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```install-directory
+COMMAND ${CMAKE_COMMAND} -E make_directory "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}"
+```
+
+```install-copy
+COMMAND ditto "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}/$<TARGET_BUNDLE_DIR_NAME:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```xattr
+COMMAND xattr -cr "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```verify
+COMMAND codesign --verify --verbose "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```staple
+COMMAND xcrun stapler staple "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```clangd
+COMMAND ${CMAKE_COMMAND} -DPROJECT_ROOT=${CMAKE_SOURCE_DIR} -DBUILD_DIR=${CMAKE_BINARY_DIR} -DJAM_ROOT=${CAST_JAM_PATH} -DTARGET_NAME=${PROJECT_NAME} -DAPPLE=${APPLE} -DWIN32=${WIN32} -P ${CAST_JAM_PATH}/cmake/ClangdConfig.cmake
+```
