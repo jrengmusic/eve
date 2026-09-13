@@ -233,15 +233,16 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## patch
 
-+--------+---------------------------------------------+----------------------------------------------+
-| root   | name                                        | comment                                      |
-+========+=============================================+==============================================+
-| @patch | juce-cached-image-factory-hook.patch        | External CachedComponentImage factory        |
-| @patch | juce-direct2d-helpers-visibility-hook.patch | Direct2D helpers visibility gate             |
-| @patch | juce-image-subsection-hook.patch            | Root image and subsection bounds hooks       |
-| @patch | juce-vulkan-engine-hook.patch               | External graphics context factory for Vulkan |
-| @patch | juce-paint-update-rect-hook.patch           | OS dirty rectangle before native paint       |
-+--------+---------------------------------------------+----------------------------------------------+
++--------+---------------------------------------------+----------------------------------------------------+
+| root   | name                                        | comment                                            |
++========+=============================================+====================================================+
+| @patch | juce-cached-image-factory-hook.patch        | External CachedComponentImage factory              |
+| @patch | juce-direct2d-helpers-visibility-hook.patch | Direct2D helpers visibility gate                   |
+| @patch | juce-image-subsection-hook.patch            | Root image and subsection bounds hooks             |
+| @patch | juce-vulkan-engine-hook.patch               | External graphics context factory for Vulkan       |
+| @patch | juce-paint-update-rect-hook.patch           | OS dirty rectangle before native paint             |
+| @patch | juce-attributed-text-hook.patch             | Attributed text virtual on LowLevelGraphicsContext |
++--------+---------------------------------------------+----------------------------------------------------+
 
 ## user module
 
@@ -261,6 +262,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | @user-module | jam_markdown         | Clean-room native CommonMark + GFM markdown parsing and rendering                                                                      |
 | @user-module | jam_web              | HTML authored-subset and CSS Syntax Level 3 subset tokenizers and parsers                                                              |
 | @user-module | jam_plugin_bootstrap | Document-driven plugin bootstrap — view construction, style management, plugin editor base, standalone shell                           |
+| @user-module | jam_terminal         | Terminal write lane — GraphicsEngine/GraphicsContext, AnsiDocument, SKiT, TextEditor                                                   |
 +--------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------+
 
 ## juce module

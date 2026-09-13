@@ -60,7 +60,7 @@ static juce::MemoryBlock getEmittedFrame (const jam::Document& document)
     int maxLineWidth { 0 };
     int lineCount { 0 };
 
-    for (auto* line : *document.root)
+    for (auto* line : document)
         if (line->isTag (Id::line))
         {
             maxLineWidth = juce::jmax (maxLineWidth, line->get<jam::Document::Cells> (Id::cells)->size());
@@ -72,7 +72,7 @@ static juce::MemoryBlock getEmittedFrame (const jam::Document& document)
         {
             int row { 0 };
 
-            for (auto* line : *document.root)
+            for (auto* line : document)
                 if (line->isTag (Id::line))
                 {
                     context.drawCells (jam::Cell { 0 }, jam::Cell { row }, *line->get<jam::Document::Cells> (Id::cells));
@@ -282,18 +282,11 @@ static bool isInvalidFixtureSweepRejected (const juce::File& fixturesDirectory)
     return allRejected;
 }
 
-static void addRegistrySeed (jam::Stamp& stamp, jam::Grapheme& grapheme, jam::Hyperlink& hyperlink)
-{
-    juce::ignoreUnused (grapheme, hyperlink);
-    stamp.addIfNotAlreadyThere (jam::Stamp::Entry{});
-}
-
 int main()
 {
     jam::Stamp stamp;
     jam::Grapheme grapheme;
     jam::Hyperlink hyperlink;
-    addRegistrySeed (stamp, grapheme, hyperlink);
 
     const juce::File fixturesDirectory { juce::File (ANSI_FIXPOINT_FIXTURES_DIR) };
 

@@ -18,6 +18,12 @@ private:
     void attachPanelCallbacks() override;
     void initialiseListeners() override;
 
+    void resized() override;
+
+    //==============================================================================
+    jam::AnsiDocument ansiDocument;
+    jam::TextEditor terminalView { ansiDocument };
+
     //==============================================================================
 #if JUCE_DEBUG
     jam::debug::Log::Scope logScope { jam::File::getDebugLog() };

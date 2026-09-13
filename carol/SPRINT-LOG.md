@@ -36,6 +36,43 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Terminal LLGC Full Feature Parity — One-Shot Viewer + llgc_parity ✅
+
+**Date:** 2026-09-13
+**Duration:** one session
+**Plan:** PLAN-terminal-llgc-parity.md (locked; jam-side implementation logged in jam/carol/SPRINT-LOG.md Sprint 119, same date)
+
+### Agents Participated
+- COUNSELOR: fable-5 — design lock, plan, delegations, per-step validation, 48-finding audit triage
+- Librarian ×1, Pathfinder ×4, Engineer ×9 waves, Auditor ×1 — full roster in jam Sprint 119
+
+### Files Modified (eve repo)
+- `PLAN-terminal-llgc-parity.md` — NEW: the locked plan (cell law, patch seam, both image lanes, ratified names)
+- `project-info.md` — sixth patch row (`juce-attributed-text-hook.patch`) in the `## patch` table; `jam_terminal` row in `## user module`
+- `CMakeLists.txt` — cast-regenerated only: six-entry patch list, jam_terminal module + link lines
+- `tests/ansi_fixpoint/CMakeLists.txt` — consumes the PATCHED JUCE tree via the mirrored stamp machinery (same /tmp target, idempotent with eve); `addRegistrySeed` deleted from main.cpp (NAMES Rule 6 `seed` ban; Stamp now self-interns its default)
+- `tests/llgc_parity/` — NEW: the sprint's formal proof. Four suites: (1) native-component byte-fixpoint + text-content oracle (Label/TextButton/GroupComponent under LookAndFeel_V4, headless); (2) software-renderer pixel oracle over a flat-geometry fixture, zero mismatch budget, AA-boundary + fractional-coverage exemptions only, box-drawing drawLine coverage; (3) image round-trip — OSC 1337 decoded by TerminalITerm2Decoder pixel-exact, half-block downsample + fixpoint, covered-region blank asserted non-vacuously; (4) rounded-rect bg inheritance, curved cell-granular clips, transparency colour-lerp with character survival. Artifacts dump to `artifacts/*.ansi` for `cat` eyeball
+- `Source/EVEView.h/.cpp` — one-shot viewer: `ansiDocument` + `terminalView` (jam::TextEditor) members; fixture from the standalone command line (cwd-relative safe); full-bounds temporary placement (ARCHITECT amends visually); `setReadOnly` call removed with the API's death
+
+### Alignment Check
+- [x] Both harnesses green from eve root; EVE_Standalone Debug links clean; three consecutive llgc_parity runs byte-identical
+- [x] The backend-swap proof stands: the same `juce::Graphics` surface renders to Vulkan (EVE viewer) and to escape bytes (harness) with zero component knowledge
+
+### Problems Solved
+- EVE compiles jam_terminal for the first time (module row + cast regen — 3 generated lines)
+- The harness exposed two real writer defects and one fix interaction before any consumer shipped (detail in jam Sprint 119)
+
+### How ARCHITECT Runs It
+- Viewer: `./Builds/Debug/EVE_artefacts/Debug/Standalone/EVE.app/Contents/MacOS/EVE tests/ansi_fixpoint/fixtures/ls.ansi`
+- Eyeball: `cat tests/llgc_parity/artifacts/*.ansi` in any truecolor terminal
+
+### Debts Paid
+- None commanded
+
+### Debts Deferred / Ledger Standing
+- DEBT-20260908T000000 (component.md editor-lane join) and DEBT-20260908T000001 (processor registry retypes) — standing, target the EVE plugin lane, untouched this sprint
+- Builds/Release partial (killed runaway cast build; artifacts only)
+
 ## Sprint: AnsiDocument — the Sixth Document Domain (core + fixpoint) ✅
 
 **Date:** 2026-09-13

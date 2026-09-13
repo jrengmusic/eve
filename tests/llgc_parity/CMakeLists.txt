@@ -4,10 +4,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-project(ansi_fixpoint
+project(llgc_parity
     VERSION "0.0.1"
     LANGUAGES C CXX
-    DESCRIPTION "AnsiDocument byte-fixpoint harness"
+    DESCRIPTION "Terminal LLGC full-feature-parity proof harness"
 )
 
 set(CAST_JUCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../../../JUCE")
@@ -112,31 +112,32 @@ juce_add_module("${CAST_USER_MODULE_PATH}/jam_data_structures")
 juce_add_module("${CAST_USER_MODULE_PATH}/jam_graphics")
 juce_add_module("${CAST_USER_MODULE_PATH}/jam_terminal")
 
-juce_add_console_app(ansi_fixpoint
-    PRODUCT_NAME "ansi_fixpoint"
+juce_add_console_app(llgc_parity
+    PRODUCT_NAME "llgc_parity"
 )
 
-juce_generate_juce_header(ansi_fixpoint)
+juce_generate_juce_header(llgc_parity)
 
-target_sources(ansi_fixpoint PRIVATE main.cpp)
+target_sources(llgc_parity PRIVATE main.cpp)
 
-target_include_directories(ansi_fixpoint PRIVATE
+target_include_directories(llgc_parity PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CAST_JUCE_PATH}/modules/juce_graphics/fonts/harfbuzz"
 )
 
-target_compile_definitions(ansi_fixpoint PRIVATE
+target_compile_definitions(llgc_parity PRIVATE
     DONT_SET_USING_JUCE_NAMESPACE=1
     JUCE_DONT_DECLARE_PROJECTINFO=1
-    ANSI_FIXPOINT_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+    LLGC_PARITY_ARTIFACTS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/artifacts"
 )
 
-target_link_libraries(ansi_fixpoint
+target_link_libraries(llgc_parity
     PRIVATE
         jam_core
         jam_data_structures
         jam_graphics
         jam_terminal
+        juce::juce_gui_basics
     PUBLIC
         juce::juce_recommended_config_flags
 )

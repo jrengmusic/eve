@@ -36,8 +36,28 @@ void EVEView::initialiseView()
 
     view = jam::ViewEditor::create<jam::MarkdownDocument> (model, audioProcessor.userInterfaceGetters, audioProcessor.chainEvents, files::viewLayout);
     addAndMakeVisible (view.get());
+
+    for (const auto& parameter : juce::JUCEApplicationBase::getCommandLineParameterArray())
+    {
+        const auto fixtureFile { juce::File::getCurrentWorkingDirectory().getChildFile (parameter) };
+
+        if (fixtureFile.existsAsFile())
+        {
+            ansiDocument = jam::AnsiDocument::parse (fixtureFile.loadFileAsString());
+            break;
+        }
+    }
+
+    addAndMakeVisible (terminalView);
 }
 
 void EVEView::attachPanelCallbacks() {}
 
 void EVEView::initialiseListeners() {}
+
+void EVEView::resized()
+{
+    jam::PluginEditor::resized();
+
+    terminalView.setBounds (getLocalBounds());
+}

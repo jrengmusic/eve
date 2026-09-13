@@ -103,6 +103,7 @@ set(CAST_JUCE_PATCHES
 "${CAST_USER_MODULE_PATH}/patch/juce-image-subsection-hook.patch"           # Root image and subsection bounds hooks
 "${CAST_USER_MODULE_PATH}/patch/juce-vulkan-engine-hook.patch"              # External graphics context factory for Vulkan
 "${CAST_USER_MODULE_PATH}/patch/juce-paint-update-rect-hook.patch"          # OS dirty rectangle before native paint
+"${CAST_USER_MODULE_PATH}/patch/juce-attributed-text-hook.patch"            # Attributed text virtual on LowLevelGraphicsContext
 )
 
 if(WIN32)
@@ -203,6 +204,7 @@ juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_style")           # JAM 
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_markdown")        # Clean-room native CommonMark + GFM markdown parsing and rendering
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_web")             # HTML authored-subset and CSS Syntax Level 3 subset tokenizers and parsers
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_plugin_bootstrap")# Document-driven plugin bootstrap — view construction, style management, plugin editor base, standalone shell
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_terminal")        # Terminal write lane — GraphicsEngine/GraphicsContext, AnsiDocument, SKiT, TextEditor
 
 message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 
@@ -305,6 +307,7 @@ target_link_libraries(${PROJECT_NAME}
         jam_markdown
         jam_web
         jam_plugin_bootstrap
+        jam_terminal
     PUBLIC
         juce::juce_recommended_config_flags
 )
