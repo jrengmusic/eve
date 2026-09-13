@@ -45,7 +45,7 @@ endif()
 # PROJECT
 # ==============================================================================
 
-project("EVE"
+project(EVE
     VERSION "0.1.0"
     LANGUAGES C CXX
     DESCRIPTION "EVE Audio Plugin"
@@ -238,6 +238,7 @@ juce_generate_juce_header(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE
     Source/EVEProcessor.h
     Source/EVEProcessor.cpp
+    Source/EVEAudioProcessor.h
     Source/EVEView.h
     Source/EVEView.cpp
 )
@@ -404,7 +405,7 @@ file(GLOB CAST_SHADER_SPV_FILES CONFIGURE_DEPENDS "${CAST_USER_MODULE_PATH}/reso
 if(CAST_SHADER_SPV_FILES)
     juce_add_binary_data(jam_vulkan_ShaderData
         NAMESPACE   "jam"
-        HEADER_NAME "JamVulkanShaderData.h"
+        HEADER_NAME "jam_VulkanShaderData.h"
         SOURCES     ${CAST_SHADER_SPV_FILES}
     )
     target_link_libraries(${PROJECT_NAME} PRIVATE jam_vulkan_ShaderData)
@@ -425,6 +426,8 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md"
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css"
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg"
     "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf"
 )
 

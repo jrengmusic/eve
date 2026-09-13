@@ -13,7 +13,7 @@ option(CAST_SIGN "Run the codesign/wraptool/notarize POST_BUILD chain on a Relea
 set(CMAKE_OSX_DEPLOYMENT_TARGET :::deploymentTarget::: CACHE STRING "macOS deployment target")
 
 if(APPLE)
-    set(CMAKE_OSX_ARCHITECTURES ":::list:::" CACHE STRING "macOS architectures")
+    set(CMAKE_OSX_ARCHITECTURES ":::[list]:::" CACHE STRING "macOS architectures")
 elseif(WIN32)
     set(CMAKE_MSVC_RUNTIME_LIBRARY :::msvcRuntime:::)
 endif()
@@ -22,13 +22,13 @@ endif()
 # PROJECT
 # ==============================================================================
 
-project(:::projectName:::
+project(:::targetName:::
     VERSION :::versionString:::
     LANGUAGES C CXX
     DESCRIPTION :::description:::
 )
 
-set(CAST_FORMATS :::list:::)
+set(CAST_FORMATS :::[list]:::)
 
 message(STATUS "CAST: configuring ${PROJECT_NAME} ${PROJECT_VERSION}")
 
@@ -38,23 +38,23 @@ message(STATUS "CAST: configuring ${PROJECT_NAME} ${PROJECT_VERSION}")
 
 if(APPLE)
     set(CAST_RELEASE_COMPILE_FLAGS
-:::list:::
+:::[list]:::
     )
     set(CAST_RELEASE_LINK_FLAGS
-:::list:::
+:::[list]:::
     )
     set(CAST_DEBUG_COMPILE_FLAGS
-:::list:::
+:::[list]:::
     )
 elseif(WIN32)
     set(CAST_RELEASE_COMPILE_FLAGS
-:::list:::
+:::[list]:::
     )
     set(CAST_RELEASE_LINK_FLAGS
-:::list:::
+:::[list]:::
     )
     set(CAST_DEBUG_COMPILE_FLAGS
-:::list:::
+:::[list]:::
     )
 endif()
 
@@ -75,7 +75,7 @@ set(CAST_JUCE_VERSION :::juceVersion:::)
 find_package(Git REQUIRED)
 
 set(CAST_JUCE_PATCHES
-:::list:::
+:::[list]:::
 )
 
 if(WIN32)
@@ -163,7 +163,7 @@ message(STATUS "CAST: JUCE ${CAST_FOUND_JUCE_VERSION} patched at ${CAST_JUCE_PAT
 # MODULES — JAM framework modules
 # ==============================================================================
 
-:::list:::
+:::[list]:::
 
 message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 
@@ -197,7 +197,7 @@ message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 juce_generate_juce_header(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE
-:::list:::
+:::[list]:::
 )
 
 # ==============================================================================
@@ -205,7 +205,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 # ==============================================================================
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC
-:::list:::
+:::[list]:::
 )
 
 # ==============================================================================
@@ -213,7 +213,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
 # ==============================================================================
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-:::list:::
+:::[list]:::
 )
 
 if(APPLE)
@@ -228,8 +228,8 @@ endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-:::list:::
-:::list:::
+:::[list]:::
+:::[list]:::
     PUBLIC
         juce::juce_recommended_config_flags
 )
@@ -330,7 +330,7 @@ file(GLOB CAST_SHADER_SPV_FILES CONFIGURE_DEPENDS "${CAST_USER_MODULE_PATH}/reso
 if(CAST_SHADER_SPV_FILES)
     juce_add_binary_data(jam_vulkan_ShaderData
         NAMESPACE   "jam"
-        HEADER_NAME "JamVulkanShaderData.h"
+        HEADER_NAME "jam_VulkanShaderData.h"
         SOURCES     ${CAST_SHADER_SPV_FILES}
     )
     target_link_libraries(${PROJECT_NAME} PRIVATE jam_vulkan_ShaderData)
@@ -348,7 +348,7 @@ if(CAST_FONT_FILES)
 endif()
 
 file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
-:::list:::
+:::[list]:::
 )
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData
@@ -399,7 +399,7 @@ set(CAST_QA_DIRECTORY "${CAST_QA_PATH}/${CAST_BUILD_DATE} ${PROJECT_NAME} v${PRO
 
 add_custom_target(post-build ALL)
 
-:::list:::
+:::[list]:::
 
 foreach(CAST_FORMAT ${CAST_FORMATS})
     if(TARGET ${PROJECT_NAME}_${CAST_FORMAT})
@@ -456,7 +456,7 @@ message(STATUS "━━━━━━━━━━━━━━━━━━━━━�
 ```
 
 ```entry
-:::value::: :::comment:::
+:::value::: :::[comment]:::
 ```
 
 ```value
@@ -468,11 +468,11 @@ message(STATUS "━━━━━━━━━━━━━━━━━━━━━�
 ```
 
 ```patch
-":::root:::/:::name:::":::comment:::
+":::root:::/:::name:::":::[comment]:::
 ```
 
 ```module
-juce_add_module(":::root:::/:::name:::"):::comment:::
+juce_add_module(":::root:::/:::name:::"):::[comment]:::
 ```
 
 ```mac

@@ -71,4 +71,6 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
         model.setState (juce::ValueTree::fromXml (*xml));
 }
 
+EVEAudioProcessor& EVEProcessor::getAudioProcessor() noexcept { return audioProcessor; }
+
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new EVEProcessor(); }

@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include "generated/Generated.h"
 
 class EVEView : public jam::PluginEditor
 {
@@ -11,7 +12,11 @@ public:
 
 private:
     void initialiseTheme() override;
+    void initialiseRegistry() override;
+    void initialisePanels() override;
     void initialiseView() override;
+    void attachPanelCallbacks() override;
+    void initialiseListeners() override;
 
     //==============================================================================
 #if JUCE_DEBUG

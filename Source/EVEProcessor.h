@@ -1,5 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
+#include "generated/Generated.h"
+#include "EVEAudioProcessor.h"
 
 class EVEProcessor : public juce::AudioProcessor
 {
@@ -30,11 +32,14 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    EVEAudioProcessor& getAudioProcessor() noexcept;
+
 private:
     map::Generated generated;
+    jam::PluginEditorLayout layout { BinaryData::fetcher, files::viewLayout };
     jam::ParameterManager parameterManager;
     jam::AudioModel model;
-    jam::PluginEditorLayout layout { files::interfaceLayout, BinaryData::fetcher };
+    EVEAudioProcessor audioProcessor;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEProcessor)

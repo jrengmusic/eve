@@ -1,9 +1,10 @@
 #include "EVEView.h"
+#include "EVEProcessor.h"
 
 EVEView::EVEView (jam::AudioModel& newModel,
                   jam::PluginEditorLayout& newLayout,
                   juce::AudioProcessor& processorToConnectTo)
-    : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
+    : jam::PluginEditor (processorToConnectTo, newModel, newLayout, jam::ViewManager::getUISize<jam::MarkdownDocument> (juce::Identifier { files::viewLayout }))
 {
     if (layout.isReady (model))
     {
@@ -11,7 +12,7 @@ EVEView::EVEView (jam::AudioModel& newModel,
 
         setResizable (false, false);
 
-        const auto [width, height] { jam::ViewManager::getUISize (layout.getMaster()) };
+        const auto [width, height] { view->getUISize (model) };
         setSize (width, height);
     }
 }
@@ -24,12 +25,19 @@ void EVEView::initialiseTheme()
     juce::LookAndFeel::setDefaultLookAndFeel (theme.get());
 }
 
+void EVEView::initialiseRegistry() {}
+
+void EVEView::initialisePanels() {}
+
 void EVEView::initialiseView()
 {
-    auto newView { std::make_unique<jam::ViewEditor>() };
+    auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
+    auto& audioProcessor { processor.getAudioProcessor() };
 
-    jam::ViewManager::buildView (layout.getMaster(), *newView);
-    addAndMakeVisible (*newView);
-
-    view = std::move (newView);
+    view = jam::ViewEditor::create<jam::MarkdownDocument> (model, audioProcessor.userInterfaceGetters, audioProcessor.chainEvents, files::viewLayout);
+    addAndMakeVisible (view.get());
 }
+
+void EVEView::attachPanelCallbacks() {}
+
+void EVEView::initialiseListeners() {}

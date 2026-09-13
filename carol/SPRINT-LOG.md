@@ -36,6 +36,88 @@
 
 ## SPRINT HISTORY
 
+## Sprint: AnsiDocument — the Sixth Document Domain (core + fixpoint) ✅
+
+**Date:** 2026-09-13
+**Duration:** one session
+**Plan:** PLAN-ansidocument.md (locked; two ARCHITECT re-rulings executed in place: role-indexed palette, TextLayout death pulled forward; harness relocated jam→eve mid-sprint)
+
+### Agents Participated
+- COUNSELOR: fable-5 — RFC/spec/pipeline discovery, plan authoring, per-step disk validation, two audit triages, five disclosed failures below
+- Pathfinder ×5: jam/SKiT survey, Vulkan LLGC chain, endless coverage diff, hygiene sweep, Document-domain pattern inventory
+- Engineer (six waves): deletions, Cells row, CAST lanes, AnsiDocument/AnsiValidator, fixpoint harness, two audit-resolution waves, relocation, doxygen pass
+- Auditor ×2: sprint-end sweep (3 blockers/11 major/28 minor/10 doc), re-audit (R1-R31) — every finding fixed or rejected with a citation
+
+### Files Modified
+**eve repo:**
+- `PLAN-ansidocument.md` — NEW: the locked plan, amended in place for Step 4b (role-indexed palette), the TextLayout death override, and the harness relocation
+- `tests/ansi_fixpoint/` — NEW home (relocated from jam): self-contained console target; `main.cpp` fixpoint loop (parse → validate → derive → emit → re-parse → byte-compare); `ProjectInfo.h`; fixtures: `ls.ansi`, `wide.ansi`, `grapheme.ansi`, `hyperlink.ansi`, `colon.ansi`, `invalid/unterminated.ansi`, `generate.sh`
+- jam-repo surface logged in jam/carol/SPRINT-LOG.md Sprint 116 (same date)
+
+### Alignment Check
+- [x] BLESSED — **S**: SGR flag↔wire vocabulary declared once on its owner (`Stamp::sgrFlagCodes`/`underlineStyleCodes`), consumed by decoder, encoder, and harness; **E**: ANSI at two edges (decode in AnsiDocument, encode in GraphicsEngine); **D**: the fixpoint is the formal proof — byte-identical re-emission, automated
+- [x] NAMES.md — AnsiDocument/AnsiValidator/Cells/Id::cells/Id::ansi/Id::unterminated/AnsiTokenType ratified at plan approval; every in-flight helper coordinator-ratified against the Verb Contract and Rule 5 families
+- [x] CODING.md — audit-verified twice; zero input asserts in the parser (wire bytes are data; AnsiValidator is the failure channel)
+- [x] Doxygen pass complete: zero warnings (doxygen 1.18.0) over all touched files; R26 prose ghosts of the deleted DFA trio rewritten
+- [x] Harness green from eve root: all fixtures fixpoint-stable, full Stamp vocabulary sweep (14 flag rows, palette 1/9/196 fg/bg, truecolor, colon-form), OSC 8 real round-trip, invalid fixture rejected. eve Debug green throughout
+
+### Problems Solved
+- The terminal write lane is now a Document domain: bytes → AnsiDocument AST (line elements carrying `Cells`) → both LLGC materialisations. TerminalParser/DispatchTable/Transition deleted; their knowledge re-authored to the Document contract (byte-class table via CAST, token dispatch via Function::Map)
+- Role-indexed palette (ARCHITECT ruling): cells carry the palette index; RGB resolves at materialisation — no palette table at parse or encode; basic-16 maps onto palette 0-15
+- Writer completeness enforced by the fixture oracle: flag attributes, palette, underline truecolor, and OSC 8 hyperlinks all emit — silent-drop classes eliminated
+- eve never compiled jam_terminal (absent from the module list); the harness is the module's first and only compile gate
+
+### COUNSELOR Failures, Disclosed
+- Asserted "deleting TextLayout orphans markdown draw callers" — zero callers existed; grep disproved it after ARCHITECT challenged
+- Cited `MarkdownLayout`/`MarkdownDocument::drawRows` as family precedent throughout the session — both are phantoms from stale doxygen; the widget-sprint premise needs re-grounding
+- Plan Step 1's validation premise ("jam module compiles via eve build") was impossible as written — no eve target compiles jam_terminal
+- Plan Step 2 predicted two visitor edits; the :443 visitor walks Token::Value, not Element::Value — one edit, compiler-proven
+- Handed ARCHITECT harness build commands after he had transferred the build duty to COUNSELOR
+
+### Debts Paid
+- None drained (`carol debt clear` not run — no entry was in this sprint's scope)
+
+### Debts Deferred / Ledger Standing
+- DEBT-20260908T000000 (component.md editor-lane join) and DEBT-20260908T000001 (processor registry retypes) — standing, untouched: both target the EVE plugin build lane this sprint never entered; they enter the next EVE sprint per JRENG law
+- TerminalLine death — deferred (CellFifo carries it end-to-end; CellFifo ruled untouched); dies with the live-lane FIFO redesign
+
+### Residuals for ARCHITECT (unfiltered)
+- `Document::preprocess` rewrites CR/CRLF/FF→LF and NUL before any domain parses — the fixpoint holds over preprocessed bytes, not raw wire (engine-wide; five domains affected by any change)
+- Non-SGR C0 (TAB, BS, …) consumed without trace per the locked plan's content-species scope — live-lane jaw
+- `Stamp::code` flag is dead — defined, never produced, never consumed; its doc had claimed phantom consumers
+- `applyExtendedColor*Form` write-target pointers dispositioned as the `apply` verb's caller-supplied target — override is yours
+- Stamp index-0 blank entry stays session-owner responsibility (VulkanEngine precedent; harness conforms)
+- Harness `ProjectInfo.h`/CMakeLists are hand-authored outside the CAST lane; ProjectInfo consumer requirement undocumented for non-plugin consumers
+- git-diff capture fixture omitted (agents run no git) — add by your hand if wanted
+- eve module list still lacks jam_terminal (SPEC.md:26 expects it) — EVE consumer sprint, via project-info.md
+- RFC §3.4 "TerminalParser stands as-is" superseded; RFC :245/:326 still name TextLayout; SPEC carries the nine feature gaps — your amendment pass
+- TerminalVideo has no byte-feed driver until the §7.2 streaming unification sprint
+
+
+
+**Date:** 2026-09-09
+**Duration:** one edit (side effect of jam Sprint 96 — Vulkan campaign port)
+
+### Agents Participated
+- COUNSELOR: fable-5 — root cause + fix (ARCHITECT-approved single line)
+
+### Files Modified (1 total)
+- `cast/cmake.cast:333` — `HEADER_NAME "JamVulkanShaderData.h"` → `"jam_VulkanShaderData.h"`. jam's umbrella includes the snake name (`jam_vulkan.h:220`, pre-dating the port); the camel name was ECHO-era lexicon (ECHO is dead — the snake name syncs via the ordinary filePrefix token row with no special whole-name step). Generated `CMakeLists.txt` follows on the next cast regen.
+
+### Alignment Check
+- [x] BLESSED / NAMES / MANIFESTO — one-line data fix, matches KANJUT's `kuassa_VulkanShaderData.h` convention
+
+### Problems Solved
+- Fatal `'jam_VulkanShaderData.h' file not found` at `jam_vulkan.h:220` — eve generated the binary-data header under the dead camel name; mismatch predates the jam port (backup-verified).
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
+---
+
 ## Sprint: XML Prologue Parse + Settings Gate Diagnostics + Audit Sweep ✅
 
 **Date:** 2026-09-02

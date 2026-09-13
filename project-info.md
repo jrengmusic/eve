@@ -31,6 +31,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | companyEmail     | @char | info@jrengmusic.com                              | toLiteral | Company contact email.                           |
 | presetExtension  | @char | endp                                             | toLiteral | Preset file extension, without the leading dot.  |
 | presetDefault    | @char | INIT                                             | toLiteral | Default init preset name, without the extension. |
+| versionHint      | int   | 1                                                |           | juce::ParameterID version hint.                  |
 +------------------+-------+--------------------------------------------------+-----------+--------------------------------------------------+
 
 ## cmake
@@ -51,6 +52,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | manufacturerCode            | JRNG                                          | Four-character manufacturer code            |
 | pluginCode                  | EVE.                                          | Four-character plugin code                  |
 | bundleIdentifier            | `com.jreng.EVE`                               | Bundle identifier                           |
+| targetName                  | EVE                                           | CMake target name                           |
 | productName                 | EVE                                           | JUCE PRODUCT_NAME                           |
 | vst3Categories              | Fx                                            | VST3 plugin categories                      |
 | isSynth                     | FALSE                                         | Plugin is a synthesizer                     |
@@ -61,8 +63,6 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | copyPluginAfterBuild        | FALSE                                         | JUCE copy step, replaced by CAST post-build |
 | interproceduralOptimization | ON                                            | CMAKE_INTERPROCEDURAL_OPTIMIZATION          |
 | qaDirectory                 | `$ENV{HOME}/Documents/Poems/dev/___builds___` | QA release archive root                     |
-| clapId                      | com.jreng.EVE                                 | CLAP plugin identifier                      |
-| clapFeatures                | audio-effect utility                          | CLAP feature list                           |
 +-----------------------------+-----------------------------------------------+---------------------------------------------+
 
 ## toolchain
@@ -275,14 +275,15 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## source
 
-+-----------------+-------------------------+---------+
-| name            | value                   | comment |
-+=================+=========================+=========+
-| processorHeader | Source/EVEProcessor.h   |         |
-| processorSource | Source/EVEProcessor.cpp |         |
-| viewHeader      | Source/EVEView.h        |         |
-| viewSource      | Source/EVEView.cpp      |         |
-+-----------------+-------------------------+---------+
++----------------------+----------------------------+---------+
+| name                 | value                      | comment |
++======================+============================+=========+
+| processorHeader      | Source/EVEProcessor.h      |         |
+| processorSource      | Source/EVEProcessor.cpp    |         |
+| audioProcessorHeader | Source/EVEAudioProcessor.h |         |
+| viewHeader           | Source/EVEView.h           |         |
+| viewSource           | Source/EVEView.cpp         |         |
++----------------------+----------------------------+---------+
 
 ## define
 
@@ -321,11 +322,13 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## layout glob
 
-+----------+---------------------------------------------------+---------+
-| name     | value                                             | comment |
-+==========+===================================================+=========+
-| markdown | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md`  |         |
-| css      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css` |         |
-| xml      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml` |         |
-| fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`  |         |
-+----------+---------------------------------------------------+---------+
++----------+----------------------------------------------------+---------+
+| name     | value                                              | comment |
++==========+====================================================+=========+
+| markdown | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md`   |         |
+| css      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css`  |         |
+| xml      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml`  |         |
+| html     | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html` |         |
+| svg      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg`  |         |
+| fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`   |         |
++----------+----------------------------------------------------+---------+
