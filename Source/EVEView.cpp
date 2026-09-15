@@ -1,28 +1,60 @@
 #include "EVEView.h"
-#include "EVEProcessor.h"
 
-static const juce::Identifier terminalTableId { "terminal" };
-static const juce::Identifier scrollbackBudgetMbRowId { "scrollbackBudgetMb" };
+static const juce::String defaultFixture {
+    "/Users/jreng/Documents/Poems/dev/eve/tests/ansi_fixpoint/fixtures/ls.ansi"
+};
 
 EVEView::EVEView (jam::AudioModel& newModel,
                   jam::PluginEditorLayout& newLayout,
-                  juce::AudioProcessor& processorToConnectTo)
-    : jam::PluginEditor (processorToConnectTo, newModel, newLayout, jam::ViewManager::getUISize<jam::MarkdownDocument> (juce::Identifier { files::viewLayout }))
+                  juce::AudioProcessor& processorToConnectTo,
+                  EVEAudioProcessor& newAudioProcessor,
+                  jam::TerminalModel& newTerminalModel)
+    : jam::PluginEditor (processorToConnectTo,
+                         newModel,
+                         newLayout,
+                         jam::ViewManager::getUISize<jam::MarkdownDocument> (
+                             juce::Identifier { files::defaultConfig }))
+    , audioProcessor { newAudioProcessor }
+    , terminalModel { newTerminalModel }
+    , messageOverlay (newTerminalModel,
+                      newTerminalModel.state.getChildWithName (Id::toType (Id::overlay)),
+                      [this] { return juce::Font { theme->getMonoFont() }; })
 {
-    if (layout.isReady (model))
+    const auto ready { layout.isReady (model, configFile) };
+
+    initialise();
+
+    setResizable (true, true);
+
+    const auto [width, height] { view->getUISize (model) };
+    setSize (width, height);
+
+    if (not ready)
     {
-        initialise();
+        const auto validation { jam::ConfigValidator::isValid (
+            jam::ConfigDocument::parse (configFile.loadFileAsString(), configFile.getFullPathName())) };
 
-        setResizable (false, false);
+        if (validation.failed())
+        {
+            auto* messageParam { terminalModel.getParameter<jam::ParameterText> (Id::toType (Id::overlay), Id::message) };
+            jassert (messageParam != nullptr);
 
-        const auto [width, height] { view->getUISize (model) };
-        setSize (width, height);
+            if (messageParam != nullptr)
+                messageParam->setValue (validation.getErrorMessage());
+        }
     }
 }
 
 void EVEView::initialiseTheme()
 {
-    styleManager.create (layout.fonts);
+    auto document { jam::ConfigDocument::parse (configFile.loadFileAsString(), configFile.getFullPathName()) };
+
+    if (jam::ConfigValidator::isValid (document).failed())
+        document = jam::ConfigDocument::parse (BinaryData::getString (files::defaultConfig), files::defaultConfig);
+
+    styleManager.create (layout.fonts,
+                         document.getValueTree (Id::toType (Id::config)),
+                         document.getValueTree (Id::toType (Id::config), Id::dark));
 
     theme = std::make_unique<jam::StyleTheme> (*styleManager, model.getAppearance());
     juce::LookAndFeel::setDefaultLookAndFeel (theme.get());
@@ -34,71 +66,83 @@ void EVEView::initialisePanels() {}
 
 void EVEView::initialiseView()
 {
-    auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
-    auto& audioProcessor { processor.getAudioProcessor() };
-
-    view = jam::ViewEditor::create<jam::MarkdownDocument> (model, audioProcessor.userInterfaceGetters, audioProcessor.chainEvents, files::viewLayout);
+    view = jam::ViewEditor::create<jam::MarkdownDocument> (model, audioProcessor.userInterfaceGetters, audioProcessor.chainEvents, files::defaultConfig);
     addAndMakeVisible (view.get());
 
-    for (const auto& parameter : juce::JUCEApplicationBase::getCommandLineParameterArray())
+    initialiseTerminalView();
+
+    addChildComponent (messageOverlay);
+}
+
+void EVEView::initialiseTerminalView()
+{
+    auto parameters { juce::JUCEApplicationBase::getCommandLineParameterArray() };
+    parameters.add (defaultFixture);
+
+    for (const auto& parameter : parameters)
     {
         const auto fixtureFile { juce::File::getCurrentWorkingDirectory().getChildFile (parameter) };
 
         if (fixtureFile.existsAsFile())
         {
-            ansiDocument = jam::AnsiDocument::parse (fixtureFile.loadFileAsString());
-            documentIndex = std::make_unique<jam::Document::Index> (ansiDocument, getCodec());
-
-            const auto& viewLayoutDocument { jam::MarkdownDocument::getOrCreate (juce::Identifier { files::viewLayout }) };
-            constexpr juce::int64 bytesPerMegabyte { 1024 * 1024 };
-
-            for (auto* table : viewLayoutDocument.getTables (terminalTableId))
-                if (auto* row { viewLayoutDocument.getTableRow (*table, scrollbackBudgetMbRowId) })
-                {
-                    const auto scrollbackBudgetMegabytes { jam::Format::getNumber (viewLayoutDocument.getTableValueView (*row, Id::value)) };
-                    jassert (scrollbackBudgetMegabytes > 0);
-
-                    if (scrollbackBudgetMegabytes > 0)
-                        documentIndex->setBudget (scrollbackBudgetMegabytes * bytesPerMegabyte);
-                }
-
+            terminalView = std::make_unique<jam::TextEditor> (fixtureFile.loadFileAsString(), terminalModel, terminalModel.state, jam::UUID::none());
             break;
         }
     }
 
-    addAndMakeVisible (terminalView);
+    jassert (terminalView != nullptr);
+
+    if (terminalView != nullptr)
+    {
+        addAndMakeVisible (*terminalView);
+
+        jam::Model::Attachment { *terminalView };
+    }
 }
 
 void EVEView::attachPanelCallbacks() {}
 
-void EVEView::initialiseListeners() {}
-
-jam::Document::Index::Codec EVEView::getCodec()
+void EVEView::initialiseListeners()
 {
-    return { [] (const jam::Document::Element& element) -> juce::MemoryBlock
-              {
-                  const auto* cells { element.get<jam::Document::Cells> (Id::cells) };
-                  const auto rowText { jam::terminal::getRowText (cells->data(), cells->size()) };
+    settingsWatcher.addFolder (configFile.getParentDirectory());
 
-                  return juce::MemoryBlock (rowText.data(), rowText.size());
-              },
-              [] (jam::Document::Element& element, const juce::MemoryBlock& wireBytes)
-              {
-                  const auto lineDocument { jam::AnsiDocument::parse (juce::String::fromUTF8 (
-                      static_cast<const char*> (wireBytes.getData()), static_cast<int> (wireBytes.getSize()))) };
-                  auto* decodedLine { lineDocument.root->firstChild };
-                  auto* cells { element.get<jam::Document::Cells> (Id::cells) };
+    messageOverlay.registerParameters();
+}
 
-                  if (decodedLine != nullptr)
-                      *cells = std::move (*decodedLine->get<jam::Document::Cells> (Id::cells));
-                  else
-                      *cells = jam::Document::Cells {};
-              } };
+void EVEView::fileChanged (const juce::File& file, jam::File::Watcher::Event event)
+{
+    if (file == configFile and event != jam::File::Watcher::fileDeleted)
+    {
+        const auto document { jam::ConfigDocument::parse (configFile.loadFileAsString(), configFile.getFullPathName()) };
+        const auto validation { jam::ConfigValidator::isValid (document) };
+
+        if (validation.wasOk())
+        {
+            styleManager->registerStyle (document.getValueTree (Id::toType (Id::config)),
+                                         document.getValueTree (Id::toType (Id::config), Id::dark));
+            theme->setAppearance (model.getAppearance());
+            sendLookAndFeelChange();
+        }
+        else
+        {
+            auto* messageParam { terminalModel.getParameter<jam::ParameterText> (Id::toType (Id::overlay), Id::message) };
+            jassert (messageParam != nullptr);
+
+            if (messageParam != nullptr)
+                messageParam->setValue (validation.getErrorMessage());
+        }
+    }
+}
+
+void EVEView::lookAndFeelChanged()
+{
+    jam::PluginEditor::lookAndFeelChanged();
+    resized();
 }
 
 void EVEView::resized()
 {
-    jam::PluginEditor::resized();
-
-    terminalView.setBounds (getLocalBounds());
+    view->setBounds (view->getViewBounds (model));
+    terminalView->setBounds (getLocalBounds().reduced (theme->getWindowPadding()));
+    messageOverlay.setBounds (getLocalBounds());
 }

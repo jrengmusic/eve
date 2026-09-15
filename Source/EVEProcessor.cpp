@@ -1,12 +1,18 @@
 #include "EVEProcessor.h"
 #include "EVEView.h"
 
+static const juce::Identifier terminalTreeId { "TERMINAL" };
+static constexpr int messageCapacity { 4096 };
+
 EVEProcessor::EVEProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
     , model (parameterManager, *this, {})
+    , terminalModel (terminalTreeId)
 {
+    auto overlayRow { terminalModel.getOrCreateChildWithName (Id::toType (Id::overlay)) };
+    terminalModel.createAndAddParameter<jam::ParameterText> (overlayRow, Id::message, juce::String {}, messageCapacity);
 }
 
 void EVEProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -34,7 +40,7 @@ void EVEProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
 juce::AudioProcessorEditor* EVEProcessor::createEditor()
 {
-    return new EVEView (model, layout, *this);
+    return new EVEView (model, layout, *this, audioProcessor, terminalModel);
 }
 
 bool EVEProcessor::hasEditor() const { return true; }
@@ -70,7 +76,5 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
     if (auto xml { getXmlFromBinary (data, sizeInBytes) }; xml != nullptr)
         model.setState (juce::ValueTree::fromXml (*xml));
 }
-
-EVEAudioProcessor& EVEProcessor::getAudioProcessor() noexcept { return audioProcessor; }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new EVEProcessor(); }

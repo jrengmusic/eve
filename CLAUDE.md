@@ -86,9 +86,8 @@
 | `Source/EVEProcessor.h/.cpp` | Processor implementation |
 | `Source/EVEView.h/.cpp` | Editor component (jam_plugin_bootstrap base); one-shot viewer fixture |
 | `Source/generated/` | CAST code-generation output (build-time) |
-| `Source/layout/DefaultSettings.xml` | Plugin state defaults |
-| `Source/layout/style.css` | Canonical UI style |
-| `Source/layout/ViewLayout.md` | Canonical layout metadata (rows are component records) |
+| `Source/layout/eve.md` | EVE config+style document (settings, UI_size, colours, window, style, fonts); seeded to ~/.config/end/eve.md, watched at runtime |
+| `Source/layout/ViewLayout.md` | Component-join layout document (title-only; UI size moved to eve.md) |
 | `Source/layout/interface.md` | (if present) interface definition |
 
 ### 4. Test Harnesses (formal proofs)

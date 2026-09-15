@@ -36,6 +36,58 @@
 
 ## SPRINT HISTORY
 
+## Sprint: TextEditor Viewport Widget + eve.md Config/Style Chain ✅
+
+**Date:** 2026-09-15
+**Duration:** one session (continued across compaction)
+
+### Agents Participated
+- COUNSELOR (fable-5) — orchestration, seam design, RFC/doc authorship, per-step validation
+- Pathfinder ×3 — style-flow facts, MessageOverlay wiring facts, grid-parser trace (killed on ARCHITECT's type-string correction)
+- Engineer ×15 waves — config/style/watcher/overlay seams, TextEditor restructures, audit sweep, doxygen pass, hygiene
+- Auditor ×1 — 47 findings, all resolved or dispositioned
+
+### Files Modified (jam 20, eve 12, end 4 — key entries)
+- `jam_terminal/widgets/jam_TextEditor.h` — rewritten: juce::Viewport subclass; owns AnsiDocument, Document::Index, static wire codec; nested Content painter; visibleAreaChanged → Index::setViewport; setContentSize with column-change gate; font materialised once at lookAndFeelChanged
+- `jam_terminal/jam_terminal.h` — jam_style dependency declared + included; include-map comment corrected
+- `jam_core/document/jam_Document.h` + `jam_DocumentIndex.cpp` — public `Index::setViewport (firstRow, lastRow)`; paintRow reads via the readying `getElement`; getPrefixTotal param nouns
+- `jam_data_structures/parameter/jam_ParameterManager.h/.cpp` — explicit ctor (settingExtension default), `getOrCreateUserSettings (defaults, document, configFile)` overload, 2-arg delegates, `isSettingsOld` const&
+- `jam_plugin_bootstrap/layout/jam_PluginEditorLayout.h` — md lane overloads: `isReady/loadDefaultSettings/isSettingsValid/populateTree (…, configFile)`; ConfigValidator gate + UI-scale parity + xml-parity debug::Log
+- `jam_style/style_manager/jam_StyleManager.h/.cpp` — ValueTree ctor (config/darkConfig), public `registerStyle (ValueTree, ValueTree)` reload API, `hasFont`, `registerFont (alias, filename, height, kerning)`, md window-read branches, null-guards; jam_style purged of markdown types (layer law — the compiler exposed jam_style below jam_markdown via jam_mermaid_diagram)
+- `jam_style/style_manager/jam_StyleTheme.h/.cpp` — `getMonoFont` override (hasFont-gated, StyleCustom fallback); `jam_StyleCustom.h` getMonoFont → juce::FontOptions
+- `jam_gui/widgets/jam_MessageOverlay.h/.cpp` — absorbed from END; fontCallback member, noSplitLine at decision points, axisLineStyle default from map::OverlayAxisLine
+- `jam_markdown/document/jam_ConfigDocument.h/.cpp` — `getValueTree (rootType, valueColumn)`; 1-arg delegates with Id::value
+- `jam/cast` — identifiers.md rows message/overlay/config/mono; bimaps.md + spell.md OverlayAxisLine
+- `eve/Source/EVEProcessor.h/.cpp` — ctor injection into EVEView (getters deleted); OVERLAY row + Id::message ParameterText (messageCapacity) on terminalModel; layout carries files::defaultConfig
+- `eve/Source/EVEView.h/.cpp` — configFile from cast strings (`.config/end` + `eve.md`); isReady gate with binary-defaults fallback + overlay validator error; dual-source initialiseTheme; fileChanged hot-reload (validate → registerStyle trees → broadcast); two-line resized via theme->getWindowPadding; ViewEditor::create + editor size both read eve.md
+- `eve/Source/layout/eve.md` — NEW: settings (UI_SCALE/APPEARANCE), UI_size (SSOT), colours palette, window chrome, style (light/dark), fonts (mono DisplayMonoBook 12) — pandoc grids, uniform 100-col, type strings int/float/colour/string
+- `eve/Source/layout/ViewLayout.md` — title-only (UI_size moved); `style.css`, `DefaultSettings.xml` — DELETED
+- `eve/cast/files.md` — configDirectory ".config/end", defaultConfig "eve.md"; `CLAUDE.md` file table refreshed; `RFC-EVE-terminal-grand-scheme.md` — Gap 2 executed amendment + NEXT SPRINT mandate; both PLAN files deleted
+- `end/Source` — MessageOverlay files deleted, call sites repointed to jam::MessageOverlay
+
+### Alignment Check
+- [x] BLESSED — B: TextEditor owns its document machinery; E: chain extended at seams only, zero parallel channels; S: eve.md single config truth, UI_size single home; D: event-driven end to end (watcher + DarkModeSettingListener)
+- [x] NAMES.md — lexicon strings verified at source (int/float/bool, `--`-prefixed colour ids); setContentSize/fontCallback/registerStyle family shapes
+- [x] MANIFESTO.md — layer law enforced by compiler evidence; fonts materialised at state updates
+- [x] Auditor once (47 findings: fixed in 4 waves; rejections cited to rulings/CODING's own forms; records listed below)
+
+### Problems Solved
+- Blank/crashed launches root-caused by evidence, not guesses: silent md gates (now xml-parity logged), zombie editor on gate failure (now binary-defaults + overlay error), grid `type` cells using C++ id names instead of lexicon strings ("int"/"float"), ViewEditor's non-template getUISize consumer of the deleted ViewLayout table
+- jam_style ↔ jam_markdown cycle exposed by compiler; style lane redesigned to jam_core ValueTree types
+- END-generated map::OverlayAxisLine moved into jam cast for shared MessageOverlay
+
+### State for Continuation
+- NEXT SPRINT (ARCHITECT-ruled, verbatim in RFC-EVE-terminal-grand-scheme.md §5.3 Gap 2 amendment): jam::TextEditor as a full-feature vim-based text editor — text editing; modal insert/normal/visual; configurable cursor shape (any codepoint incl. emoji); terminal defaults insert-mode/status-bar-hidden with Visual-mode copy; terminal wires in afterwards like nvim's own terminal (refs: ~/Documents/Poems/dev/endless/ SPEC.md:44-45,:98-152; ~/Documents/Poems/dev/neovim/)
+- Verify before acting: build green post-audit-sweep (ARCHITECT's build at log time), doxygen regen zero warnings
+- Open ARCHITECT rulings: eve.md window `close` row (title-strip clearance, jam_ViewContent.h:83-86); END's duplicate OverlayAxisLine cast blocks (end/cast/bimaps.md:1-17, spell.md:105-111) collide at END's next regen; jam_style.h:10 deps line still names jam_markdown (build-graph change)
+- On-record residuals: defaultFixture absolute path (EVEView.cpp:4, dies with the pty lane); isSettingsOld Xml::parse noise on md files; ButtonTab unguarded static_cast; textEditorId + "TERMINAL" tree id pending cast registration; StyleManager config-lane parity gaps (metrics/appearance/multi-font — unused by eve.md today); window opacity 0.75 on disk (ARCHITECT-tuned)
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None commanded this sprint. Ledger carries DEBT-20260908T000000 (editor lane join) and DEBT-20260908T000001 (processor registries) — untouched, outside this sprint's scope, standing for the next scope per JRENG law.
+
 ## Sprint: Document::Index — Counted B-tree Lookup + Residency Tier (buffer-bench verdict → clean-room jam) ✅
 
 **Date:** 2026-09-15
@@ -267,40 +319,5 @@
 ### Residuals for ARCHITECT
 - `debug::Log::write` is a no-op without a live `Log::Scope`. `PluginEditorLayout` parses during **Processor** construction, before any View exists, so the `Log::Scope` at `EVEView.h:18` cannot capture parse-time diagnostics
 - Eleven audit findings were withdrawn as training priors, each with a MANIFESTO citation: F1, F5, F9, F23, F37, F39, F47, F50, F52, F66, F67
-
-## Sprint: Bootstrap Metadata SSOT + Settings Canon + Glass Appearance ✅
-
-**Date:** 2026-08-31
-**Duration:** multi-session
-
-### Agents Participated
-- COUNSELOR: fable-5 — JFS canon conformance, white-window/settings causal chains, delegation + per-step disk validation
-- Engineer (parallel waves) — EVEView canon shape, EVEProcessor cleanup, style.css rewrite, EVE CAST chain authoring, settings pipeline files
-
-### Files Modified (~10 total)
-- `Source/EVEView.h/.cpp` — FilterStripView canon ctor (isReady gate → initialise → derived size via ViewManager::getUISize); initialiseTheme creates StyleManager + StyleTheme and installs the default LAF; initialiseView builds ViewEditor from the master
-- `Source/EVEProcessor.h/.cpp` — getMetadata/getParameterLayout/fake MASTER-Bypass deleted; ctor body empty — model seeds from the settings file via PluginEditorLayout::populateTree; parameterManager default-constructs
-- `Source/layout/style.css` — JFS convention rewrite: :root palette, `.appearance.DARK`/`.appearance.LIGHT` records, `.window` glass (backgroundBlur/acrylic10), complete @font-face record, golden preview rules
-- `Source/layout/interface.md` — formats table removed (config-time truth moved to the cast metadata table)
-- `Source/layout/DefaultSettings.xml` — new: UI_SCALE MEDIUM, APPEARANCE DESKTOP, @product@ placeholder
-- `cast/CAST.md`, `cast/cmake.cast` — EVE's CAST chain: Projucer-equivalent metadata table, ONE unidirectional path (table → CAST → generated statics now, CMakeLists writer deferred)
-- `Source/generated/` — cast output, double-run fixpoint (Metadata.cpp → ProjectInfo.h redesign in flight at log time)
-- `CMakeLists.txt` — generated TU wired into target_sources; layout/*.xml added to the BinaryData glob
-
-### Alignment Check
-- [x] BLESSED principles followed — SSOT (metadata declared once in the table; hand-seeding twin deleted), unidirectional (config-time vs runtime bootstraps never conflated)
-- [x] NAMES.md adhered — table/extern names ARCHITECT-ratified
-- [x] MANIFESTO.md principles applied
-- [ ] Auditor sweep not run — sprint logged on ARCHITECT command; ProjectInfo.h + JUCE_DONT_DECLARE_PROJECTINFO wiring in flight at log time
-
-### Problems Solved
-- White window: stale ~/Library/Application Support/EVE.settings filterState restored LIGHT over the seed; settings pipeline now the single truth — first run writes /Music/JRENG/Settings/EVE.setting with APPEARANCE DESKTOP, resolved dark/light at the style boundary
-- Metadata hardcodes eliminated end to end: Projucer-equivalent table is the sole source; nothing downstream restates a value
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
 
 *(older sprints rotated to git history)*

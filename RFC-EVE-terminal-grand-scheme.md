@@ -362,6 +362,49 @@ terminal**. Subsystem completeness ≠ architecture proven. The assembly is END.
 2. **The widget** — plain `juce::Component` editor as pure view over the buffer;
    read-only static mode; zero backend knowledge. Replaces the killed TextEditor/
    MarkdownComponent.
+
+   > **[AMENDED 2026-09-15 — texteditor-viewport/config sprint]** Gap 2 is executed.
+   > `jam::TextEditor` is a `juce::Viewport` subclass. It owns its `AnsiDocument`,
+   > its `Document::Index` (wire codec included), and a nested `Content` painter.
+   > It is event-driven: `visibleAreaChanged` windows the index
+   > (`Index::setViewport (firstRow, lastRow)`) and sizes the content. The owner
+   > only sets child bounds. Font and colours resolve through the LookAndFeel
+   > chain (`StyleTheme::getMonoFont`, style-table colour ids).
+   >
+   > EVE rides the stock plugin_bootstrap chain with md overloads — no new
+   > patterns. `eve.md` is EVE's sole config+style document: carried as binary,
+   > seeded to `~/.config/end/eve.md` when missing, validated by
+   > `ConfigValidator`, hot-reloaded by the chain's `File::Watcher`, with
+   > binary-defaults fallback plus a `jam::MessageOverlay` validator-error
+   > surface when the disk copy is invalid. Its tables: `settings`
+   > (UI_SCALE, APPEARANCE → persisted-parameter subtree via the md
+   > `populateTree`), `UI_size` (SSOT — ViewLayout.md's table deleted),
+   > `colours` palette, `window` chrome, `style` (light/dark columns), `fonts`
+   > (mono record). `StyleManager` gained the `juce::ValueTree` lane with the
+   > `registerStyle (config, darkConfig)` reload API;
+   > `ConfigDocument::getValueTree` gained column selection (the `dark` tree).
+   > Sprint closed: 47 audit findings resolved or dispositioned, doxygen pass
+   > complete, superseded PLANs deleted.
+
+   > **[NEXT SPRINT — ruled 2026-09-15]** Build `jam::TextEditor` as a
+   > full-feature, vim-based text editor FIRST. The terminal wires into it
+   > afterwards, the way nvim hosts a terminal inside itself (reference:
+   > `~/Documents/Poems/dev/neovim/`). This inverts endless
+   > (`~/Documents/Poems/dev/endless/` SPEC.md:44-45, :98-152 — its modal
+   > visual/visual-line/visual-block selection and prefix-modal action registry
+   > are the feature SPEC lineage): not pseudo-vim bolted onto a terminal — a
+   > vim-based TextEditor, an actual FAST text-rendering `juce::Component`
+   > widget with an actual Viewport, scrollbars, and vim basic capability:
+   >
+   > - text editing
+   > - modal insert/normal/visual
+   > - configurable cursor shape — any codepoint is a valid cursor, emoji
+   >   included
+   > - terminal usage defaults: always insert mode, status bar hidden; Visual
+   >   mode enterable as a modal to copy any text in the buffer
+   >
+   > The ARCHITECTURE is designed correctly this time: a vim-based TextEditor;
+   > the terminal is its client.
 3. **Terminal LLGC completion** — geometry parity only (text goes through jam's
    pipeline, §3.6). Six stubs at jam_TerminalGraphicsContext.h: `fillPath`/
    `clipToPath` (:344, :332), `drawImage`/`clipToImageAlpha` (:345, :333),

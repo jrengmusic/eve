@@ -12,6 +12,9 @@
 static constexpr unsigned int randomSeed { 1337u };
 static constexpr int appendWhileIndexedLineCount { 1000 };
 static constexpr int viewportLineCount { 50 };
+static constexpr int wrapColumnsNarrow { 80 };
+static constexpr int wrapColumnsWide { 120 };
+static constexpr int wrapSampleCount { 200 };
 
 static juce::String getSyntheticLine (int lineNumber)
 {
@@ -134,6 +137,18 @@ static jam::Array<int> getScrollTargets (int midLineNumber, int delta, int moveC
         currentLineNumber += (moveIndex % 2 == 0) ? delta : -delta;
         targets.add (currentLineNumber);
     }
+
+    return targets;
+}
+
+static jam::Array<int> getWrapSampleTargets (int upperExclusiveBound)
+{
+    jam::Array<int> targets;
+    std::mt19937 sampleGenerator { randomSeed };
+    std::uniform_int_distribution<int> samplePicker { 0, upperExclusiveBound - 1 };
+
+    for (int sampleIndex { 0 }; sampleIndex < wrapSampleCount; ++sampleIndex)
+        targets.add (samplePicker (sampleGenerator));
 
     return targets;
 }
@@ -693,6 +708,161 @@ static bool addDocumentIndexInterleaveRows (const jam::Array<int>& coldJumpTarge
     return isTierCorrect (interleaveIndex, interleaveDocument, originalLineBytes, interleaveTargets, interleaveLineCount);
 }
 
+static int getWrapRowCount (const jam::Array<int>& cellCountOracle, int columns)
+{
+    auto totalRowCount { 0 };
+
+    for (const auto cellCount : cellCountOracle)
+        totalRowCount += juce::jmax (1, (cellCount + columns - 1) / columns);
+
+    return totalRowCount;
+}
+
+static int getWrapLineNumber (const jam::Array<int>& cellCountOracle, int columns, int targetRowNumber)
+{
+    auto rowNumber { 0 };
+
+    for (int lineNumber { 0 }; lineNumber < cellCountOracle.size(); ++lineNumber)
+    {
+        const auto lineRowCount { juce::jmax (1, (cellCountOracle.at (lineNumber) + columns - 1) / columns) };
+
+        if (targetRowNumber < rowNumber + lineRowCount)
+            return lineNumber;
+
+        rowNumber += lineRowCount;
+    }
+
+    return cellCountOracle.size() - 1;
+}
+
+static bool isWrapCountCorrect (jam::Document::Index& wrapIndex, const jam::Array<int>& cellCountOracle, int columns)
+{
+    const auto expectedRowCount { getWrapRowCount (cellCountOracle, columns) };
+    const auto rowCountMatches { wrapIndex.getRowCount() == expectedRowCount };
+
+    if (not rowCountMatches)
+        std::cerr << "wrap rowCount mismatch at columns " << columns << ": expected "
+                   << expectedRowCount << " got " << wrapIndex.getRowCount() << std::endl;
+
+    return rowCountMatches;
+}
+
+static bool isWrapLineNumberCorrect (jam::Document::Index& wrapIndex, const jam::Array<int>& cellCountOracle,
+    int columns, const jam::Array<int>& rowSamples)
+{
+    auto lineNumberMatches { true };
+
+    for (const auto rowNumber : rowSamples)
+    {
+        const auto expectedLineNumber { getWrapLineNumber (cellCountOracle, columns, rowNumber) };
+        const auto actualLineNumber { wrapIndex.getLineNumber (rowNumber) };
+
+        if (actualLineNumber != expectedLineNumber)
+            std::cerr << "wrap getLineNumber mismatch at row " << rowNumber << ": expected "
+                       << expectedLineNumber << " got " << actualLineNumber << std::endl;
+
+        lineNumberMatches = (actualLineNumber == expectedLineNumber) and lineNumberMatches;
+    }
+
+    return lineNumberMatches;
+}
+
+static bool isWrapRoundTripCorrect (jam::Document::Index& wrapIndex, const jam::Array<int>& cellCountOracle,
+    int columns, const jam::Array<int>& lineSamples)
+{
+    auto roundTripMatches { true };
+
+    for (const auto lineNumber : lineSamples)
+    {
+        const auto rowNumber { wrapIndex.getRowNumber (lineNumber) };
+        const auto lineRowCount { juce::jmax (1, (cellCountOracle.at (lineNumber) + columns - 1) / columns) };
+        const auto tripMatches { wrapIndex.getLineNumber (rowNumber) == lineNumber
+                              and wrapIndex.getLineNumber (rowNumber + lineRowCount - 1) == lineNumber };
+
+        if (not tripMatches)
+            std::cerr << "wrap round-trip mismatch at line " << lineNumber << std::endl;
+
+        roundTripMatches = tripMatches and roundTripMatches;
+    }
+
+    return roundTripMatches;
+}
+
+static bool isWrapCorrect (jam::Document::Index& wrapIndex, const jam::Array<int>& cellCountOracle, int columns,
+    const jam::Array<int>& lineSamples, const jam::Array<int>& rowSamples)
+{
+    const auto countCorrect { isWrapCountCorrect (wrapIndex, cellCountOracle, columns) };
+    const auto lineNumberCorrect { isWrapLineNumberCorrect (wrapIndex, cellCountOracle, columns, rowSamples) };
+    const auto roundTripCorrect { isWrapRoundTripCorrect (wrapIndex, cellCountOracle, columns, lineSamples) };
+
+    return countCorrect and lineNumberCorrect and roundTripCorrect;
+}
+
+static bool isWrapTierCorrect()
+{
+    static constexpr juce::int64 wrapTierBudgetBytes { 4 * 1024 };
+    static constexpr int wrapTierLineCount { 4000 };
+    static constexpr int wrapTierBatchLineCount { 4 };
+
+    jam::AnsiDocument wrapTierDocument;
+    jam::Array<int> wrapTierCellCountOracle;
+
+    const jam::Document::Index::Codec codec { encodeLineForIndex, decodeLineForIndex };
+    jam::Document::Index wrapTierIndex { wrapTierDocument, codec };
+    wrapTierIndex.setBudget (wrapTierBudgetBytes);
+    wrapTierIndex.setColumns (wrapColumnsNarrow);
+
+    for (int lineNumber { 0 }; lineNumber < wrapTierLineCount; ++lineNumber)
+    {
+        auto* newElement { appendGeneratedLine (wrapTierDocument, lineNumber) };
+        wrapTierCellCountOracle.add (newElement->get<jam::Document::Cells> (Id::cells)->size());
+        wrapTierIndex.appendLine (newElement);
+
+        if ((lineNumber + 1) % wrapTierBatchLineCount == 0)
+            wrapTierIndex.getElement (lineNumber);
+    }
+
+    const auto lineSamples { getWrapSampleTargets (wrapTierLineCount) };
+    const auto rowSamples { getWrapSampleTargets (wrapTierIndex.getRowCount()) };
+
+    return isWrapCorrect (wrapTierIndex, wrapTierCellCountOracle, wrapColumnsNarrow, lineSamples, rowSamples);
+}
+
+static bool addDocumentIndexWrapRows (int lineCount, juce::StringArray& reportRows)
+{
+    jam::AnsiDocument wrapDocument;
+    jam::Array<int> cellCountOracle;
+
+    for (int lineNumber { 0 }; lineNumber < lineCount; ++lineNumber)
+    {
+        auto* newElement { appendGeneratedLine (wrapDocument, lineNumber) };
+        cellCountOracle.add (newElement->get<jam::Document::Cells> (Id::cells)->size());
+    }
+
+    jam::Document::Index wrapIndex { wrapDocument };
+    const auto lineSamples { getWrapSampleTargets (lineCount) };
+
+    const auto narrowStartTime { std::chrono::steady_clock::now() };
+    wrapIndex.setColumns (wrapColumnsNarrow);
+    const auto narrowSeconds { getElapsedSeconds (narrowStartTime) };
+    addReportRow (reportRows, "setColumns", "documentIndexWrap" + juce::String (wrapColumnsNarrow), lineCount, narrowSeconds, lineCount);
+
+    const auto narrowCorrect { isWrapCorrect (wrapIndex, cellCountOracle, wrapColumnsNarrow,
+        lineSamples, getWrapSampleTargets (wrapIndex.getRowCount())) };
+
+    const auto wideStartTime { std::chrono::steady_clock::now() };
+    wrapIndex.setColumns (wrapColumnsWide);
+    const auto wideSeconds { getElapsedSeconds (wideStartTime) };
+    addReportRow (reportRows, "setColumns", "documentIndexWrap" + juce::String (wrapColumnsWide), lineCount, wideSeconds, lineCount);
+
+    const auto wideCorrect { isWrapCorrect (wrapIndex, cellCountOracle, wrapColumnsWide,
+        lineSamples, getWrapSampleTargets (wrapIndex.getRowCount())) };
+
+    const auto tierCorrect { isWrapTierCorrect() };
+
+    return narrowCorrect and wideCorrect and tierCorrect;
+}
+
 static bool addWorkloadRows (jam::AnsiDocument& appendDocument, double appendElapsedSeconds, int lineCount, juce::StringArray& reportRows)
 {
     const auto populationPassed { addPopulationRows (appendDocument, appendElapsedSeconds, lineCount, reportRows) };
@@ -712,6 +882,8 @@ static bool addWorkloadRows (jam::AnsiDocument& appendDocument, double appendEla
 
     const auto documentIndexPassed { addDocumentIndexRows (appendDocument, coldJumpTargets, lineCount, reportRows) };
 
+    const auto wrapPassed { addDocumentIndexWrapRows (lineCount, reportRows) };
+
     const auto spillPassed { addSpillRows (appendDocument, coldJumpTargets, lineCount, reportRows) };
 
     static constexpr int tierValidationLineCount { 100000 };
@@ -723,7 +895,7 @@ static bool addWorkloadRows (jam::AnsiDocument& appendDocument, double appendEla
         tierPassed = addDocumentIndexInterleaveRows (coldJumpTargets, reportRows) and tierPassed;
     }
 
-    return populationPassed and candidatesPassed and documentIndexPassed and spillPassed and tierPassed;
+    return populationPassed and candidatesPassed and documentIndexPassed and wrapPassed and spillPassed and tierPassed;
 }
 
 static juce::String getReport (const juce::StringArray& reportRows, int largestLineCount, size_t residentAtLargest)

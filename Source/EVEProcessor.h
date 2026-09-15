@@ -32,14 +32,13 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    EVEAudioProcessor& getAudioProcessor() noexcept;
-
 private:
     map::Generated generated;
-    jam::PluginEditorLayout layout { BinaryData::fetcher, files::viewLayout };
+    jam::PluginEditorLayout layout { BinaryData::fetcher, files::viewLayout, files::defaultConfig };
     jam::ParameterManager parameterManager;
     jam::AudioModel model;
     EVEAudioProcessor audioProcessor;
+    jam::TerminalModel terminalModel;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEProcessor)
