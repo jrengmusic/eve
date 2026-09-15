@@ -20,9 +20,12 @@ private:
 
     void resized() override;
 
+    jam::Document::Index::Codec getCodec();
+
     //==============================================================================
     jam::AnsiDocument ansiDocument;
     jam::TextEditor terminalView { ansiDocument };
+    std::unique_ptr<jam::Document::Index> documentIndex;
 
     //==============================================================================
 #if JUCE_DEBUG

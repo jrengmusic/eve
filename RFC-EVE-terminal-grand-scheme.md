@@ -176,6 +176,14 @@ Precedent at production scale: iTerm2's LineBuffer (§1).
   threads, never touched by the hot path. Appending a retired line is *creation*
   ("complete at creation"), not mutation.
 
+> **[AMENDED 2026-09-15]** Ruled and proven by measurement (buffer-bench sprint,
+> tests/buffer_bench/artifacts/results.md): line lookup is `Document::Index` — a
+> nested counted B-tree (arity 16) over the line-element chain, index-only
+> (Element* leaves, zero content copies). Cold jump and scroll beat every
+> chain-only strategy by 4–5 orders of magnitude at 10⁶–10⁷ lines; append tax
+> nil. Measured constants: 602 B/line resident, 89 B/line wire-encoded,
+> ~100 µs cold-page rehydrate, spill write ≥1.2 M lines/s.
+
 ### 3.4 TerminalParser is already a Document-domain parser
 
 The correspondence is structural, not nominal:
@@ -244,6 +252,10 @@ Text never flows through juce `drawGlyphs` on the terminal backend — grid plac
 is UAX #29 segmentation + UAX #11 width arithmetic (advance ∈ {1,2}, wrap at column
 bound, baseline += 1 row), via jam's own glyph pipeline (terminal::TextLayout,
 AttributedChar). Cell units need no font metrics. Amendment 16/19 stands
+
+> **[AMENDED 2026-09-13]** terminal::TextLayout was deleted in the AnsiDocument
+> sprint; the write lane is AnsiDocument → GraphicsContext (drawCells/
+> drawAttributedText).
 (jam_TerminalGraphicsContext.h:351-353). The layout arithmetic is *identical* to
 pixel layout — accumulate advance, break at bound, step baseline — only the unit and
 metric source differ, and in cells every quantity is integral.
@@ -324,6 +336,10 @@ in jam; no editable text buffer exists anywhere — the buffer is pure greenfiel
 - **Input encoders:** `TerminalKeyboard` (VT/xterm/progressive), `TerminalMouse`
   (X11/UTF-8/SGR).
 - **Glyph pipeline:** `terminal::TextLayout` (UAX #29 + width arithmetic, Amendment 17).
+
+  > **[AMENDED 2026-09-13]** terminal::TextLayout was deleted in the AnsiDocument
+  > sprint; the write lane is AnsiDocument → GraphicsContext (drawCells/
+  > drawAttributedText).
 - **Pixel backend:** `jam::vulkan::LowLevelGraphicsContext` — full juce LLGC parity
   (dedicated Glyph/Path/Image/Transparency TUs).
 - **Document engine:** `jam::Document` + domain parsers, CAST-hardened.
@@ -336,6 +352,11 @@ terminal**. Subsystem completeness ≠ architecture proven. The assembly is END.
 1. **THE BUFFER** — the Document-domain content SSOT (§3.3): append-only logical
    attributed lines, message-side, populated from CellFifo drains, serving per-width
    layout derivation. The centerpiece.
+
+   > **[AMENDED 2026-09-15]** Design closed by measurement: Document stays the
+   > SSOT (no rewrite, ARCHITECT-ruled); `Document::Index` supplies lookup and
+   > owns the residency tier (1/16-RAM hot window, watermark eviction,
+   > wire-byte spill, rehydrate). Implementation: PLAN-document-index.md sprint.
 2. **The widget** — plain `juce::Component` editor as pure view over the buffer;
    read-only static mode; zero backend knowledge. Replaces the killed TextEditor/
    MarkdownComponent.
@@ -347,6 +368,16 @@ terminal**. Subsystem completeness ≠ architecture proven. The assembly is END.
    software renderer. Image degradation ladder: Kitty/`END;` protocol where the
    receiver supports it (END itself always does — both ends of the wire are ours),
    half-block cells (▀, 2px/cell) on dumb terminals.
+
+   > **[AMENDED 2026-09-13]** Kitty is ruled dead — stateful, bidirectional,
+   > renderer-aware, not a writer's protocol. The shipped ladder is iTerm2
+   > OSC 1337 (TerminalITerm2Encoder, decoder round-trip proven) + half-block
+   > fallback.
+
+   > **[AMENDED 2026-09-13]** Gap 3 is executed this sprint — all placeholders
+   > resolved under the cell law, proven by the llgc_parity harness. Gap 4
+   > (Vulkan cell-grid adapter) remains open — viewer text currently routes
+   > through stock TextLayout shaping.
 4. **Vulkan cell-grid adapter** — AttributedChar grid → glyph atlas rendering path
    in jam_vulkan (does not exist; endless renders in-app today).
 5. **Markdown as projection into the buffer** — Whelmed's producer: Document parse →
@@ -400,6 +431,13 @@ byte-identical to the original. No surveyed terminal passes this today (§1).
 4. **Scrollback bound / spill-to-storage** — "above the grid is storage"; the
    storage tier (memory cap, disk spill, daemon persistence) is a Nexus-transport
    era decision.
+
+   > **[AMENDED 2026-09-15]** Deferral withdrawn by ARCHITECT. Tier designed and
+   > measured: cold lines spill as ANSI wire bytes (byte-fixpoint proven,
+   > 89 B/line); hot-window budget defaults to 1/16 machine RAM
+   > (config-overridable via `terminal / scrollback_budget_mb`); eviction by
+   > watermark (high = budget, low = 7/8 budget); rehydrate ~100 µs per 50-line
+   > page. Daemon persistence remains Nexus-era.
 
 ---
 

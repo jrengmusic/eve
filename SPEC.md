@@ -87,7 +87,11 @@ layout event only).
    *view's* scrollback access but the SSOT retains the session record for the
    session lifetime. Alternate screen: app-owned, redrawn by the app per VT contract
    (RFC §1 boundary).
-3. **Scrollback:** unbounded in memory for v1 (storage tier deferred, RFC §7.4).
+3. **Scrollback:** unbounded in content, tiered in residency — a hot window
+   (default 1/16 machine RAM, `terminal / scrollback_budget_mb` override) lives
+   in the Document; colder lines spill losslessly to disk as ANSI wire bytes
+   (byte-exact round trip) and rehydrate on access (RFC §7.4 amendment,
+   2026-09-15). No line is ever lost to the tier.
 
 ### Feature 3: Scrollback Navigation
 
@@ -146,7 +150,8 @@ the status area.
 ### Feature 6: Configuration
 
 - Markdown tables + CSS, CAST conventions (palette + appearance custom properties;
-  data tables for keymaps, open-with rules, shell, fonts)
+  data tables for keymaps, open-with rules, shell, fonts, scrollback budget —
+  `terminal / scrollback_budget_mb`)
 - Parse error at launch: EVE starts with defaults and shows
   `config error: <file>:<line> — <message>` in the status area; never fails to launch
 
@@ -155,7 +160,10 @@ the status area.
 Per RFC §3: content SSOT = append-only logical attributed lines (Document-domain,
 message thread); scalar/mode state = lock-free TerminalModel parameters (reader) +
 app state trees (message); active grid = reader-thread transient. Finder state
-(cwd, selection, dock layout) = app-level jam::Model, message thread.
+(cwd, selection, dock layout) = app-level jam::Model, message thread. Line
+lookup and residency tiering = `Document::Index` (message thread), owned by the
+terminal Component's content owner — the Document remains the sole content
+truth.
 
 ## Keyboard Summary
 
