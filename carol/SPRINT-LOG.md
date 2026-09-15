@@ -36,6 +36,67 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Document::Index — Counted B-tree Lookup + Residency Tier (buffer-bench verdict → clean-room jam) ✅
+
+**Date:** 2026-09-15
+**Duration:** one session (spans 2026-09-14 → 15)
+**Plan:** PLAN-buffer-bench.md (executed, then deleted per hygiene ruling — evidence lives in tests/buffer_bench/artifacts/results.md) → PLAN-document-index.md (locked, executed)
+
+### Agents Participated
+- COUNSELOR (fable-5) — two /goplan cycles, ruling relay, per-step validation, two audit triages (41 + 38 findings, all resolved), RFC/SPEC amendments
+- Pathfinder ×2 — harness/Document inventory; Index-sprint discovery (Document internals, EVE config lane)
+- Librarian ×1 (domain-mode) — rope/line-index survey, cited: Boehm–Atkinson–Plass 1995, Ropey, xi-rope, Tatham counted B-tree, JumpRope, Vim memline, VS Code piece tree, Zed SumTree
+- Engineer ×10 waves — bench harness (Steps 1–5 + audit fixes + spill lane), jam Index core, tier, EVE wiring, audit resolution, L extractions + doxygen authoring
+- Auditor ×2 — buffer-bench sweep (NEEDS_WORK, 41 findings) and document-index sweep (NEEDS_WORK, 38 findings); every finding resolved or corrected in-sprint
+
+### Decisions (ARCHITECT-ruled)
+1. Document stays the SSOT — no rewrite; the one-shot AST contract holds; editing is line-level state update, never a second content model.
+2. Name: `Document::Index` (over LineIndex/Line/Lines) — joins Document's nested vocabulary family (Property/Span/Token/Cells).
+3. Full tier inside Index: budget + watermark eviction + wire-byte spill + rehydrate.
+4. Budget default 1/16 machine RAM, ceiling not reservation; EVE override row `scrollbackBudgetMb` (camelCase — ARCHITECT corrected my snake_case); the shipped table was REMOVED so the machine-relative default is the live path.
+5. Spill format: ANSI wire bytes — the byte-fixpoint-proven lane.
+6. Candidate triangle measured (counted B-tree, width skip-list vs bare walk, cached anchor); winner counted B-tree, arity 16; ONE winner ships — no dual mode.
+7. Editor-first build order affirmed (the RFC's own §5.3/§6.1 ordering).
+
+### Files Modified (eve)
+- `tests/buffer_bench/` (NEW) — sandbox harness: CMakeLists.txt, main.cpp, Anchor.h, CountedTree.h, SkipList.h, ProjectInfo.h; artifacts/results.md + per-run files. Measured verdict: index beats every chain strategy 4–5 orders of magnitude at 10⁶–10⁷ lines; spill 89 B/line, rehydrate ~100 µs/50-line page, byte-exact round trip; backward scroll is structurally O(N) on the chain (no prevSibling, jam_Document.h:194-197)
+- `Source/EVEView.h/.cpp` — `documentIndex` (tiered) over ansiDocument; static `getCodec` (jam_terminal encode + AnsiDocument::parse); framework single-call table/row config read; file-scope Identifiers
+- `Source/layout/ViewLayout.md` — net unchanged (terminal table added Step 4, removed at audit per decision 4)
+- `RFC-EVE-terminal-grand-scheme.md` — [AMENDED 2026-09-15] ×3 (§3.3 Index ruling + constants, §5.3 gap 1 closed, §7.4 deferral withdrawn) + sourced-figure correction (310–850 B/line resident, per-run artifacts)
+- `SPEC.md` — Feature 2.3 residency tier ("no line is ever lost to the tier"); Feature 6 override row; State Model Index sentence
+- `PLAN-document-index.md` (NEW, locked); `PLAN-buffer-bench.md` deleted
+
+### Files Modified (jam)
+- See jam/carol/SPRINT-LOG.md Sprint 122 — jam_Document.h (Index surface + doxygen), jam_DocumentIndex.cpp (NEW), jam_core.cpp registration, jam_BinaryCodec.h/.cpp DCF enforcement
+
+### Alignment Check
+- [x] BLESSED — B: Owner<Node> flat ownership, TemporaryFile RAII; S: eviction is whole-Cells state update, residentBytes single owner; E: Codec injected at construction, jam_core gained zero upward includes (layer law audit-verified); L: every function ≤30 lines after addLeaf/addSpan extraction; D: fixed-seed gates, byte-exact spill fixpoint, append/evict interleave gate
+- [x] NAMES.md — ratified set in PLAN-document-index.md plus in-sprint ratifications: appendCarry, addCounts, setCold, addLeaf, addSpan, getPath/getLeftmostHotPath/getResidentBytes
+- [x] CODING.md — audit-verified after resolution of all 38 findings
+- [ ] Doxygen zero-warning UNVERIFIED — regen entry point is nvim `<leader>bd` only (build-doxygen.sh is nvim-state-driven); ARCHITECT runs interactively or accepts author-only
+
+### Problems Solved
+- First bench matrix invalidated (-O0 build + use-after-free in the append lane) — caught by audit, fixed, re-measured at -O3
+- `cells->clear()` retains malloc'd capacity — eviction freed nothing; fixed by whole-object Cells replacement (the plan's own "complete replaces complete")
+- Stale ancestor `isCold` under append/evict interleave (throw path) — setCold recompute + new interleave gate
+- Blank-line rehydrate null dereference — empty parse ⇒ empty Cells, never dereference
+- Hand-rolled config table lookup → framework getTables/getTableRow single calls
+- Unsourced 602 B/line RFC figure → corrected to the sourced 310–850 range
+
+### State for Continuation
+- Verify before acting: buffer_bench, ansi_fixpoint, llgc_parity all exit 0 (2026-09-15); EVE Debug Standalone/VST3/AU link clean
+- `documentIndex` has NO production reader yet — the viewer paints the document directly; viewport-driven paint through getElement is the buffer/widget sprint; an evicted line paints empty until then (unreachable at shipped defaults)
+- Index lifetime contract: raw Element* leaves — rebuild the Index after any re-parse (doxygen states it)
+- CAST identifier-lane residual: "terminal"/"scrollbackBudgetMb" are file-scope statics in EVEView.cpp, not generated Id:: entries
+- Unexplained one-off: one bench run exited 1 with completely empty output, never reproduced
+- First-light goal (HANDOFF.md — EVE renders ls.ansi on screen) still open, untouched by this sprint
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- DEBT-20260908T000000, DEBT-20260908T000001 — standing from the prior ledger; outside this sprint's ARCHITECT-defined scope
+
 ## Sprint: Terminal LLGC Full Feature Parity — One-Shot Viewer + llgc_parity ✅
 
 **Date:** 2026-09-13
@@ -242,59 +303,4 @@
 ### Debts Deferred
 - None
 
-## Sprint: EVE Blank Glass on Vulkan — jam_plugin_bootstrap Document-Driven Rewrite ✅
-
-**Date:** 2026-08-30
-**Duration:** — (multi-session, compacted)
-**Plan:** PLAN-blank-glass-vulkan.md (locked; ARCHITECT re-rulings during execution supersede plan text where noted)
-
-### Agents Participated
-- COUNSELOR — plan authoring, per-step gate validation, audit triage (45 findings), two blocker verifications, three ARCHITECT decision surfaces raised
-- Engineer (six waves) — canon data, jam delete-first, PluginEditorLayout/PluginEditor/ViewManager/ViewEditor rewrite, EVE rewrite, CMake edits, two audit-resolution batches + residue micro-batch
-- Auditor — single sprint-end sweep, 45 findings, all resolved / rejected-with-citation / logged residual
-- Pathfinder — dependency + pattern inventory pre-plan
-
-### Files Modified
-
-**EVE repo:**
-- `Source/layout/interface.md` (new) — canon master: `documents` table (interface.md, style.css), `editor` table (width/height/scale), `formats` table (Standalone VST3 AU — future CAST CMake-generation input)
-- `Source/layout/style.css` (new) — `:root` palette, `.DARK`/`.LIGHT` variants (canon UPPERCASE, ARCHITECT-ruled), mandatory `.appearance`
-- `Source/EVEProcessor.h/.cpp` — rewritten: owns ParameterManager, AudioModel (bypass param), PluginEditorLayout (`files::interfaceLayout`, `BinaryData::fetcher`); constructor seeds appearance + UIScale state children (kuassa `populateTree` twin shape) from `ParameterManager::getDefaultAppearance()/getDefaultScale()`; metadata SSOT via `JucePlugin_Name`/`JucePlugin_VersionString`
-- `Source/EVEView.h/.cpp` — thin `jam::PluginEditor` subclass, ctor calls `initialise()`
-- `CmakeLists.txt` — the CAST target oracle (ARCHITECT-ruled: self-contained single file, full-format plugin + standalone, old BuildSetup/PluginBuilder toolchain dead): +jam_markdown, deleted-source prune, binary glob → layout *.md/*.css
-- `SPEC.md:28` — build line corrected to self-contained CMakeLists
-- Deleted: PanelLayout.html, AboutLayout.html, SettingsLayout.html, metadata.md, DefaultSettings.xml ("if you want defer, delete"), Source/generated/* + EVEViewRegistration/Components/PanelCallbacks
-
-**jam repo:**
-- `jam_plugin_bootstrap/layout/jam_PluginEditorLayout.h` — rewritten: manifest-driven `parseMaster` (documents table → `documentParsers` dispatch keyed on `Extensions::md/html/css`), monolith master via fresh `MarkdownDocument::parse` (owned value member, zero const_cast), CSS sibling via `Css::getOrCreate`
-- `jam_plugin_bootstrap/view/jam_PluginEditor.h` (new) — base editor: `SharedInstance<VulkanEngine>` (primary-display extent), `SharedInstance<StyleManager>`, appearance `juce::Value` listener; `initialise()` = theme → view; size from Document truth (`Id::editor` width/height)
-- `jam_plugin_bootstrap/view/jam_ViewManager.h` / `jam_ViewEditor.h` (new) — stateless `buildView` (editor-table size), root component painting `ResizableWindow::backgroundColourId`
-- `jam_vulkan/context/jam_VulkanGraphics.cpp` — `#if JUCE_WINDOWS` guards on composition barrier calls (guard symmetry audit-verified)
-- Deleted: both jam_Descriptor.h, jam_Registry.h/.cpp ("delete now, rebuild per-need"), jam_Traits.h (all traits orphaned), old view machinery (ViewManager/Editor/Panel/Settings/Content shards, old PluginEditor.h), jam_ViewSize.h, jam_ScaledContent.h, jam_PageSelector.h, jam_ParameterDescriptor.h, jam_Model.inl (+ dead `Model::attach<ManagerType>` declaration), StyleKnob_V1 instantiation, empty registry/ dirs
-- `cast/identifiers.md`, `cast/files.md` — +`documents`/`formats`/`interfaceLayout`; −aboutLayout/defaultSettings/panelLayout/settingsLayout/editorLayout; `jam/generated` regenerated, fixpoint confirmed
-- Doxygen/prose scrub (sanctioned post-audit pass): jam_plugin_bootstrap.h, jam_data_structures.h, jam/.claude/CLAUDE.md — Descriptor vocabulary removed
-
-### Alignment Check
-- [x] BLESSED — B: Processor → PluginEditorLayout → SharedDocuments chain; S/SSOT: Descriptor/NVS carrier tiers deleted, size/appearance truths single-sourced; D: fresh-parse master, no cached-document mutation
-- [x] NAMES.md — ratified set only: interface.md, files::interfaceLayout, documents, description, documentParsers, getMaster, buildView, parseMaster (family-joining)
-- [x] CODING.md — audit-verified: zero `!`/`&&`/`||`, zero raw `[]`, zero bail-outs, zero underscores, zero forward declarations in new files
-- [ ] Runtime verification pending: ARCHITECT builds — glass window appears, `.DARK` background lands, Vulkan swapchain confirmed
-
-### Problems Solved
-- Appearance blocker: EVE seeded no `Id::appearance` state child → empty string → `juce::Identifier{""}` jassert in StyleManager; seeded in EVEProcessor ctor. Vocabulary conflict (map::Appearance "DARK" vs css `.dark`) ruled: **canon is UPPERCASE** — CSS conformed
-- Step 3 first delivery rejected (const_cast mutation of shared cached documents — D violation); rebuilt on owned fresh-parse master (cast Model.h precedent)
-- CMake toolchain misread corrected: PluginBuilder/AppBuilder/Metadata.cmake are the abandoned toolchain; EVE's inline single-file CMakeLists **is** the CAST target oracle
-
-### Debts Paid
-- None (DEBT.md empty)
-
-### Debts Deferred (ARCHITECT-ruled)
-- kuassa GlyphArrangement shape()/shapeRow() asymmetry — "we deal with it later, when we reach EVE's TextEditor"
-- EVE settings as markdown — deferred-by-deletion ruling
-- CAST generates EVE's CMakeLists.txt + CAST release binary into toolchain — phase-1 goal after glass window (ARCHITECT's standing reminder)
-
-### Residuals for ARCHITECT
-- `CmakeLists.txt` → `CMakeLists.txt` rename (git mv, ARCHITECT's hands)
-- `scale` row (editor table) and `formats` table currently reader-less — kept as declared future inputs (UIScale machinery / CAST CMake generation)
-- CMake oracle findings left as oracle-shape decisions: binary glob (fonts ride BinaryData for `BinaryData::fetcher`), module set (jam_dsp/jam_animation/jam_debug reachability unproven), spv/ttf dual embedding (jam + BinaryData namespaces)
-- Doxygen regen for deleted jam symbols (zero-warning policy check at next jam doc build)
+*(older sprints rotated to git history)*

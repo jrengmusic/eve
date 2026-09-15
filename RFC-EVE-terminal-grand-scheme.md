@@ -181,8 +181,10 @@ Precedent at production scale: iTerm2's LineBuffer (§1).
 > nested counted B-tree (arity 16) over the line-element chain, index-only
 > (Element* leaves, zero content copies). Cold jump and scroll beat every
 > chain-only strategy by 4–5 orders of magnitude at 10⁶–10⁷ lines; append tax
-> nil. Measured constants: 602 B/line resident, 89 B/line wire-encoded,
-> ~100 µs cold-page rehydrate, spill write ≥1.2 M lines/s.
+> nil. Measured constants: 310–850 B/line resident (varies with measurement
+> point across runs — results.md:3, results-run1.md:3, results-run2.md:3),
+> 89 B/line wire-encoded, ~100 µs cold-page rehydrate, spill write
+> ~1.2 M lines/s.
 
 ### 3.4 TerminalParser is already a Document-domain parser
 
@@ -435,7 +437,7 @@ byte-identical to the original. No surveyed terminal passes this today (§1).
    > **[AMENDED 2026-09-15]** Deferral withdrawn by ARCHITECT. Tier designed and
    > measured: cold lines spill as ANSI wire bytes (byte-fixpoint proven,
    > 89 B/line); hot-window budget defaults to 1/16 machine RAM
-   > (config-overridable via `terminal / scrollback_budget_mb`); eviction by
+   > (config-overridable via `terminal / scrollbackBudgetMb`); eviction by
    > watermark (high = budget, low = 7/8 budget); rehydrate ~100 µs per 50-line
    > page. Daemon persistence remains Nexus-era.
 

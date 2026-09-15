@@ -1,6 +1,9 @@
 #include "EVEView.h"
 #include "EVEProcessor.h"
 
+static const juce::Identifier terminalTableId { "terminal" };
+static const juce::Identifier scrollbackBudgetMbRowId { "scrollbackBudgetMb" };
+
 EVEView::EVEView (jam::AudioModel& newModel,
                   jam::PluginEditorLayout& newLayout,
                   juce::AudioProcessor& processorToConnectTo)
@@ -47,17 +50,17 @@ void EVEView::initialiseView()
             documentIndex = std::make_unique<jam::Document::Index> (ansiDocument, getCodec());
 
             const auto& viewLayoutDocument { jam::MarkdownDocument::getOrCreate (juce::Identifier { files::viewLayout }) };
-            const juce::Identifier terminalTableId { "terminal" };
-            const juce::Identifier scrollbackBudgetMbRowId { "scrollback_budget_mb" };
             constexpr juce::int64 bytesPerMegabyte { 1024 * 1024 };
 
-            for (auto* table : viewLayoutDocument.getTables())
-                if (table->id == terminalTableId)
-                    for (auto* row : viewLayoutDocument.getTableRows (*table))
-                        if (row->id == scrollbackBudgetMbRowId)
-                            if (const auto scrollbackBudgetMegabytes { jam::Format::getNumber (viewLayoutDocument.getTableValueView (*row, Id::value)) };
-                                scrollbackBudgetMegabytes > 0)
-                                documentIndex->setBudget (scrollbackBudgetMegabytes * bytesPerMegabyte);
+            for (auto* table : viewLayoutDocument.getTables (terminalTableId))
+                if (auto* row { viewLayoutDocument.getTableRow (*table, scrollbackBudgetMbRowId) })
+                {
+                    const auto scrollbackBudgetMegabytes { jam::Format::getNumber (viewLayoutDocument.getTableValueView (*row, Id::value)) };
+                    jassert (scrollbackBudgetMegabytes > 0);
+
+                    if (scrollbackBudgetMegabytes > 0)
+                        documentIndex->setBudget (scrollbackBudgetMegabytes * bytesPerMegabyte);
+                }
 
             break;
         }
@@ -79,18 +82,17 @@ jam::Document::Index::Codec EVEView::getCodec()
 
                   return juce::MemoryBlock (rowText.data(), rowText.size());
               },
-              [] (jam::Document::Element& element, const void* wireBytes, size_t byteLength)
+              [] (jam::Document::Element& element, const juce::MemoryBlock& wireBytes)
               {
                   const auto lineDocument { jam::AnsiDocument::parse (juce::String::fromUTF8 (
-                      static_cast<const char*> (wireBytes), static_cast<int> (byteLength))) };
+                      static_cast<const char*> (wireBytes.getData()), static_cast<int> (wireBytes.getSize()))) };
                   auto* decodedLine { lineDocument.root->firstChild };
-                  jassert (decodedLine != nullptr);
-
                   auto* cells { element.get<jam::Document::Cells> (Id::cells) };
-                  cells->clear();
 
-                  for (const auto& cell : *decodedLine->get<jam::Document::Cells> (Id::cells))
-                      cells->add (cell);
+                  if (decodedLine != nullptr)
+                      *cells = std::move (*decodedLine->get<jam::Document::Cells> (Id::cells));
+                  else
+                      *cells = jam::Document::Cells {};
               } };
 }
 

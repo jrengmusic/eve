@@ -88,7 +88,7 @@ layout event only).
    session lifetime. Alternate screen: app-owned, redrawn by the app per VT contract
    (RFC §1 boundary).
 3. **Scrollback:** unbounded in content, tiered in residency — a hot window
-   (default 1/16 machine RAM, `terminal / scrollback_budget_mb` override) lives
+   (default 1/16 machine RAM, `terminal / scrollbackBudgetMb` override) lives
    in the Document; colder lines spill losslessly to disk as ANSI wire bytes
    (byte-exact round trip) and rehydrate on access (RFC §7.4 amendment,
    2026-09-15). No line is ever lost to the tier.
@@ -151,7 +151,7 @@ the status area.
 
 - Markdown tables + CSS, CAST conventions (palette + appearance custom properties;
   data tables for keymaps, open-with rules, shell, fonts, scrollback budget —
-  `terminal / scrollback_budget_mb`)
+  `terminal / scrollbackBudgetMb`)
 - Parse error at launch: EVE starts with defaults and shows
   `config error: <file>:<line> — <message>` in the status area; never fails to launch
 

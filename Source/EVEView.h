@@ -20,7 +20,7 @@ private:
 
     void resized() override;
 
-    jam::Document::Index::Codec getCodec();
+    static jam::Document::Index::Codec getCodec();
 
     //==============================================================================
     jam::AnsiDocument ansiDocument;

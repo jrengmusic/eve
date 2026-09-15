@@ -62,14 +62,16 @@ eve+jam files touched (sandbox excluded); /log when done.
 - New domain verbs, explicitly flagged for this ratification: `evict`,
   `rehydrate` (private tier operations — no fixed-set verb states these
   operations; tiering is a new domain).
-- Constants: `arity { 16 }` (bench: top-2 at 10⁶/10⁷ both runs),
+- Constants: `arity { 16 }` (bench: top-2 on the scroll workloads at 10⁶/10⁷;
+  coldJump ranks 1st–3rd across runs, all arities within noise),
   `defaultBudgetDenominator { 16 }`, `lowWatermarkNumerator { 7 }` /
   `lowWatermarkDenominator { 8 }`, `rehydratePageLineCount { 50 }`.
 - Members: `nodes` (jam::Owner<Node> — flat ownership, Node children are
   non-owning Node*, the sandbox's proven anti-recursion shape), `codec`,
   `spillFile`, `budgetBytes`, `residentBytes`.
-- EVE config: table `terminal`, row `scrollback_budget_mb` (data-lane name,
-  UI_size sibling shape).
+- EVE config: table `terminal`, row `scrollbackBudgetMb` (ARCHITECT-corrected:
+  row family is `width`/`height` — camelCase data lane, not the table heading's
+  shape).
 
 ## Validation Gate
 
@@ -90,8 +92,9 @@ measurement, sandbox verdict cited; §7.4 — storage tier designed: wire-byte
 spill, 1/16-RAM hot window, watermark eviction (deferral withdrawn by
 ARCHITECT). SPEC.md: Feature 2.3 amended — scrollback unbounded in CONTENT,
 tiered in residency (hot window default 1/16 machine RAM, cold lines lossless
-on disk, byte-exact round trip); Feature 6 table gains the
-`terminal / scrollback_budget_mb` row. Delete PLAN-buffer-bench.md (content
+on disk, byte-exact round trip); Feature 6 list gains the
+`terminal / scrollbackBudgetMb` override row (documented, not shipped —
+shipping a value would kill the 1/16 machine-relative default ARCHITECT ruled). Delete PLAN-buffer-bench.md (content
 lives in the sprint log and results.md).
 **Validation:** every amendment traces to a ruling or a measured number in
 results.md; no prose contradicts RFC §8 non-negotiables.
@@ -136,7 +139,7 @@ sum at gate points.
 **Action:** EVEView owns a Document::Index over its ansiDocument; codec wired
 from jam_terminal encode lane + AnsiDocument::parse (EVE sits above both
 layers — legal). ViewLayout.md gains the `terminal` table with
-`scrollback_budget_mb`; EVEView reads it via the bootstrap markdown lane
+`scrollbackBudgetMb`; EVEView reads it via the bootstrap markdown lane
 (getTableValueView) and calls setBudget only when the row is present —
 configure only the difference (CODING.md).
 **Validation:** EVE Debug all-formats configure + EVE_Standalone build green;

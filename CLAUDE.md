@@ -1,6 +1,6 @@
 # EVE — JUCE Audio Plugin Project
 
-**MACHINIST synthesis from: project-info.md, CMakeLists.txt, git status**
+**MACHINIST synthesis: 2026-09-15 — project-info.md, CMakeLists.txt, SPEC.md, SPRINT-LOG.md, DEBT.md**
 
 ---
 
@@ -13,7 +13,7 @@
 | **Type** | JUCE Audio Plugin — Effect (Fx) |
 | **Formats** | Standalone, VST3, AU, AAX |
 | **Stack** | C++17, JUCE 8.0.14, JAM framework, Vulkan renderer |
-| **Build** | CMake 4.2.0+ / Ninja, single-file manifest (CAST-generated) |
+| **Build** | CMake 4.2.0+ / Ninja, CAST-generated single-file manifest (project-info.md SSOT) |
 | **Platforms** | macOS 11.0+ (x86_64 + arm64), Windows (MSVC) |
 | **Root** | `/Users/jreng/Documents/Poems/dev/eve` |
 | **Company** | JRENG (Jubilant Research of Eclectic Novelty Generation) |
@@ -24,136 +24,130 @@
 
 ## Current State
 
-**Last Work:** 2026-09-02 — EVEView lifecycle + manifest hygiene, LookAndFeel unset, EVE residue cleanup
+**Last Sprint:** Terminal LLGC Full Feature Parity — One-Shot Viewer + llgc_parity ✅ (2026-09-13, one session)
+- EVEView one-shot viewer integrated; ansiDocument + terminalView fixture; llgc_parity proof harness (four suites); full module parity with jam_terminal writer
+- Agents: COUNSELOR (fable-5), Librarian ×1, Pathfinder ×4, Engineer ×9 waves, Auditor ×1
+- Alignment: BLESSED verified; NAMES ratified; harness three-run byte-identical
+
+**Active ODE:** None declared
+
+**Active Debt:** Two deferred entries (enter next EVE sprint per JRENG law)
+- DEBT-20260908T000000 — Editor lane join: component.md z/primary + ViewLayout.svg numbered ids
+- DEBT-20260908T000001 — Processor registries: getter and chain-event types (EVEAudioProcessor registry retype to match jam's new Function::Map/Function::Array shapes)
 
 **Branch:** main (active development)
 
-**Outstanding:** None declared — SPEC.md present; ARCHITECTURE.md not present (EVE project artifacts remain in working tree; cleanup in progress per commit 264889a)
+**Build Status:** Ready — CMakeLists.txt generated from project-info.md; all targets link clean (Debug)
 
-**Build Status:** Ready — CMakeLists.txt generated from project-info.md (CAST Projucer oracle)
+**Documentation:**
+- SPEC.md (0.0.1, normative) ✓
+- RFC-EVE-terminal-grand-scheme.md (architecture, evidence, non-negotiables) ✓
+- PLAN-terminal-llgc-parity.md (locked) ✓
+- PLAN-ansidocument.md (locked) ✓
+- ARCHITECTURE.md (not present — not yet written)
 
 ---
 
 ## Layer Order & Key Directories
 
-### 1. JUCE + Patches
-- Base: `../../JUCE` (8.0.14, patched in-place to `/tmp/juce-patched` at configure time)
-- **Patches applied (5):**
-  - `juce-cached-image-factory-hook.patch` — External CachedComponentImage factory
-  - `juce-direct2d-helpers-visibility-hook.patch` — Direct2D visibility gate
-  - `juce-image-subsection-hook.patch` — Root image + subsection bounds hooks
-  - `juce-vulkan-engine-hook.patch` — External graphics context factory for Vulkan
-  - `juce-paint-update-rect-hook.patch` — OS dirty rectangle before native paint
+### 1. JUCE Base + Patches (8.0.14, in-place patched to `/tmp/juce-patched`)
+
+**Six patches applied:**
+1. `juce-cached-image-factory-hook.patch` — External CachedComponentImage factory
+2. `juce-direct2d-helpers-visibility-hook.patch` — Direct2D visibility gate
+3. `juce-image-subsection-hook.patch` — Root image + subsection bounds hooks
+4. `juce-vulkan-engine-hook.patch` — External graphics context factory for Vulkan
+5. `juce-paint-update-rect-hook.patch` — OS dirty rectangle before native paint
+6. `juce-attributed-text-hook.patch` — Attributed text integration
+
+**Location:** `../../JUCE` (sibling to eve directory)
 
 ### 2. JAM Framework Modules (read-only, user modules)
-- **Core:** jam_core, jam_debug, jam_data_structures
-- **DSP:** jam_dsp (filters, waveshaping, hysteresis, transient, oversampling, FIR, noise, spectrum)
-- **Graphics:** jam_graphics (blur, shadows, colours, fonts, mesh), jam_vulkan (GPU), jam_freetype (font rasterization)
-- **UI:** jam_gui (Window, Modal, Glass), jam_animation (Animator, AnimationBase, AnimationScrollingText), jam_style (LookAndFeel + ColourScheme registry)
-- **Parsing:** jam_markdown (CommonMark + GFM), jam_web (HTML + CSS Level 3 subset)
-- **Plugin:** jam_plugin_bootstrap (document-driven, style management, editor base, standalone shell)
-- **Path:** `../jam/` (sibling to eve)
+
+**Core:** jam_core, jam_debug, jam_data_structures
+
+**DSP:** jam_dsp (filters, waveshaping, hysteresis, transient, oversampling, FIR, noise, spectrum)
+
+**Graphics:** jam_graphics (blur, shadows, colours, fonts, mesh), jam_vulkan (GPU), jam_freetype (font rasterization)
+
+**UI:** jam_gui (Window, Modal, Glass), jam_animation (Animator, AnimationBase, AnimationScrollingText), jam_style (LookAndFeel + ColourScheme registry)
+
+**Parsing:** jam_markdown (CommonMark + GFM), jam_web (HTML + CSS Level 3 subset), **jam_terminal (first consumer via eve harness)**
+
+**Plugin:** jam_plugin_bootstrap (document-driven, style management, editor base, standalone shell)
+
+**Path:** `../jam/` (sibling to eve)
 
 ### 3. EVE Application
 
 | File | Purpose |
 |------|---------|
-| `Source/EVEProcessor.h/.cpp` | AudioProcessor subclass, parameter manager, plugin state |
-| `Source/EVEView.h/.cpp` | Editor component (jam_plugin_bootstrap base) |
+| `Source/EVEAudioProcessor.h` | AudioProcessor subclass, parameter manager, plugin state |
+| `Source/EVEProcessor.h/.cpp` | Processor implementation |
+| `Source/EVEView.h/.cpp` | Editor component (jam_plugin_bootstrap base); one-shot viewer fixture |
 | `Source/generated/` | CAST code-generation output (build-time) |
-| `Source/layout/` | **Canonical UI definitions:** markdown tables (interface.md), CSS (style.css), XML (config) — fonts glob from `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`, not here |
+| `Source/layout/DefaultSettings.xml` | Plugin state defaults |
+| `Source/layout/style.css` | Canonical UI style |
+| `Source/layout/ViewLayout.md` | Canonical layout metadata (rows are component records) |
+| `Source/layout/interface.md` | (if present) interface definition |
 
-### 4. Build Manifesto
+### 4. Test Harnesses (formal proofs)
+
+| Path | Purpose |
+|------|---------|
+| `tests/ansi_fixpoint/` | AnsiDocument fixpoint loop (parse → validate → derive → emit → re-parse → byte-compare); fixtures: `ls.ansi`, `wide.ansi`, `grapheme.ansi`, `hyperlink.ansi`, `colon.ansi`, `invalid/unterminated.ansi` |
+| `tests/llgc_parity/` | Four-suite LLGC proof: (1) native-component byte-fixpoint + text oracle, (2) software-renderer pixel oracle (AA-boundary exemptions), (3) image round-trip (OSC 1337), (4) rounded-rect inheritance + transparency. Artifacts dump to `artifacts/*.ansi`. |
+
+### 5. Build Manifesto
 
 | File | Purpose |
 |------|---------|
-| `project-info.md` | **SSOT for all build metadata** — project name, version, company, formats, signing, compiler flags, module list, CMake defines, architecture list |
-| `CMakeLists.txt` | **Generated from project-info.md** (CAST oracle, Projucer equivalent) — self-contained single file, zero external cmake modules, exact JUCE version gate |
-| `cast/` | CAST identifiers table (future: generate CMakeLists.txt + metadata headers) |
-| `entitlements.plist` | macOS code-signing entitlements |
+| `project-info.md` | **SSOT for all build metadata** — project name, version, company, formats, signing, compiler flags, module list, CMake defines, architecture list, patch table |
+| `CMakeLists.txt` | **Generated from project-info.md** (CAST oracle) — self-contained single file, zero external cmake modules, exact JUCE version gate, format targets |
+| `cast/cmake.cast` | CAST identifiers table (generates CMakeLists.txt + metadata headers) |
+| `entitlements.plist` | macOS code-signing entitlements (Release builds only) |
 
-### 5. Build Directories (generated)
+### 6. Generated Build Directories
 
-- `Builds/Release` — CMake build output, optimized
-- `Builds/Debug` — CMake build output, debug symbols
-- `~/Library/Audio/Plug-Ins/VST3/`, `~/Library/Audio/Plug-Ins/Components/`, `/Library/Application Support/Avid/Audio/Plug-Ins/` — installed formats (macOS)
+- `Builds/Release` — CMake build output, optimized, LTO enabled
+- `Builds/Debug` — CMake build output, debug symbols, LTO disabled
+- `~/Library/Audio/Plug-Ins/VST3/EVE.vst3` — VST3 format (macOS)
+- `~/Library/Audio/Plug-Ins/Components/EVE.component` — AU format (macOS)
+- `/Library/Application Support/Avid/Audio/Plug-Ins/EVE AAX` — AAX format (macOS)
 
 ---
 
-## Build Configuration
+## Key Documentation Table
 
-**CMake Oracle:** project-info.md (every build value traces to one table row)
+| Document | Role | Status |
+|----------|------|--------|
+| SPEC.md | Normative specification (0.0.1) | Written ✓ |
+| RFC-EVE-terminal-grand-scheme.md | Architecture, evidence, non-negotiables | Referenced from SPEC ✓ |
+| PLAN-terminal-llgc-parity.md | Implementation plan (locked) | Executed ✓ |
+| PLAN-ansidocument.md | Implementation plan (locked) | Executed ✓ |
+| ARCHITECTURE.md | System architecture (persistent) | **Not yet written** |
+| SPRINT-LOG.md | Cross-session work log | Active (project root, carol/) |
+| DEBT.md | Inter-sprint ledger | Active (project root, two entries deferred) |
 
-### Formats & Install Paths
+---
 
-| Format | Bundle Pattern | Install Directory |
-|--------|---|---|
-| Standalone | EVE | (none) |
-| VST3 | EVE.vst3 | ~/Library/Audio/Plug-Ins/VST3 |
-| AU | EVE.component | ~/Library/Audio/Plug-Ins/Components |
-| AAX | EVE AAX | /Library/Application Support/Avid/Audio/Plug-Ins |
-
-### Compiler Flags
+## Compiler Flags & Configuration
 
 **macOS Release:** `-O3 -flto=thin -Wno-{shadow,unused-parameter,float-equal,sign-conversion,switch-enum,implicit-float-conversion} -dead_strip`
 
-**Windows Release:** `/O2 /GL /permissive- /Zc:rvalueCast /W4 /FC /wd{4456,4459,4100,4189,4505,4267,4065,4244,4996,4611,4324,4200,4702}` + linker `/LTCG /OPT:{REF,ICF}`
+**Windows Release:** `/O2 /GL /permissive- /Zc:rvalueCast /W4 /FC /wd{...}` + linker `/LTCG /OPT:{REF,ICF}`
 
 **Debug:** `-O0 -g` (macOS) or `/Od /Zi` (Windows) + same warning suppression
-
-### Defines (CMake generator expressions)
-
-| Define | Value | Context |
-|--------|-------|---------|
-| DONT_SET_USING_JUCE_NAMESPACE | 1 | All |
-| JAM_USING_OVERSAMPLING | 0 | All |
-| JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP | 1 | All |
-| JUCE_STRICT_REFCOUNTEDPOINTER | 1 | All |
-| JUCE_WEB_BROWSER, JUCE_USE_CURL | 0 | All |
-| DEBUG | 1 | Debug only |
-| NDEBUG | 1 | Release only |
-| WIN32_LEAN_AND_MEAN, NOMINMAX, _WIN32_IE | platform-specific | Windows only |
-| JUCE_GRAPHICS_INCLUDE_DIRECT2D_HELPERS | 1 | Windows only (jam patch hook) |
-
-### Shaders & Resources
-
-**Shader Compilation:** glslc (Vulkan SDK) compiles *.vert, *.frag, *.comp → *.spv (CONFIGURE_DEPENDS tracked)
-
-**Binary Data:** Embedded into plugin binary:
-- `BinaryData` namespace: layout (*.md, *.css, *.xml), fonts (*.ttf), shaders (*.spv)
-- `jam::fonts::*` namespace: fonts for jam_graphics
-- `jam::*` namespace: compiled shaders for jam_vulkan
-
-### LTO & IPO
-
-- **Release build:** LTO enabled (`-flto=thin` macOS, `/GL` MSVC); IPO checked and applied if supported
-- **Debug build:** LTO disabled
-
-### macOS Signing & Notarization (Release builds only)
-
-**VST3 / AU:**
-1. Remove extended attributes (`xattr -cr`)
-2. Code-sign with entitlements (`codesign --force --options runtime --entitlements`)
-3. Verify signature (`codesign --verify`)
-4. Zip and notarize (`xcrun notarytool submit --wait`)
-5. Staple ticket (`xcrun stapler staple`)
-6. Archive to QA directory (`~/Documents/Poems/dev/___builds___`)
-
-**AAX:**
-1. Wrap-sign (`wraptool sign --account bayu@jrengmusic.com`)
-2. Auto-notarize via PACE keychain profile
-
-**Windows:** No signing configured
 
 ---
 
 ## Doxygen
 
-**Status:** Not configured at project level. JAM modules include doxygen setup independently.
+**EVE Project:** Zero doxygen blocks. Plugin-specific docs deferred; framework docs owned by JAM modules.
 
-**EVE project:** Zero doxygen blocks (plugin-specific docs deferred; framework docs in jam modules).
+**JAM Framework:** Doxygen setup independent at framework level. Last full pass completed in sprint 116 (ansidocument sprint, 2026-09-13) — zero warnings (doxygen 1.18.0).
 
-**Activation:** If needed, coordinate with JAM doxygen rebuild (shared `~~~lib~~~` at framework level).
+**Activation:** If EVE doxygen needed, coordinate with JAM doxygen rebuild (shared `~~~lib~~~` at framework level). No EVE-specific doxygen XML generated at this time.
 
 ---
 
@@ -165,13 +159,22 @@
 
 3. **Paths Resolved Once:** JUCE, JAM modules, Vulkan SDK paths set at CMake configure time (generator expressions route platform/config flags downstream).
 
-4. **LSP False Positives:** JUCE module system (intricate includes) produces LSP errors; compiler sees green. Ignore LSP errors in-editor.
+4. **LSP False Positives:** JUCE module system produces LSP errors; compiler sees green. Ignore LSP errors in-editor.
 
 5. **Module Availability:** jam_* modules included via `juce_add_module()` at configure time; if a jam module is missing or misconfigured, CMakeLists fails at add_module step.
 
 6. **Format Targets:** Each format is a separate CMake target (e.g., `EVE_VST3`, `EVE_AU`); all inherit source list and common flags from main `EVE` target.
 
 7. **No External Cmake Files:** CMakeLists.txt is self-contained; zero FindXXX scripts or ToolchainFiles; all paths absolute or computed from CMAKE_CURRENT_SOURCE_DIR.
+
+8. **Compiler Flags:**
+   - **macOS Release:** `-O3 -flto=thin -Wno-{shadow,unused-parameter,float-equal,sign-conversion,switch-enum,implicit-float-conversion} -dead_strip`
+   - **Windows Release:** `/O2 /GL /permissive- /Zc:rvalueCast /W4 /FC /wd{...}` + linker `/LTCG /OPT:{REF,ICF}`
+   - **Debug:** `-O0 -g` (macOS) or `/Od /Zi` (Windows) + same warning suppression
+
+9. **Shader Compilation:** glslc (Vulkan SDK) compiles *.vert, *.frag, *.comp → *.spv; CONFIGURE_DEPENDS tracked.
+
+10. **Code-Signing (Release macOS only):** VST3/AU signed + notarized; AAX wrapped via wraptool with PACE keychain profile.
 
 ---
 

@@ -517,7 +517,7 @@ static bool addSpillRows (const jam::AnsiDocument& appendDocument, const jam::Ar
     return rehydrateCorrect and gateCorrect;
 }
 
-static bool isDocumentIndexCorrect (const jam::Document::Index& index, const jam::AnsiDocument& appendDocument, const jam::Array<int>& targets)
+static bool isDocumentIndexCorrect (jam::Document::Index& index, const jam::AnsiDocument& appendDocument, const jam::Array<int>& targets)
 {
     auto correctnessMatches { true };
 
@@ -558,10 +558,10 @@ static juce::MemoryBlock encodeLineForIndex (const jam::Document::Element& eleme
     return juce::MemoryBlock (lineBytes.data(), lineBytes.size());
 }
 
-static void decodeLineForIndex (jam::Document::Element& element, const void* wireBytes, size_t byteLength)
+static void decodeLineForIndex (jam::Document::Element& element, const juce::MemoryBlock& wireBytes)
 {
     auto pageDocument { jam::AnsiDocument::parse (juce::String::fromUTF8 (
-        static_cast<const char*> (wireBytes), static_cast<int> (byteLength))) };
+        static_cast<const char*> (wireBytes.getData()), static_cast<int> (wireBytes.getSize()))) };
     auto* decodedLine { getElementAt (pageDocument, 0) };
     auto* cells { element.get<jam::Document::Cells> (Id::cells) };
 
@@ -571,7 +571,7 @@ static void decodeLineForIndex (jam::Document::Element& element, const void* wir
         cells->add (cell);
 }
 
-static bool isTierCorrect (const jam::Document::Index& tierIndex, const jam::AnsiDocument& tierDocument,
+static bool isTierCorrect (jam::Document::Index& tierIndex, const jam::AnsiDocument& tierDocument,
     const jam::Array<juce::MemoryBlock>& originalLineBytes, const jam::Array<int>& coldJumpTargets, int lineCount)
 {
     static constexpr int rehydratePageLineCount { 50 };
@@ -656,6 +656,43 @@ static bool addDocumentIndexTierRows (int lineCount, const jam::Array<int>& cold
     return correctnessMatches;
 }
 
+static bool addDocumentIndexInterleaveRows (const jam::Array<int>& coldJumpTargets, juce::StringArray& reportRows)
+{
+    static constexpr juce::int64 interleaveBudgetBytes { 4 * 1024 };
+    static constexpr int interleaveLineCount { 4000 };
+    static constexpr int interleaveBatchLineCount { 4 };
+
+    jam::AnsiDocument interleaveDocument;
+    jam::Array<juce::MemoryBlock> originalLineBytes;
+
+    const jam::Document::Index::Codec codec { encodeLineForIndex, decodeLineForIndex };
+    jam::Document::Index interleaveIndex { interleaveDocument, codec };
+    interleaveIndex.setBudget (interleaveBudgetBytes);
+
+    const auto interleaveStartTime { std::chrono::steady_clock::now() };
+
+    for (int lineNumber { 0 }; lineNumber < interleaveLineCount; ++lineNumber)
+    {
+        auto* newElement { appendGeneratedLine (interleaveDocument, lineNumber) };
+        originalLineBytes.add (encodeLineForIndex (*newElement));
+        interleaveIndex.appendLine (newElement);
+
+        if ((lineNumber + 1) % interleaveBatchLineCount == 0)
+            interleaveIndex.getElement (lineNumber);
+    }
+
+    const auto interleaveSeconds { getElapsedSeconds (interleaveStartTime) };
+    addReportRow (reportRows, "interleave", "documentIndex", interleaveLineCount, interleaveSeconds, interleaveLineCount);
+
+    jam::Array<int> interleaveTargets;
+
+    for (const auto targetLineNumber : coldJumpTargets)
+        if (targetLineNumber >= 0 and targetLineNumber < interleaveLineCount)
+            interleaveTargets.add (targetLineNumber);
+
+    return isTierCorrect (interleaveIndex, interleaveDocument, originalLineBytes, interleaveTargets, interleaveLineCount);
+}
+
 static bool addWorkloadRows (jam::AnsiDocument& appendDocument, double appendElapsedSeconds, int lineCount, juce::StringArray& reportRows)
 {
     const auto populationPassed { addPopulationRows (appendDocument, appendElapsedSeconds, lineCount, reportRows) };
@@ -681,7 +718,10 @@ static bool addWorkloadRows (jam::AnsiDocument& appendDocument, double appendEla
     auto tierPassed { true };
 
     if (lineCount == tierValidationLineCount)
+    {
         tierPassed = addDocumentIndexTierRows (lineCount, coldJumpTargets, reportRows);
+        tierPassed = addDocumentIndexInterleaveRows (coldJumpTargets, reportRows) and tierPassed;
+    }
 
     return populationPassed and candidatesPassed and documentIndexPassed and spillPassed and tierPassed;
 }
