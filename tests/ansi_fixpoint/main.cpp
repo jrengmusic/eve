@@ -182,14 +182,14 @@ static bool isFlagVocabularyFixpointStable()
 {
     bool allStable { true };
 
-    for (const auto& [flagValue, wireCode] : jam::Stamp::sgrFlagCodes)
+    for (const auto& [flagValue, wireCode] : jam::AnsiDocument::sgrFlagCodes)
     {
         jam::Stamp::Entry entry;
         entry.flags = flagValue;
         allStable = isStampEntryFixpointStable ("sgrFlag" + juce::String (wireCode), entry) and allStable;
     }
 
-    for (const auto& [flagValue, wireValue] : jam::Stamp::underlineStyleCodes)
+    for (const auto& [flagValue, wireValue] : jam::AnsiDocument::underlineStyleCodes)
         if (flagValue != jam::Stamp::underlineNone)
         {
             jam::Stamp::Entry entry;
