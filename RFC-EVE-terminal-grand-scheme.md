@@ -317,6 +317,12 @@ Any format should ultimately be supportable; CLAP is primary.
 | Remnant | Why |
 |---|---|
 | `jam::TextEditor` (jam_terminal/widgets/jam_TextEditor.h, 41 lines) | Base-only, no editing machinery; its contract is a `readOnly` flag + the `getTerminalContext` dynamic_cast leak (:31-34). One subclass. |
+
+> **[EXECUTED 2026-09-20]** The video lane (`jam_terminal/video/**`,
+> `transport/jam_TerminalCellFifo.h`, `jam_graphics/text/jam_Row.h`,
+> `jam_TerminalLine.h`) and `jam_terminal/model/jam_TerminalModel.*` are
+> deleted. The terminal seam is rebuilt later, against Document and
+> TextEditor.
 | `jam::MarkdownComponent` (43 + 279 lines) | Dual-path paint branching per block on backend; colours baked at construction from the wrong LookAndFeel (jam_MarkdownComponent.cpp:5-7 — the 601-assert bug, unfixable in this shape). |
 | `jam::MarkdownProjection` | Blocks store **resolved** colours (jam_MarkdownProjection.cpp:45-185) — appearance materialised into the Model. The projection concept survives; this implementation dies. |
 
@@ -405,6 +411,27 @@ terminal**. Subsystem completeness ≠ architecture proven. The assembly is END.
    >
    > The ARCHITECTURE is designed correctly this time: a vim-based TextEditor;
    > the terminal is its client.
+
+   > **[AMENDED 2026-09-20 — texteditor-foundation sprint]** Gap 2's mandate
+   > is executed as the foundation. `jam::TextEditor` moved to `jam_gui`; the
+   > Document and the codec are injected, and EVE owns the `AnsiDocument`.
+   > The widget paints through `GlyphArrangement` (`clear`/`shape`/`arrange`/
+   > `draw`), with cell metrics read from the LookAndFeel
+   > (`StyleCustom::getMonoMetrics`). `Document::Index` is the sole wrap
+   > owner.
+   >
+   > The editor is the plugin's main view — a sibling of `ViewEditor`. The
+   > status bar is the bottom `ViewPanel` row, wired through the Registry.
+   > State lives on the `MODE` parameter node (SPEC.md, State Model).
+   >
+   > The vim foundation covers: modes; counts; motions (`h j k l w b e 0 $
+   > gg G ctrl+u ctrl+d`); operators `d c y x p P`; `dd`, `cc`, `yy`; `o O i
+   > a I A`; visual character, line, and block selection with `d c y`; undo
+   > and redo as line-granular `juce::UndoableAction` transactions. Keys
+   > come from `eve.md` `## keys`.
+   >
+   > Open items, not yet ruled: cursor shape as an arbitrary codepoint, and
+   > the terminal-usage defaults (always insert mode, hidden status bar).
 3. **Terminal LLGC completion** — geometry parity only (text goes through jam's
    pipeline, §3.6). Six stubs at jam_TerminalGraphicsContext.h: `fillPath`/
    `clipToPath` (:344, :332), `drawImage`/`clipToImageAlpha` (:345, :333),

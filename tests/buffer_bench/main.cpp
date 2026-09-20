@@ -630,11 +630,11 @@ static bool isTierCorrect (jam::Document::Index& tierIndex, const jam::AnsiDocum
             if (const auto* cells { line->get<jam::Document::Cells> (Id::cells) }; cells->size() > 0)
                 recomputedResidentBytes += static_cast<juce::int64> (cells->size()) * static_cast<juce::int64> (sizeof (jam::AttributedChar));
 
-    const auto residentBytesMatch { recomputedResidentBytes == tierIndex.getResidentBytes() };
+    const auto residentBytesMatch { recomputedResidentBytes == tierIndex.getNumBytes() };
 
     if (not residentBytesMatch)
         std::cerr << "documentIndex tier resident bytes mismatch: recomputed " << recomputedResidentBytes
-                   << " vs reported " << tierIndex.getResidentBytes() << std::endl;
+                   << " vs reported " << tierIndex.getNumBytes() << std::endl;
 
     return tierCorrect and residentBytesMatch;
 }
@@ -648,7 +648,7 @@ static bool addDocumentIndexTierRows (int lineCount, const jam::Array<int>& cold
 
     const jam::Document::Index::Codec codec { encodeLineForIndex, decodeLineForIndex };
     jam::Document::Index tierIndex { tierDocument, codec };
-    tierIndex.setBudget (tierBudgetBytes);
+    tierIndex.setMaxBytes (tierBudgetBytes);
 
     const auto evictStartTime { std::chrono::steady_clock::now() };
 
@@ -682,7 +682,7 @@ static bool addDocumentIndexInterleaveRows (const jam::Array<int>& coldJumpTarge
 
     const jam::Document::Index::Codec codec { encodeLineForIndex, decodeLineForIndex };
     jam::Document::Index interleaveIndex { interleaveDocument, codec };
-    interleaveIndex.setBudget (interleaveBudgetBytes);
+    interleaveIndex.setMaxBytes (interleaveBudgetBytes);
 
     const auto interleaveStartTime { std::chrono::steady_clock::now() };
 
@@ -738,11 +738,11 @@ static int getWrapLineNumber (const jam::Array<int>& cellCountOracle, int column
 static bool isWrapCountCorrect (jam::Document::Index& wrapIndex, const jam::Array<int>& cellCountOracle, int columns)
 {
     const auto expectedRowCount { getWrapRowCount (cellCountOracle, columns) };
-    const auto rowCountMatches { wrapIndex.getRowCount() == expectedRowCount };
+    const auto rowCountMatches { wrapIndex.getNumRows() == expectedRowCount };
 
     if (not rowCountMatches)
         std::cerr << "wrap rowCount mismatch at columns " << columns << ": expected "
-                   << expectedRowCount << " got " << wrapIndex.getRowCount() << std::endl;
+                   << expectedRowCount << " got " << wrapIndex.getNumRows() << std::endl;
 
     return rowCountMatches;
 }
@@ -809,7 +809,7 @@ static bool isWrapTierCorrect()
 
     const jam::Document::Index::Codec codec { encodeLineForIndex, decodeLineForIndex };
     jam::Document::Index wrapTierIndex { wrapTierDocument, codec };
-    wrapTierIndex.setBudget (wrapTierBudgetBytes);
+    wrapTierIndex.setMaxBytes (wrapTierBudgetBytes);
     wrapTierIndex.setColumns (wrapColumnsNarrow);
 
     for (int lineNumber { 0 }; lineNumber < wrapTierLineCount; ++lineNumber)
@@ -823,7 +823,7 @@ static bool isWrapTierCorrect()
     }
 
     const auto lineSamples { getWrapSampleTargets (wrapTierLineCount) };
-    const auto rowSamples { getWrapSampleTargets (wrapTierIndex.getRowCount()) };
+    const auto rowSamples { getWrapSampleTargets (wrapTierIndex.getNumRows()) };
 
     return isWrapCorrect (wrapTierIndex, wrapTierCellCountOracle, wrapColumnsNarrow, lineSamples, rowSamples);
 }
@@ -848,7 +848,7 @@ static bool addDocumentIndexWrapRows (int lineCount, juce::StringArray& reportRo
     addReportRow (reportRows, "setColumns", "documentIndexWrap" + juce::String (wrapColumnsNarrow), lineCount, narrowSeconds, lineCount);
 
     const auto narrowCorrect { isWrapCorrect (wrapIndex, cellCountOracle, wrapColumnsNarrow,
-        lineSamples, getWrapSampleTargets (wrapIndex.getRowCount())) };
+        lineSamples, getWrapSampleTargets (wrapIndex.getNumRows())) };
 
     const auto wideStartTime { std::chrono::steady_clock::now() };
     wrapIndex.setColumns (wrapColumnsWide);
@@ -856,7 +856,7 @@ static bool addDocumentIndexWrapRows (int lineCount, juce::StringArray& reportRo
     addReportRow (reportRows, "setColumns", "documentIndexWrap" + juce::String (wrapColumnsWide), lineCount, wideSeconds, lineCount);
 
     const auto wideCorrect { isWrapCorrect (wrapIndex, cellCountOracle, wrapColumnsWide,
-        lineSamples, getWrapSampleTargets (wrapIndex.getRowCount())) };
+        lineSamples, getWrapSampleTargets (wrapIndex.getNumRows())) };
 
     const auto tierCorrect { isWrapTierCorrect() };
 

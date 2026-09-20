@@ -9,8 +9,7 @@ public:
     EVEView (jam::AudioModel& newModel,
              jam::PluginEditorLayout& newLayout,
              juce::AudioProcessor& processorToConnectTo,
-             EVEAudioProcessor& newAudioProcessor,
-             jam::TerminalModel& newTerminalModel);
+             EVEAudioProcessor& newAudioProcessor);
     ~EVEView() override = default;
 
 private:
@@ -22,19 +21,16 @@ private:
     void initialiseListeners() override;
     void fileChanged (const juce::File& file, jam::File::Watcher::Event event) override;
 
-    void initialiseTerminalView();
-
     void resized() override;
     void lookAndFeelChanged() override;
 
-    //==============================================================================
-    EVEAudioProcessor& audioProcessor;
-    jam::TerminalModel& terminalModel;
-    const juce::File configFile { jam::File::getOrCreateDirectory (juce::File::getSpecialLocation (juce::File::userHomeDirectory), files::configDirectory).getChildFile (files::defaultConfig) };
+    void setEditorKeys (const jam::ConfigDocument& document);
 
     //==============================================================================
-    std::unique_ptr<jam::TextEditor> terminalView;
-    jam::MessageOverlay messageOverlay;
+    EVEAudioProcessor& audioProcessor;
+    const juce::File configFile { jam::File::getOrCreateDirectory (juce::File::getSpecialLocation (juce::File::userHomeDirectory), files::configDirectory).getChildFile (files::defaultConfig) };
+    jam::AnsiDocument document;
+    std::unique_ptr<jam::TextEditor> editor;
 
     //==============================================================================
 #if JUCE_DEBUG

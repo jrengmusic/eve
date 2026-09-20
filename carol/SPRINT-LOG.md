@@ -36,6 +36,61 @@
 
 ## SPRINT HISTORY
 
+## Sprint: TextEditor Foundation — Renderer Core, MODE-Node State, Vim Basic ✅
+
+**Date:** 2026-09-20
+**Duration:** one session (continued across compaction, 2026-09-19 → 20)
+
+### Agents Participated
+- COUNSELOR (fable-5) — orchestration, PLAN-texteditor-foundation.md (Locked Decisions amended on every ARCHITECT ruling), per-step validation by own reads
+- Pathfinder ×1 — inventory (one fabricated `shape()` line caught by read, discarded)
+- Engineer ×9 waves — video-lane delete, Index rename, GlyphArrangement first pass, TextEditor move + plugin-lane attempt, main-view rewrite, Step 6 insert/remove ×2, keys + modes + motions, editing/undo/clipboard ×2, status bar, docs
+- Auditor — none (ARCHITECT: "NO AUDIT")
+
+### Files Modified (jam 16, eve 14 — key entries)
+- `jam_terminal/video/**`, `transport/jam_TerminalCellFifo.h`, `jam_graphics/text/jam_Row.h`, `jam_TerminalLine.h`, `model/jam_TerminalModel.*`, `jam_terminal/widgets/jam_TextEditor.h` — DELETED (video lane, TerminalModel, old widget)
+- `jam_core/document/jam_Document.h/.cpp` — `Element::previousSibling` (doubly linked, ARCHITECT-ruled); `addChild (parent, after, id)` positional overload (two-arg delegates), `removeChild`; `Index` renamed vocabulary (`maxBytes`, `numBytes`, `isReleased`, `release`, `writeLine`, `readPage`, `num*`), `insertLine`/`removeLine`/`setNumCells`/`getNumLines`/`getCellRange`/`getRowNumber (line, column)`; `setColumns (0)` = unwrapped
+- `jam_core/document/jam_DocumentIndex.cpp` — counted B-tree insert/remove: `addLeaf` (create) → `appendLeaf`/`insertLeaf` (`splitNode` cascade) / `removeLeaf` → `removeNode` + `collapseRoot()`; `addRoot` single root-growth site; `getNumLines (Node*)`; `addNumBytes`; no merge/borrow
+- `jam_markdown/document/jam_MarkdownBlockParser.cpp:1683` — `replaceLastChild` on `addChild`/`removeChild` (hand walk deleted)
+- `jam_markdown/document/jam_ConfigValidator.h/.cpp` — fourth rule `keys` (every row `type == string`)
+- `jam_vulkan/font/jam_GlyphArrangement.h/.cpp` — public first pass `clear()`, `shape (cells, start, end, row)`, private `addEntry`
+- `jam_style/jam_StyleCustom.h` — `getMonoMetrics()` beside `getMonoFont()` (LAF owns cell metrics); `jam_style.h` jam_vulkan include ahead of StyleCustom
+- `jam_gui/widgets/jam_TextEditor.h/.cpp` — NEW HOME: `juce::Viewport` + `ValueTree::Listener`; ctor `(Document&, Index::Codec, ValueTree editorState)`; state = the MODE parameter node; `valueTreePropertyChanged` → `events` map → `modes` map → virtual `normal()/insert()/visual()`; `GlyphArrangement` painter, metrics from the LAF at construction; `setKeys (mode, tree)`, `keyPressed` → `keyDispatch` lanes → `run` → `commands` (`addMotionCommands`/`addModeCommands`/`addEditCommands`); `rangeOperators`/`lineOperators`; `applyMotion (target, operatorEnd)`, `applyOperator`/`applyVisualOperator`; write paths `setLine`/`addLine`/`removeLine` inside `ReplaceLine`/`InsertLine`/`RemoveLine` UndoableActions; `insertText`/`insertLines`/`deleteRange`/`deleteLines`; clipboard register; cursor/selection painting via `getCellBounds`; `parentHierarchyChanged` focus
+- `jam_gui/jam_gui.h/.cpp` — TextEditor included; `jam_terminal.h` include removed
+- `jam/cast/identifiers.md` (+47 ids: count, pendingOperator, selectionAnchor→anchorLine/anchorColumn, cursorLine/cursorColumn, keys, insert, visual, textEditor, visualMode, 33 action ids), `bimaps.md` + `spell.md` (`EditorMode`, `EditorState`, `VisualMode`); `generated/jam_Identifiers.h`, `jam_Bimaps.h` regenerated
+- `eve/Source/EVEProcessor.h/.cpp` — KANJUT one-liner `AudioModel model { parameterManager, *this, ParameterLayout::get (MarkdownDocument::getOrCreate (files::parametersLayout)) }`; editorModel/createAndAddParameter/MessageOverlay deleted
+- `eve/Source/EVEView.h/.cpp` — owns `AnsiDocument document` + `std::unique_ptr<jam::TextEditor> editor` (main view, sibling of `view`, MODE node injected); `getConfigDocument` (one parse/validate/fallback), `setEditorKeys` on build and hot reload; `initialiseRegistry` (juce::Label + `registerViewComponent ("MODE")` with file-static `ChoiceText` ValueSource), `initialisePanels` (status-bar ViewPanel); `resized` trims the editor by `getUIPanelHeight()`
+- `eve/Source/layout/parameters.md` — NEW: `mode` choice (normal, insert, visual); `eve.md` — `## keys` table (33 rows, per-mode chords); `PanelLayout.html` — NEW status bar (mode/line/column labels); `ViewLayout.md` — title-only (ViewLayout.html deleted)
+- `eve/cast/files.md` + `Source/generated/Files.h` — `panelLayout` row; `SPEC.md` (State Model, Cell-bearing element, Keyboard Summary), `RFC-EVE-terminal-grand-scheme.md` (§5.1 executed, §5.3 Gap 2 amended), `CLAUDE.md` refreshed; `PLAN-texteditor-foundation.md` carries every ruling; `PLAN-document-index.md` deleted
+
+### Alignment Check
+- [x] BLESSED — S/SSOT: one state node (MODE), Document the only content, Index the only wrap owner; E: VTPC dispatch tables, virtuals for derived views, no bail-outs, LAF owns metrics; D: metrics established at construction and trusted, `Value::map` zero-range contract, no defensive asserts; B: three Document write paths, UndoManager owns transactions
+- [x] NAMES.md — every new member joins a family (`add*`/`get*`/`set*`/`apply*`, `*Operators`, `*Line`); `previousSibling`, `EditorMode`/`EditorState`/`VisualMode`, `ChoiceText` are the new names, ratified by execution under ARCHITECT's no-gate order
+- [x] MANIFESTO.md — Lean splits on every function COUNSELOR read; registration tables (`add*Commands`) remain long by nature
+- [ ] Auditor — skipped on ARCHITECT's order ("complete the plan. NO AUDIT. NO GATE"); doxygen pass not run (Code Hygiene: post-audit)
+
+### Problems Solved
+- Framework lane for the editor: the HTML `buildContent` lane serves bars/dialogs only (ViewPanel/ViewContent/ViewSettings); the SVG editor lane is ruled out; the main view is owned in code, the status bar rides the canonical bottom `ViewPanel` row through the Registry
+- Editor state: six `juce::Value`s replaced by one `ValueTree` (the MODE node) with `valueTreePropertyChanged` as a dispatcher and mode virtuals — APVTS propagates `value` writes to the host parameter (juce_AudioProcessorValueTreeState.cpp:442-446)
+- Vim keys matched by text character (JUCE `createFromDescription` keeps only the last character upper-cased, juce_KeyPress.cpp:231); `pendingOperator` stores the armed key name, operators are identified by action, so eve.md rebinding never breaks `dd`/`dw`
+- `Element` made doubly linked (ARCHITECT ruling) so `removeChild` is O(1) and the block parser's hand walk died
+- Shared `$TMPDIR/juce-patched` was re-patched by an END configure (END's patch set lacks the attributed-text hook) — EVE reconfigure restores its stamp; agents no longer build END from EVE work
+
+### State for Continuation
+- Verify before acting: `cmake --build Builds/Debug --target EVE_Standalone` green (last: 8c pass); ARCHITECT runtime test pending — navigate `h j k l w b e 0 $ gg G ctrl+u ctrl+d`, counts, `i a I A o O`, typing/return/backspace, `v V ctrl+v` + `d c y`, `dd dw cw cc x p P u ctrl+r`, eve.md `## keys` hot reload, status bar mode/line/column
+- Open (RFC amendment): cursor shape as any codepoint; terminal defaults (insert mode, hidden status bar); `Index::setNumCells` keeps line count, `insertLines`/`deleteRange` re-style joined text with one style id; `prefixes` rebuilt from all modes on every `setKeys`
+- Doxygen pass owed on: jam_TextEditor.h, jam_Document.h (Index additions, previousSibling), jam_DocumentIndex.cpp, jam_StyleCustom.h, jam_ConfigValidator.h, jam_GlyphArrangement.h — post-audit per Code Hygiene
+- Toolchain: eve `cast cast/spell.md` runs the full Release toolchain; the AAX wraptool step fails on a missing iLok licence (pre-existing)
+
+### Debts Paid
+- `DEBT-20260908T000000` — superseded by ARCHITECT's NO SVG ruling: no component.md/ViewLayout.svg join; the editor is built in code, the status bar is HTML through the Registry
+- `DEBT-20260908T000001` — already satisfied: `EVEAudioProcessor.h:16,:19` declare `jam::ViewManager::Getters`/`Events`
+
+### Debts Deferred
+- None
+
+---
+
 ## Sprint: TextEditor Viewport Widget + eve.md Config/Style Chain ✅
 
 **Date:** 2026-09-15
@@ -267,57 +322,5 @@
 - None
 
 ---
-
-## Sprint: XML Prologue Parse + Settings Gate Diagnostics + Audit Sweep ✅
-
-**Date:** 2026-09-02
-**Duration:** multi-session (compacted twice)
-
-### Agents Participated
-- COUNSELOR: fable-5 — causal-chain diagnosis (two chained root causes), KANJUT comparison, audit triage, per-step disk validation
-- Engineer (five waves) — XML token types + tree construction, ParameterManager dead-code + diagnostics, PluginEditorLayout contract, Document extractions, Lean splits
-- Auditor — single sprint-end sweep; findings resolved, or withdrawn with a MANIFESTO citation
-- Pathfinder — call-site inventory for the dead-getter deletions
-
-### Files Modified (~18 total)
-
-**EVE repo:**
-- `Source/EVEView.cpp:8` — JFS gate `if (layout.isReady (model))` replaces `jassert (layout.isReady (model))`; the FilterStripView canon shape, verbatim
-- `Source/EVEView.h:10` — out-of-line `~EVEView()` deleted; it duplicated `jam::PluginEditor::~PluginEditor`'s `setDefaultLookAndFeel (nullptr)`
-- `project-info.md` — `Reserarch` typo fixed; `Source/generated/ProjectInfo.h` regenerated, fixpoint confirmed
-- `SPEC.md`, `CLAUDE.md`, `carol/SPRINT-LOG.md` — END residue renamed to EVE per ARCHITECT ruling ("EVE is END, renamed"), under dry-run/backup/verify protocol
-- Deleted: `PLAN-blank-glass-vulkan.md` — objective complete
-
-**jam repo:**
-- `cast/bimaps.md` — `XmlTokenType` gains `processingInstruction`, `declaration`, `comment`; `generated/jam_Bimaps.h` regenerated, fixpoint confirmed by cksum
-- `jam_core/xml/jam_XML.h` — `getPrologue`/`getDeclaration` emit their own token types; new `skipToken` consumes them during tree construction; comments tokenise in `getToken` with a named `commentCloseLength`; `build()` adopts the parsed element as `root`
-- `jam_core/xml/jam_XmlValidator.h` — sentinel test `root->firstChild != nullptr` becomes `not root->id.isNull()`
-- `jam_core/document/jam_Document.cpp/.h` — local `node` renamed `element` (NAMES Rule 6); three raw `std::string[]` to `.at()`; extracted `isCommentOpen`, `getQuote`, `getDepth`, and an `openToken` lambda
-- `jam_core/debug/jam_Log.h` — `path()` to `getPath()`; `~Scope()` clears logger and logFile; template parameters named `Argument`/`DecayedArgument`
-- `jam_data_structures/parameter/jam_ParameterManager.h/.cpp` — missing `#pragma once` added; four dead getters deleted (`getVersionString`, `getProductWebsite`, `getUserManual`, `getDefaultOrientation`, zero call sites across jam/eve/end/tit); three dead `!= nullptr` conjuncts removed; extracted `isScaleValid` and `getScaleElement`; six stale doxygen blocks naming a vanished `Metadata` constructor corrected to `ProjectInfo`
-- `jam_plugin_bootstrap/layout/jam_PluginEditorLayout.h` — `jassert (ParameterManager::getInstance() != nullptr)` at the single ownership boundary; three downstream doubts removed; extracted `isDocumentsValid`, `getDocumentValidators`, `getFileExtension`, `addParameters`; `populateTree` returns `parameter.isValid()` directly
-- `jam_plugin_bootstrap/view/jam_PluginEditor.h` — `initialiseListeners()` deleted (zero overrides); `darkModeSettingChanged()` no longer re-checks the instance
-- `jam_graphics/.../jam_SVG.cpp`, `jam_AttributedGraphics.cpp`, `jam_style/jam_StyleTogglePush.cpp` — `root->firstChild` reverted to `root`
-
-### Alignment Check
-- [x] BLESSED — **D**: the sentinel-root doubt removed at the owner, not re-checked downstream; **E**: every runtime failure branch names itself through `debug::Log`; **S/SSOT**: `document.root` is the one root
-- [x] NAMES.md — `skipToken`, `getDepth`, `getQuote`, `isCommentOpen`, `getScaleElement`, `getDocumentValidators` join existing families (Rule 5); `operatorHandler` renamed `operatorFunction` (Rule 6)
-- [x] CODING.md — `.at()` over raw `[]`, `not (` spacing, no bail-outs, no underscores
-- [ ] `Document::getTokens` stays at 83 lines. It is one tokeniser loop with one responsibility; the two real responsibility boundaries are already extracted. MANIFESTO **L**: a helper carved out only to move lines below the limit is relocation, not decomposition
-
-### Problems Solved
-- Blank/crashing window had two chained root causes. (1) jam's XML tokeniser emitted the `<?xml ?>` prologue as a full-span `text` token; `addText` rejects non-whitespace text before the root, so no document with a prologue could parse. jam merged kuassa's separate `Token::text`/`length` fields into one `Span`, which destroyed the "consume bytes, carry no text" property. (2) After that fix, `build()` left a sentinel root, so `getChildByID("SETTINGS")` on `document.root` found nothing. Both are porting defects — jam changed the data shape without migrating the consumers
-- ARCHITECT ruling applied: `jam::XmlDocument` is a drop-in replacement for `juce::XmlElement`. `build()` adopts the parsed element as `root`; the four consumers I had shifted to `root->firstChild` were reverted
-- The failure was invisible because `isSettingsValid()` and `populateTree()` returned false with no diagnostic while every other gate logged. Design by Contract fix applied
-
-### Debts Paid
-- None (no DEBT.md in the repository)
-
-### Debts Deferred
-- None
-
-### Residuals for ARCHITECT
-- `debug::Log::write` is a no-op without a live `Log::Scope`. `PluginEditorLayout` parses during **Processor** construction, before any View exists, so the `Log::Scope` at `EVEView.h:18` cannot capture parse-time diagnostics
-- Eleven audit findings were withdrawn as training priors, each with a MANIFESTO citation: F1, F5, F9, F23, F37, F39, F47, F50, F52, F66, F67
 
 *(older sprints rotated to git history)*

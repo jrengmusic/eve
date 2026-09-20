@@ -24,16 +24,14 @@
 
 ## Current State
 
-**Last Sprint:** Terminal LLGC Full Feature Parity — One-Shot Viewer + llgc_parity ✅ (2026-09-13, one session)
-- EVEView one-shot viewer integrated; ansiDocument + terminalView fixture; llgc_parity proof harness (four suites); full module parity with jam_terminal writer
-- Agents: COUNSELOR (fable-5), Librarian ×1, Pathfinder ×4, Engineer ×9 waves, Auditor ×1
-- Alignment: BLESSED verified; NAMES ratified; harness three-run byte-identical
+**Last Sprint:** TextEditor Foundation — renderer core, MODE-node state, vim basic (2026-09-20)
+- Agents: COUNSELOR (fable-5), Engineer ×8, Pathfinder ×1
 
 **Active ODE:** None declared
 
-**Active Debt:** Two deferred entries (enter next EVE sprint per JRENG law)
-- DEBT-20260908T000000 — Editor lane join: component.md z/primary + ViewLayout.svg numbered ids
-- DEBT-20260908T000001 — Processor registries: getter and chain-event types (EVEAudioProcessor registry retype to match jam's new Function::Map/Function::Array shapes)
+**Active Debt:**
+- DEBT-20260908T000000 — superseded (NO SVG ruling; editor built in code) — disposition at log time
+- DEBT-20260908T000001 — satisfied (EVEAudioProcessor.h uses jam Getters/Events types)
 
 **Branch:** main (active development)
 
@@ -70,9 +68,9 @@
 
 **Graphics:** jam_graphics (blur, shadows, colours, fonts, mesh), jam_vulkan (GPU), jam_freetype (font rasterization)
 
-**UI:** jam_gui (Window, Modal, Glass), jam_animation (Animator, AnimationBase, AnimationScrollingText), jam_style (LookAndFeel + ColourScheme registry)
+**UI:** jam_gui (Window, Modal, Glass, TextEditor), jam_animation (Animator, AnimationBase, AnimationScrollingText), jam_style (LookAndFeel + ColourScheme registry)
 
-**Parsing:** jam_markdown (CommonMark + GFM), jam_web (HTML + CSS Level 3 subset), **jam_terminal (first consumer via eve harness)**
+**Parsing:** jam_markdown (CommonMark + GFM), jam_web (HTML + CSS Level 3 subset), **jam_terminal (AnsiDocument, GraphicsEngine/Context, SKiT, Keyboard/TTY/Parser — first consumer via eve harness)**
 
 **Plugin:** jam_plugin_bootstrap (document-driven, style management, editor base, standalone shell)
 
@@ -84,11 +82,13 @@
 |------|---------|
 | `Source/EVEAudioProcessor.h` | AudioProcessor subclass, parameter manager, plugin state |
 | `Source/EVEProcessor.h/.cpp` | Processor implementation |
-| `Source/EVEView.h/.cpp` | Editor component (jam_plugin_bootstrap base); one-shot viewer fixture |
+| `Source/EVEView.h/.cpp` | Editor component (jam_plugin_bootstrap base); owns the AnsiDocument and the jam::TextEditor main view; status bar ViewPanel; eve.md hot reload (style + keys) |
 | `Source/generated/` | CAST code-generation output (build-time) |
 | `Source/layout/eve.md` | EVE config+style document (settings, UI_size, colours, window, style, fonts); seeded to ~/.config/end/eve.md, watched at runtime |
-| `Source/layout/ViewLayout.md` | Component-join layout document (title-only; UI size moved to eve.md) |
+| `Source/layout/ViewLayout.md` | Title-only view layout document (PluginEditorLayout requires one; the editor is built in code) |
 | `Source/layout/interface.md` | (if present) interface definition |
+| `Source/layout/parameters.md` | Host parameter table: `mode` choice (normal, insert, visual) |
+| `Source/layout/PanelLayout.html` | Status bar layout (bottom ViewPanel row): mode, line, column labels bound to the MODE node |
 
 ### 4. Test Harnesses (formal proofs)
 

@@ -36,9 +36,8 @@ private:
     map::Generated generated;
     jam::PluginEditorLayout layout { BinaryData::fetcher, files::viewLayout, files::defaultConfig };
     jam::ParameterManager parameterManager;
-    jam::AudioModel model;
+    jam::AudioModel model { parameterManager, *this, jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
     EVEAudioProcessor audioProcessor;
-    jam::TerminalModel terminalModel;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEProcessor)

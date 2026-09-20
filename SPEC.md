@@ -157,28 +157,82 @@ the status area.
 
 ## State Model
 
-Per RFC §3: content SSOT = append-only logical attributed lines (Document-domain,
-message thread); scalar/mode state = lock-free TerminalModel parameters (reader) +
-app state trees (message); active grid = reader-thread transient. Finder state
-(cwd, selection, dock layout) = app-level jam::Model, message thread. Line
-lookup and residency tiering = `Document::Index` (message thread), owned by the
-terminal Component's content owner — the Document remains the sole content
-truth.
+The content SSOT is a `jam::Document` of `Id::line` elements, each carrying
+`Id::cells` (`AnsiDocument` builds it today). Line and row lookup, and the
+storage tier, are the job of `Document::Index` — a counted B-tree with
+`insert`, `remove`, `append`, `getCellRange`, and `getRowNumber (line,
+column)`.
+
+Editor state is ONE `juce::ValueTree`: the host parameter node of `MODE` (the
+one `choice` row in `parameters.md` — `normal`, `insert`, `visual` — and
+host-automatable). That node carries the properties of the generated
+`map::EditorState` bimap: `visualMode`, `cursorLine`, `cursorColumn`,
+`anchorLine`, `anchorColumn`, `count`, `pendingOperator`. The host serialises
+this node with the rest of the plugin state.
+
+`TextEditor` is a `juce::ValueTree::Listener`. Its `valueTreePropertyChanged`
+dispatches through a `Function::Map`. A `MODE` change reaches one of the
+virtuals `normal()`, `insert()`, or `visual()`; derived views override the
+virtual they need.
+
+The unnamed register is `juce::SystemClipboard`.
+
+`TerminalModel` no longer exists — the class is deleted. The video lane
+(`TerminalVideo`, `CellFifo`, `Row`) is deleted with it.
+
+### Cell-bearing element
+
+A Document element that carries `Id::cells` plus layout properties
+(`position` — flow or absolute; `left`/`top`/`width`/`height` — in cells or
+pixels; `widthClass` lane — mono or proportional) is the unit every producer
+emits. ANSI, Markdown, and HTML each emit this unit; the widget renders it.
+A non-text element is a Document element too — it is hosted as a child
+component through `ViewManager::buildContent`. This contract is written now;
+later sprints implement it.
 
 ## Keyboard Summary
 
-| Key | Action | Context |
-|---|---|---|
-| (all keys) | encoded to PTY | terminal focused, live |
-| `Ctrl+Shift+K` / `Esc` | enter/leave nav mode | terminal |
-| `j k h l gg G Ctrl+u Ctrl+d /` | vim navigation | nav mode, Tree, FileList |
-| `Enter` | cd / open | Tree, FileList |
-| `p` | preview | FileList |
-| `zh` | toggle dotfiles | Tree, FileList |
-| `Ctrl+Shift+E` / `Ctrl+Shift+P` | toggle Tree / Preview | app |
-| `Cmd/Ctrl +/-/0` | font size | app |
+| Action | Normal | Insert | Visual |
+|---|---|---|---|
+| Move left | `h` | | `h` |
+| Move down | `j` | | `j` |
+| Move up | `k` | | `k` |
+| Move right | `l` | | `l` |
+| Word forward | `w` | | `w` |
+| Word backward | `b` | | `b` |
+| Word end | `e` | | `e` |
+| Line start | `0` | | `0` |
+| Line end | `$` | | `$` |
+| Document start | `gg` | | `gg` |
+| Document end | `G` | | `G` |
+| Half page up | `ctrl+u` | | `ctrl+u` |
+| Half page down | `ctrl+d` | | `ctrl+d` |
+| Enter insert before cursor | `i` | | |
+| Enter insert after cursor | `a` | | |
+| Enter insert at line start | `I` | | |
+| Enter insert at line end | `A` | | |
+| Open line below | `o` | | |
+| Open line above | `O` | | |
+| Leave mode | `escape` | `escape` | `escape` |
+| Enter visual (character) | `v` | | `v` |
+| Enter visual (line) | `V` | | `V` |
+| Enter visual (block) | `ctrl+v` | | `ctrl+v` |
+| Yank | `y` | | `y` |
+| Delete operator | `d` | | `d` |
+| Change operator | `c` | | `c` |
+| Delete character | `x` | | `x` |
+| Paste after | `p` | | `p` |
+| Paste before | `P` | | `P` |
+| Undo | `u` | | |
+| Redo | `ctrl+r` | | |
+| Split line | | `return` | |
+| Delete backward | | `backspace` | |
 
-All bindings are config-table entries; the table above is the shipped default.
+All bindings are config-table entries; the table above is the shipped
+default. A chord is matched by text character and is case-sensitive.
+A two-character cell (`gg`) is a prefix sequence. A JUCE key description
+(`ctrl+u`, `escape`) names a non-printing key. `eve.md` hot-reloads this
+table.
 
 ## Success Criteria
 

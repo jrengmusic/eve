@@ -1,18 +1,11 @@
 #include "EVEProcessor.h"
 #include "EVEView.h"
 
-static const juce::Identifier terminalTreeId { "TERMINAL" };
-static constexpr int messageCapacity { 4096 };
-
 EVEProcessor::EVEProcessor()
     : AudioProcessor (BusesProperties()
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
-    , model (parameterManager, *this, {})
-    , terminalModel (terminalTreeId)
 {
-    auto overlayRow { terminalModel.getOrCreateChildWithName (Id::toType (Id::overlay)) };
-    terminalModel.createAndAddParameter<jam::ParameterText> (overlayRow, Id::message, juce::String {}, messageCapacity);
 }
 
 void EVEProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
@@ -40,7 +33,7 @@ void EVEProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuf
 
 juce::AudioProcessorEditor* EVEProcessor::createEditor()
 {
-    return new EVEView (model, layout, *this, audioProcessor, terminalModel);
+    return new EVEView (model, layout, *this, audioProcessor);
 }
 
 bool EVEProcessor::hasEditor() const { return true; }
@@ -67,13 +60,13 @@ void EVEProcessor::changeProgramName (int index, const juce::String& newName)
 
 void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto xml { model.copyState().createXml() }; xml != nullptr)
+    if (auto xml { model.copyState().createXml() } )
         copyXmlToBinary (*xml, destData);
 }
 
 void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    if (auto xml { getXmlFromBinary (data, sizeInBytes) }; xml != nullptr)
+    if (auto xml { getXmlFromBinary (data, sizeInBytes) })
         model.setState (juce::ValueTree::fromXml (*xml));
 }
 
