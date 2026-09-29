@@ -33,7 +33,6 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
 private:
-    map::Generated generated;
     jam::PluginEditorLayout layout { BinaryData::fetcher, files::viewLayout, files::defaultConfig };
     jam::ParameterManager parameterManager;
     jam::AudioModel model { parameterManager, *this, jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };

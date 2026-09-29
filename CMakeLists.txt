@@ -235,6 +235,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     Source/EVEAudioProcessor.h
     Source/EVEView.h
     Source/EVEView.cpp
+    Source/generated/Identifiers.cpp # Product identifier vocabulary definitions
+    Source/generated/Files.cpp       # Product asset file name definitions
 )
 
 # ==============================================================================

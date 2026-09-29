@@ -26,6 +26,8 @@ private:
 
     void setEditorKeys (const jam::ConfigDocument& document);
 
+    jam::SharedInstance<map::EditorMode> editorMode { std::in_place };
+
     //==============================================================================
     EVEAudioProcessor& audioProcessor;
     const juce::File configFile { jam::File::getOrCreateDirectory (juce::File::getSpecialLocation (juce::File::userHomeDirectory), files::configDirectory).getChildFile (files::defaultConfig) };

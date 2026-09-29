@@ -14,8 +14,14 @@
                          FOR YOUR EYES ONLY, DO NOT EDIT
 ********************************************************************************/
 
-#pragma once
-
-#include "ProjectInfo.h"
+#include <JuceHeader.h>
 #include "Identifiers.h"
-#include "Files.h"
+
+namespace Id
+{
+/*_____________________________________________________________________________*/
+
+    const juce::Identifier keys { juce::String::fromUTF8 ("keys") };
+
+/**______________________________END OF NAMESPACE______________________________*/
+}// namespace Id

@@ -14,8 +14,18 @@
                          FOR YOUR EYES ONLY, DO NOT EDIT
 ********************************************************************************/
 
+/**
+ * @file Identifiers.h
+ * @brief Identifier and name-string constants for EVE's own vocabulary.
+ */
+
 #pragma once
 
-#include "ProjectInfo.h"
-#include "Identifiers.h"
-#include "Files.h"
+namespace Id
+{
+/*_____________________________________________________________________________*/
+
+extern const juce::Identifier keys;
+
+/**______________________________END OF NAMESPACE______________________________*/
+}// namespace Id

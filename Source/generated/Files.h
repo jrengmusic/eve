@@ -27,10 +27,11 @@ namespace files
  * resolved against the binary-data / asset search path at load time.
  */
 
-    inline const juce::String viewLayout      { juce::String::fromUTF8 ("ViewLayout.md")    };///< Editor geometry and UI size.
-    inline const juce::String panelLayout     { juce::String::fromUTF8 ("PanelLayout.html") };///< Status bar layout (bottom ViewPanel row).
-    inline const juce::String configDirectory { juce::String::fromUTF8 (".config/end")      };///< User config directory, relative to home.
-    inline const juce::String defaultConfig   { juce::String::fromUTF8 ("eve.md")           };///< User config document seeded when missing.
+    extern const juce::String viewLayout;      ///< Editor geometry and UI size.
+    extern const juce::String panelLayout;     ///< Status bar layout (bottom ViewPanel row).
+    extern const juce::String configDirectory; ///< User config directory, relative to home.
+    extern const juce::String defaultConfig;   ///< User config document seeded when missing.
+    extern const juce::String parametersLayout;///< Parameter descriptor tables.
 
 /**______________________________END OF NAMESPACE______________________________*/
 }// namespace files

@@ -277,15 +277,17 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## source
 
-+----------------------+----------------------------+---------+
-| name                 | value                      | comment |
-+======================+============================+=========+
-| processorHeader      | Source/EVEProcessor.h      |         |
-| processorSource      | Source/EVEProcessor.cpp    |         |
-| audioProcessorHeader | Source/EVEAudioProcessor.h |         |
-| viewHeader           | Source/EVEView.h           |         |
-| viewSource           | Source/EVEView.cpp         |         |
-+----------------------+----------------------------+---------+
++----------------------+----------------------------------+-------------------------------------------+
+| name                 | value                            | comment                                   |
++======================+==================================+===========================================+
+| processorHeader      | Source/EVEProcessor.h            |                                           |
+| processorSource      | Source/EVEProcessor.cpp          |                                           |
+| audioProcessorHeader | Source/EVEAudioProcessor.h       |                                           |
+| viewHeader           | Source/EVEView.h                 |                                           |
+| viewSource           | Source/EVEView.cpp               |                                           |
+| identifiersSource    | Source/generated/Identifiers.cpp | Product identifier vocabulary definitions |
+| filesSource          | Source/generated/Files.cpp       | Product asset file name definitions       |
++----------------------+----------------------------------+-------------------------------------------+
 
 ## define
 
