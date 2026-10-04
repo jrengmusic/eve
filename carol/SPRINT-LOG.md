@@ -36,6 +36,36 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Signing Lane — `[description]` Migration; `cast/signing.md`; Generated `entitlements.plist` ✅
+
+**Date:** 2026-10-04
+**Duration:** part of one session (jam Sprint 150 is the primary record)
+**Plan:** `dev/jam/PLAN-signing.md` (locked)
+
+### Decisions (ARCHITECT)
+1. *"now let's fix the entitlements generation for ALL project"*; *"ensure everything is table driven"*.
+2. **"Migrate in this sprint"**; lane switch **"Own file per chain (Recommended)"**; keys **"Rows in ## signing"**, **"type column"**.
+
+### Files Modified
+- Migration `[comment]` → `[description]`: `cast/cmake.cast` (3 tokens), `cast/spell.md` (3 bindings, 1 header cell), `cast/files.md`, `cast/identifiers.md`, `project-info.md` (header cells, 16 in all).
+- `cast/signing.md` — NEW. `## signing` moved from `project-info.md`; entitlement rows `cs.allow-unsigned-executable-memory`, `cs.disable-library-validation`.
+- `cast/spell.md` — index `@signing`, `@Entitlements`; `- [list]: @signing:signing`; output group `@code:[xml]entitlements` → `@Entitlements`; `CMakeLists.txt` brief names `cast/signing.md`.
+- `CMakeLists.txt:21` — the brief line. `entitlements.plist` — now generated.
+
+### Problems Solved
+- The Sprint 149 blocker `cast: spell.md:100 (structure): unknown reserved name: [comment]` is gone. Oracle (scratch mirror, `## toolchain` removed): `entitlements.plist` = the previous file plus the banner; `CMakeLists.txt` and the generated headers otherwise byte-identical.
+
+### State for Continuation
+- Not built. The EVE build and visual checks owed from the STAMP Conformance sprint are still owed; EVE also needs a `jam_document` user-module row.
+- `cast/.output_table_extract.txt` is not declared by the manifest and still holds `- comment:` and `@project-info:signing` text.
+- This log now holds 7 entries against its "keep last 5" rule; no entry was rotated.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
 ## Sprint: STAMP Conformance — `getCodec` Four Members (not compiled) ✅
 
 **Date:** 2026-10-04

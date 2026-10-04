@@ -17,7 +17,7 @@ resolved against the binary-data / asset search path at load time.
 ```
 
 +---------+-------------------+---------+------------------+-----------+-------------------------------------------+
-| type    | name              | format  | value            | format    | comment                                   |
+| type    | name              | format  | value            | format    | description                               |
 +=========+===================+=========+==================+===========+===========================================+
 | @string | view layout       | toCamel | ViewLayout.md    | toLiteral | Editor geometry and UI size.              |
 | @string | panel layout      | toCamel | PanelLayout.html | toLiteral | Status bar layout (bottom ViewPanel row). |

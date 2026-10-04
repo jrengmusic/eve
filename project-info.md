@@ -19,7 +19,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 ```
 
 +------------------+-------+--------------------------------------------------+-----------+--------------------------------------------------+
-| name             | type  | value                                            | format    | comment                                          |
+| name             | type  | value                                            | format    | description                                      |
 +==================+=======+==================================================+===========+==================================================+
 | projectName      | @char | EVE                                              | toLiteral | Product name.                                    |
 | companyName      | @char | JRENG                                            | toLiteral | Company name.                                    |
@@ -37,7 +37,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 ## cmake
 
 +-----------------------------+-----------------------------------------------+---------------------------------------------+
-| key                         | value                                         | comment                                     |
+| key                         | value                                         | description                                 |
 +=============================+===============================================+=============================================+
 | minimumVersion              | 4.2.0                                         | CMake minimum version                       |
 | cxxStandard                 | 17                                            | C++ language standard                       |
@@ -89,22 +89,6 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | no-sign  | ninja   | -C Builds/Release                                                          |
 +----------+---------+----------------------------------------------------------------------------+
 
-## signing
-
-+------------------+--------------------------------------------------------------+--------------------------------------+
-| key              | value                                                        | comment                              |
-+==================+==============================================================+======================================+
-| identity         | Developer ID Application: Bayu Ardianto \\\\(9BDSN9TDX3\\\\) | Code signing identity                |
-+------------------+--------------------------------------------------------------+--------------------------------------+
-| entitlementsPath | entitlements.plist                                           | Entitlements file, project root      |
-+------------------+--------------------------------------------------------------+--------------------------------------+
-| notaryProfile    | notary                                                       | Keychain notarization profile        |
-+------------------+--------------------------------------------------------------+--------------------------------------+
-| edenAccount      | bayu@jrengmusic.com                                          | PACE Eden account                    |
-+------------------+--------------------------------------------------------------+--------------------------------------+
-| wrapConfigGuid   | 4B0468E0-A60A-11F1-BA61-005056928F3B                         | PACE wrap configuration, EVE product |
-+------------------+--------------------------------------------------------------+--------------------------------------+
-
 ## architecture
 
 +--------+
@@ -116,19 +100,19 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## format
 
-+------------+------------+--------------------------------------------------+---------+
-| name       | value      | installDirectory                                 | comment |
-+============+============+==================================================+=========+
-| standalone | Standalone |                                                  |         |
-| vst3       | VST3       | $ENV{HOME}/Library/Audio/Plug-Ins/VST3           |         |
-| au         | AU         | $ENV{HOME}/Library/Audio/Plug-Ins/Components     |         |
-| aax        | AAX        | /Library/Application Support/Avid/Audio/Plug-Ins |         |
-+------------+------------+--------------------------------------------------+---------+
++------------+------------+--------------------------------------------------+-------------+
+| name       | value      | installDirectory                                 | description |
++============+============+==================================================+=============+
+| standalone | Standalone |                                                  |             |
+| vst3       | VST3       | $ENV{HOME}/Library/Audio/Plug-Ins/VST3           |             |
+| au         | AU         | $ENV{HOME}/Library/Audio/Plug-Ins/Components     |             |
+| aax        | AAX        | /Library/Application Support/Avid/Audio/Plug-Ins |             |
++------------+------------+--------------------------------------------------+-------------+
 
 ## release
 
 +-------------------------+--------------------------------+----------------+--------+---------------------------------------------------------+
-| name                    | mac                            | win            | stage  | comment                                                 |
+| name                    | mac                            | win            | stage  | description                                             |
 +=========================+================================+================+========+=========================================================+
 | shadow                  | -Wno-shadow                    | /wd4456        |        | Lambda captures / declarations may shadow intentionally |
 +-------------------------+--------------------------------+----------------+--------+---------------------------------------------------------+
@@ -184,7 +168,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 ## debug
 
 +-------------------------+--------------------------------+----------------+-------+---------------------------------------------------------+
-| name                    | mac                            | win            | stage | comment                                                 |
+| name                    | mac                            | win            | stage | description                                             |
 +=========================+================================+================+=======+=========================================================+
 | shadow                  | -Wno-shadow                    | /wd4456        |       | Lambda captures / declarations may shadow intentionally |
 +-------------------------+--------------------------------+----------------+-------+---------------------------------------------------------+
@@ -234,7 +218,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 ## patch
 
 +--------+---------------------------------------------+----------------------------------------------------+
-| root   | name                                        | comment                                            |
+| root   | name                                        | description                                        |
 +========+=============================================+====================================================+
 | @patch | juce-cached-image-factory-hook.patch        | External CachedComponentImage factory              |
 | @patch | juce-direct2d-helpers-visibility-hook.patch | Direct2D helpers visibility gate                   |
@@ -247,7 +231,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 ## user module
 
 +--------------+----------------------+----------------------------------------------------------------------------------------------------------------------------------------+
-| root         | name                 | comment                                                                                                                                |
+| root         | name                 | description                                                                                                                            |
 +==============+======================+========================================================================================================================================+
 | @user-module | jam_core             | JAM Core                                                                                                                               |
 | @user-module | jam_debug            | Debug instruments — console, log, model monitor                                                                                        |
@@ -268,7 +252,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 ## juce module
 
 +--------------+--------------------+------------------------------------------------------------+
-| name         | value              | comment                                                    |
+| name         | value              | description                                                |
 +==============+====================+============================================================+
 | audioUtils   | juce_audio_utils   | Classes for audio-related GUI and miscellaneous tasks.     |
 +--------------+--------------------+------------------------------------------------------------+
@@ -278,7 +262,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 ## source
 
 +----------------------+----------------------------------+-------------------------------------------+
-| name                 | value                            | comment                                   |
+| name                 | value                            | description                               |
 +======================+==================================+===========================================+
 | processorHeader      | Source/EVEProcessor.h            |                                           |
 | processorSource      | Source/EVEProcessor.cpp          |                                           |
@@ -292,7 +276,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 ## define
 
 +------------------------------------+----------------------------------------------------------------------+------------------------------------------------+
-| name                               | value                                                                | comment                                        |
+| name                               | value                                                                | description                                    |
 +====================================+======================================================================+================================================+
 | dontSetUsingJuceNamespace          | DONT_SET_USING_JUCE_NAMESPACE=1                                      | No using namespace juce in JuceHeader.h        |
 | jamUsingOversampling               | JAM_USING_OVERSAMPLING=0                                             | JAM oversampling feature                       |
@@ -315,24 +299,24 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## include
 
-+-----------+----------------------------------------------------------+---------+
-| name      | value                                                    | comment |
-+===========+==========================================================+=========+
-| source    | `${CMAKE_CURRENT_SOURCE_DIR}/Source`                     |         |
-| generated | `${CMAKE_CURRENT_SOURCE_DIR}/Source/generated`           |         |
-| freetype  | `${CAST_USER_MODULE_PATH}/jam_freetype/freetype/include` |         |
-| harfbuzz  | `${CAST_JUCE_PATH}/modules/juce_graphics/fonts/harfbuzz` |         |
-+-----------+----------------------------------------------------------+---------+
++-----------+----------------------------------------------------------+-------------+
+| name      | value                                                    | description |
++===========+==========================================================+=============+
+| source    | `${CMAKE_CURRENT_SOURCE_DIR}/Source`                     |             |
+| generated | `${CMAKE_CURRENT_SOURCE_DIR}/Source/generated`           |             |
+| freetype  | `${CAST_USER_MODULE_PATH}/jam_freetype/freetype/include` |             |
+| harfbuzz  | `${CAST_JUCE_PATH}/modules/juce_graphics/fonts/harfbuzz` |             |
++-----------+----------------------------------------------------------+-------------+
 
 ## layout glob
 
-+----------+----------------------------------------------------+---------+
-| name     | value                                              | comment |
-+==========+====================================================+=========+
-| markdown | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md`   |         |
-| css      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css`  |         |
-| xml      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml`  |         |
-| html     | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html` |         |
-| svg      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg`  |         |
-| fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`   |         |
-+----------+----------------------------------------------------+---------+
++----------+----------------------------------------------------+-------------+
+| name     | value                                              | description |
++==========+====================================================+=============+
+| markdown | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md`   |             |
+| css      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css`  |             |
+| xml      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml`  |             |
+| html     | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html` |             |
+| svg      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg`  |             |
+| fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`   |             |
++----------+----------------------------------------------------+-------------+
