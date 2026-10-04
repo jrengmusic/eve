@@ -42,11 +42,13 @@ static jam::Document::Index::Codec getCodec()
                                              static_cast<int> (wireBytes.getSize()))) };
                  auto* cells { element.get<jam::Document::Cells> (Id::cells) };
 
-                 if (auto* decodedLine { lineDocument.getRoot()->firstChild })
-                      *cells = std::move (*decodedLine->get<jam::Document::Cells> (Id::cells));
+                 if (auto* decodedLine { lineDocument.getRoot()->firstChild }; decodedLine != nullptr)
+                     *cells = std::move (*decodedLine->get<jam::Document::Cells> (Id::cells));
                  else
                      *cells = jam::Document::Cells {};
-             } };
+             },
+             &jam::AnsiDocument::getNumBytes,
+             &jam::AnsiDocument::clear };
 }
 
 struct ChoiceText : public juce::Value::ValueSource, private juce::Value::Listener

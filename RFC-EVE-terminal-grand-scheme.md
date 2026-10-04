@@ -1,9 +1,19 @@
-# RFC: END — Terminal Grand Scheme
+# RFC: EVE — Terminal Grand Scheme
 
-**Project:** END — the terminal, standalone audio plugin
-**Location:** `~/Documents/Poems/dev/end/` (clean slate — empty at RFC time)
+**Project:** EVE — the terminal unit, an audio plugin hosted at END
+**Location:** `~/Documents/Poems/dev/eve/` (clean slate — empty at RFC time)
 **Author:** COUNSELOR, transcribing ARCHITECT's rulings — 2026-08-29
 **Status:** Founding document. Every claim carries a citation; every ruling is ARCHITECT's.
+
+> **[AMENDED 2026-10-04 — names]** ARCHITECT: *"END is host, not terminal. the
+> terminal unit is EVE as plugin unit hosted at END"*; *"just like whelmed a
+> markdown/mermaid renderer/editor unit hosted at END"*. At RFC time this
+> project was named END and the host was named Nexus. This document now names
+> the terminal unit EVE (`~/Documents/Poems/dev/eve/`) and the host END
+> (`~/Documents/Poems/dev/end/`). A lowercase `nexus` path, with its line
+> numbers, cites the host tree as it was at RFC time
+> (`~/Documents/Poems/dev/nexus/`); that directory no longer exists. `Nexus`
+> is today the host class inside END (`end/ARCHITECTURE.md:204`).
 
 ---
 
@@ -11,7 +21,7 @@
 
 **We are not developing existing terminal architecture.** The design in this document
 is above and beyond agent training data. Every mainstream terminal emulator surveyed
-below — kitty, ghostty, wezterm, alacritty, iTerm2 — fails the property END exists to
+below — kitty, ghostty, wezterm, alacritty, iTerm2 — fails the property EVE exists to
 deliver. Training priors about "how terminals work" describe the failed designs, not
 this one. An agent that reaches for the familiar terminal mental model is reproducing
 the documented failure.
@@ -31,16 +41,16 @@ or has a cited external precedent. The composition is the novel part.
 
 **The isomorphism, stated once:**
 
-| Audio plugin | END |
+| Audio plugin | EVE |
 |---|---|
 | Audio thread (never blocks, never allocates) | PTY reader thread: parser + bounded grid |
 | Fixed-size processing block | The active grid — O(rows × cols), bounded by max window size |
 | Lock-free FIFO to editor | CellFifo — SPSC rings, seqlock, drop-oldest |
 | APVTS (atomic parameter store) | TerminalModel — lock-free DEC-mode parameters |
 | Editor / analyzer (FFT display: pure view of state) | The text-editor widget: renders the buffer, owns nothing |
-| Processor state serialization | Session persistence via daemon (Nexus transport) |
+| Processor state serialization | Session persistence via daemon (END transport) |
 | Plugin instance | One terminal surface: one PTY, one buffer, one widget |
-| Host (DAW) | Nexus |
+| Host (DAW) | END |
 
 No wait, no yield, no sleep, no contention on the producer — exactly like an audio
 thread. The clock is controllable via a virtual audio device.
@@ -72,13 +82,13 @@ model.
 the logical-line-SSOT half works at production scale — for scrollback only. Even
 they stopped there: live grid destructive, threads joined.
 
-**Each half of END's design is separately proven feasible** (iTerm2 the storage
+**Each half of EVE's design is separately proven feasible** (iTerm2 the storage
 half; endless/jam the lock-free transport half — see §2). **Nobody has composed
-them.** The composition is END.
+them.** The composition is EVE.
 
 **Honest boundary:** alternate-screen content belongs to the application, which
 redraws on SIGWINCH — that is the VT contract. No terminal can preserve what it does
-not own. END's non-destruction guarantee covers everything END owns: primary-screen
+not own. EVE's non-destruction guarantee covers everything EVE owns: primary-screen
 content and the entire history.
 
 ---
@@ -113,7 +123,7 @@ contract in ARCHITECT's own hand:
 | **Message** (main) | ValueTree via listener, CellFifo drain | atomics (except flush) |
 
 Plus: "The paint path NEVER writes" (:127); ValueTree exclusive to message thread
-(:133). This is the discipline END formalizes — already proven in a shipped app.
+(:133). This is the discipline EVE formalizes — already proven in a shipped app.
 
 ### 2.3 The ValueTree lesson
 
@@ -273,23 +283,24 @@ metric source differ, and in cells every quantity is integral.
 
 ---
 
-## 4. Ecosystem — END and Nexus
+## 4. Ecosystem — EVE and END
 
 ### 4.1 Roles
 
-- **Nexus** (`~/Documents/Poems/dev/nexus/`) — the HOST. The old END application
+- **END** (`~/Documents/Poems/dev/end/`) — the HOST. Named Nexus
+  (`~/Documents/Poems/dev/nexus/`) at RFC time: the old END application
   role. Owns: window, tabs/panes mux, sessions composition, modals, config, fonts,
   daemon. Has its own overhaul track — jam-structure adherence, lua → markdown
   tables + CSS, CAST manifest conformance (nexus/RFC-config-migration.md exists;
-  PLAN-END-plugin-host.md exists at nexus root). **Out of END's scope.**
-- **END** (`~/Documents/Poems/dev/end/`, this project) — the TERMINAL, standalone
-  audio plugin. Feature-modular sibling: Whelmed (markdown/mermaid) follows the same
+  PLAN-END-plugin-host.md exists at nexus root). **Out of EVE's scope.**
+- **EVE** (`~/Documents/Poems/dev/eve/`, this project) — the TERMINAL unit, an
+  audio plugin hosted at END. Feature-modular sibling: Whelmed (markdown/mermaid) follows the same
   model, built from the exact same jam modules.
 
 ### 4.2 Mux boundary — ruled, cited
 
-**END is a single-surface terminal plugin: one PTY, one buffer, one widget per
-instance. Nexus composes instances.** Cited from nexus source: the state tree
+**EVE is a single-surface terminal plugin: one PTY, one buffer, one widget per
+instance. END composes instances.** Cited from nexus source: the state tree
 FLEX → TAB → PANE/EDGE rows where each EDGE's head/tail names a SPACE (a PANE or
 another EDGE) — the working binary-split structure (nexus/ARCHITECTURE.md:263-276);
 `ID::focusedPane` focus routing (:74); per-pane APVTS bridge "one per pane, paired
@@ -297,8 +308,8 @@ under the PANE" (:85-86). One plugin instance = one voice; the host is the mixer
 
 ### 4.3 Hosting contract (final goal, design-ahead only)
 
-END is developed and validated **standalone first** (dodges the two known blockers:
-jam clap modules half-assed; host Model complexity). Final goal: hosted into Nexus
+EVE is developed and validated **standalone first** (dodges the two known blockers:
+jam clap modules half-assed; host Model complexity). Final goal: hosted into END
 via API — CLAP extension is the candidate mechanism — for:
 
 - **Vulkan swapchain sharing** (host-owned `jam::VulkanEngine` resource tree,
@@ -353,7 +364,7 @@ in jam; no editable text buffer exists anywhere — the buffer is pure greenfiel
 - **Document engine:** `jam::Document` + domain parsers, CAST-hardened.
 
 Caveat, ARCHITECT-ruled: these parts were **never assembled into a fully working
-terminal**. Subsystem completeness ≠ architecture proven. The assembly is END.
+terminal**. Subsystem completeness ≠ architecture proven. The assembly is EVE.
 
 ### 5.3 Gap-list (to build — the actual new work)
 
@@ -438,7 +449,7 @@ terminal**. Subsystem completeness ≠ architecture proven. The assembly is END.
    transparency layers (:341-342), plus trivial `getPreferredImageTypeForTemporaryImages`/
    `getFrameId` (:360, :366). Reference: the Vulkan twin's structure; oracle: juce
    software renderer. Image degradation ladder: Kitty/`END;` protocol where the
-   receiver supports it (END itself always does — both ends of the wire are ours),
+   receiver supports it (EVE itself always does — both ends of the wire are ours),
    half-block cells (▀, 2px/cell) on dumb terminals.
 
    > **[AMENDED 2026-09-13]** Kitty is ruled dead — stateful, bidirectional,
@@ -472,14 +483,14 @@ Two jaws of the vise; both converge on the backend-swap proof:
    CLAP, no Vulkan. Validates: terminal LLGC output side + buffer + read-only widget
    + markdown projection. Currently broken; the oracle is free (HELP.md rendered
    right, style.css colours landing).
-2. **END standalone** — the terminal itself. Validates: full processor side against
+2. **EVE standalone** — the terminal itself. Validates: full processor side against
    endless's known-good behavior, the buffer under real PTY load, **the resize
    property** (the headline test: narrow→widen round-trip, byte-exact history),
    SKiT, Vulkan cell adapter.
 3. **Whelmed standalone** — same buffer/widget on the pixel backend with editing and
    markdown/CSS config; proves renderer-agnosticism (one component, two backends)
-   and pilots the lua→markdown config pattern for Nexus.
-4. **CLAP / Nexus hosting** — last, after the foundation is proven; unblocks on the
+   and pilots the lua→markdown config pattern for END.
+4. **CLAP / END hosting** — last, after the foundation is proven; unblocks on the
    jam clap hardening track.
 
 Acceptance test for the core property, stated now: fill a session with known
@@ -501,7 +512,7 @@ byte-identical to the original. No surveyed terminal passes this today (§1).
 3. **Path/image degradation policy on the ANSI backend** — per-stub policy table
    (§5.3.3) to be fixed in SPEC.
 4. **Scrollback bound / spill-to-storage** — "above the grid is storage"; the
-   storage tier (memory cap, disk spill, daemon persistence) is a Nexus-transport
+   storage tier (memory cap, disk spill, daemon persistence) is an END-transport
    era decision.
 
    > **[AMENDED 2026-09-15]** Deferral withdrawn by ARCHITECT. Tier designed and
@@ -509,7 +520,7 @@ byte-identical to the original. No surveyed terminal passes this today (§1).
    > 89 B/line); hot-window budget defaults to 1/16 machine RAM
    > (config-overridable via `terminal / scrollbackBudgetMb`); eviction by
    > watermark (high = budget, low = 7/8 budget); rehydrate ~100 µs per 50-line
-   > page. Daemon persistence remains Nexus-era.
+   > page. Daemon persistence remains END-era.
 
 ---
 

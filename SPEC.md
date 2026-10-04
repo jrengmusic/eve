@@ -27,7 +27,7 @@ among ours.
 - **Renderer:** jam::vulkan::LowLevelGraphicsContext (GPU), juce software renderer as oracle
 - **Build:** self-contained single-file CMakeLists (CAST target oracle), CMake + Ninja
 - **Platform:** macOS (Intel + ARM) and Windows; identical DX
-- **Shape:** standalone application first; CLAP plugin hosted by Nexus later (RFC §4.3)
+- **Shape:** standalone application first; CLAP plugin hosted by END later (RFC §4.3)
 - **Config:** markdown tables + CSS (CAST conventions) — no lua
 
 ## Core Principles
@@ -256,7 +256,7 @@ An end-user can:
 - ❌ Widget-owned content; paint-path writes
 - ❌ Wrapped grid as truth; baked colours in state; ANSI beyond the two edges
 - ❌ Terminal mental model from training data — RFC §0/§1 govern
-- ✅ Single-surface: one PTY, one buffer, one widget per instance; Nexus muxes
+- ✅ Single-surface: one PTY, one buffer, one widget per instance; END muxes
 
 ---
 

@@ -36,6 +36,38 @@
 
 ## SPRINT HISTORY
 
+## Sprint: STAMP Conformance — `getCodec` Four Members (not compiled) ✅
+
+**Date:** 2026-10-04
+**Duration:** one session
+**Repos:** jam (Sprint 149, the full record), stamp, eve, jreng-filter-strip
+**Plan:** `../jam/PLAN-stamp.md` (locked; step 12 and the audit touch eve)
+
+### Agents Participated
+- COUNSELOR (fable-5) — plan, delegation, validation by read
+- Engineer — `getCodec`
+- Auditor — one sweep (finding 65 is eve's)
+
+### Files Modified (eve)
+- `Source/EVEView.cpp` — `getCodec()` gives the four `Document::Index::Codec` members (`encode`, `decode`, `getNumBytes`, `clear`); the null test at `:45` is explicit (`decodedLine != nullptr`).
+- `carol/SPRINT-LOG.md` — this entry
+
+### Alignment Check
+- [x] CODING — explicit null check
+- [ ] Not compiled: `cast cast/spell.md` stops at `cast/spell.md:100 unknown reserved name: [comment]`. The manifest predates the cast reserved name `[description]`.
+
+### State for Continuation
+- Before EVE builds: migrate the manifest to `[description]`; add a `jam_document` module row (`jam_gui` now depends on it); `jam::TextEditor` is in `jam_gui`.
+- Owed after the build: render `tests/ansi_fixpoint/fixtures/ls.ansi` and compare with the pre-sprint view; test the vim keys.
+- jam changed under EVE: `AnsiDocument::setRows` and its two siblings are deleted (wrap is `ReflowDocument::setRows` with the LookAndFeel measure); `Document::Index` sums row pixels; `TextEditor` reads font, metrics and palette from `jam::StyleCustom`.
+- The xterm palette for a terminal LookAndFeel (`StyleCustom::getPaletteColour`) has no code; EVE has no `StyleCustom` subclass. ARCHITECT rules where it lives (jam Sprint 149, finding 41).
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None commanded
+
 ## Sprint: Shared JUCE Patch Cache + camelCase Vocabulary Migration (END/jam) + Standalone Teardown Fixes ✅
 
 **Date:** 2026-09-21
