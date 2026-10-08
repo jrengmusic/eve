@@ -1,0 +1,45 @@
+```signing-value
+if(CAST_SIGNING_PROFILE STREQUAL "jreng")
+    set(CAST_SIGNING_:::key::: ":::jreng:::")
+endif()
+```
+
+```codesign
+COMMAND codesign --force --options runtime --entitlements "${CMAKE_SOURCE_DIR}/${CAST_SIGNING_entitlementsPath}" --sign "${CAST_SIGNING_identity}" "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```wraptool
+COMMAND wraptool sign --verbose ${CAST_SIGNING_WRAPTOOL_ACCOUNT} --wcguid ${CAST_SIGNING_wrapConfigGuid} --signid "${CAST_SIGNING_identity}" --in "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" --out "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" --autoinstall on
+```
+
+```wraptool-win
+COMMAND wraptool sign --verbose ${CAST_SIGNING_WRAPTOOL_ACCOUNT} --wcguid ${CAST_SIGNING_wrapConfigGuid} ${CAST_SIGNING_WRAPTOOL_OPTIONS} --in "$<TARGET_FILE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>/../.." --out "$<TARGET_FILE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>/../.." --autoinstall on
+```
+
+```signtool-win
+COMMAND "${CAST_SIGNTOOL}" ${CAST_SIGNING_ARGUMENTS} "$<TARGET_FILE:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```xattr
+COMMAND xattr -cr "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```verify
+COMMAND codesign --verify --verbose "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>"
+```
+
+```[xml]entitlements
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+:::[banner]:::
+<plist version="1.0">
+<dict>
+:::[list]:::
+</dict>
+</plist>
+```
+
+```entitlement
+<key>:::key:::</key>
+<:::value:::/>
+```

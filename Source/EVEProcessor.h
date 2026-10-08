@@ -3,7 +3,11 @@
 #include "generated/Generated.h"
 #include "EVEAudioProcessor.h"
 
-class EVEProcessor : public juce::AudioProcessor
+class EVEProcessor
+    : public juce::AudioProcessor
+#if JucePlugin_Enable_ARA
+    , public juce::AudioProcessorARAExtension
+#endif
 {
 public:
     EVEProcessor();
@@ -11,13 +15,23 @@ public:
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
-    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
-    void processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) override;
 
-    juce::AudioProcessorEditor* createEditor() override;
+#ifndef JucePlugin_PreferredChannelConfigurations
+    bool isBusesLayoutSupported (const BusesLayout& layouts) const override;
+#endif
+
+    bool supportsDoublePrecisionProcessing() const override;
+
+    template<typename SampleType>
+    void process (juce::AudioBuffer<SampleType>& buffer);
+
+    void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlock (juce::AudioBuffer<double>&, juce::MidiBuffer&) override;
+
     bool hasEditor() const override;
 
     const juce::String getName() const override;
+
     bool acceptsMidi() const override;
     bool producesMidi() const override;
     bool isMidiEffect() const override;
@@ -32,12 +46,23 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    EVEAudioProcessor& getAudioProcessor() noexcept;
+
 private:
+    juce::AudioProcessorEditor* createEditor() override;
+
+#if JUCE_DEBUG
+    jam::debug::Log::Scope logScope { jam::File::getDebugLog() };
+#endif
+    Generated generated;
+
     jam::PluginEditorLayout layout { BinaryData::fetcher, files::viewLayout, files::defaultConfig };
-    jam::ParameterManager parameterManager;
+
+    jam::ParameterManager parameterManager { files::configDirectory, files::defaultConfig };
+
     jam::AudioModel model { parameterManager, *this, jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
+
     EVEAudioProcessor audioProcessor;
 
-    //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEProcessor)
 };

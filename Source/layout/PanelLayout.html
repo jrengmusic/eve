@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html style="font-size:1em">
 <head></head>
-<body class="panel" style="display:flex;flex-direction:column;flex-grow:1;font-family:mono;justify-content:flex-end">
-  <div id="panelBottom" style="display:flex;flex-direction:row;flex-basis:1em;flex-grow:0;flex-shrink:0;justify-content:flex-start">
-    <label id="mode" data-parameter="MODE" data-content="value" style="flex-basis:6em;flex-grow:0;flex-shrink:0;text-transform:uppercase"></label>
-    <label id="line" data-parameter="MODE" data-content="cursorLine" style="flex-basis:4em;flex-grow:0;flex-shrink:0;text-align:right"></label>
-    <label id="column" data-parameter="MODE" data-content="cursorColumn" style="flex-basis:4em;flex-grow:0;flex-shrink:0;text-align:right"></label>
+<body class="panel" style="display:flex;flex-direction:column;flex-grow:1;font-family:mono;justify-content:space-between">
+  <div id="panelTop" style="display:flex;flex-direction:row;flex-basis:1em;flex-grow:0;flex-shrink:0;justify-content:flex-end">
+    <button class="buttonDialog" id="settings" data-button="SETTINGS" data-content="settings" data-parameter="SETTINGS" style="flex-basis:1em;flex-grow:0;flex-shrink:0"></button>
+    <button class="buttonDialog" id="aboutBox" data-button="ABOUT_BOX" data-content="aboutBox" data-parameter="ABOUT_BOX" style="flex-basis:1em;flex-grow:0;flex-shrink:0"></button>
   </div>
 </body>
 </html>

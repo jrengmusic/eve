@@ -14,8 +14,18 @@
                          FOR YOUR EYES ONLY, DO NOT EDIT
 ********************************************************************************/
 
+/**
+ * @file Generated.h
+ * @brief Generated-header umbrella — re-exports every generated concern.
+ */
+
 #pragma once
 
 #include "ProjectInfo.h"
-#include "Identifiers.h"
 #include "Files.h"
+#include "Identifiers.h"
+#include "LookupTables.h"
+
+struct Generated
+{
+};
