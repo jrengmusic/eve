@@ -224,20 +224,23 @@ endif()
 # MODULES — JAM framework modules
 # ==============================================================================
 
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_core")            # JAM Core
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_debug")           # Debug instruments — console, log, model monitor
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_data_structures") # ValueTree management and data model utilities — model, parameters, JSON conversion
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_dsp")             # DSP processors — filters, waveshaping, hysteresis modelling, transient control, oversampling, FIR, noise generation, spectrum analysis
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_gui")             # GUI foundation — Window, Modal, Glass
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_graphics")        # Graphics utilities, blur, shadows, colours, fonts, mesh
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_animation")       # Foundation animation classes (Animator, AnimationBase, AnimationScrollingText)
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_freetype")        # Vendored FreeType font rasterization library
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_vulkan")          # Vulkan rendering backend
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_style")           # JAM Style — LookAndFeel base + ColourScheme-backed colour registry
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_markdown")        # Clean-room native CommonMark + GFM markdown parsing and rendering
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_document")        # Universal line break and reflow over jam::Document (UAX #14)
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_web")             # HTML authored-subset and CSS Syntax Level 3 subset tokenizers and parsers
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_plugin_bootstrap")# Document-driven plugin bootstrap — view construction, style management, plugin editor base, standalone shell
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_core")             # JAM Core
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_debug")            # Debug instruments — console, log, model monitor
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_data_structures")  # ValueTree management and data model utilities — model, parameters, JSON conversion
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_dsp")              # DSP processors — filters, waveshaping, hysteresis modelling, transient control, oversampling, FIR, noise generation, spectrum analysis
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_gui")              # GUI foundation — Window, Modal, Glass
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_graphics")         # Graphics utilities, blur, shadows, colours, fonts, mesh
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_animation")        # Foundation animation classes (Animator, AnimationBase, AnimationScrollingText)
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_freetype")         # Vendored FreeType font rasterization library
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_vulkan")           # Vulkan rendering backend
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_style")            # JAM Style — LookAndFeel base + ColourScheme-backed colour registry
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_markdown")         # Clean-room native CommonMark + GFM markdown parsing and rendering
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_document")         # Universal line break and reflow over jam::Document (UAX #14)
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_web")              # HTML authored-subset and CSS Syntax Level 3 subset tokenizers and parsers
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_plugin_bootstrap") # Document-driven plugin bootstrap — view construction, style management, plugin editor base, standalone shell
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_pdf")              # Clean-room PDF document model, writer and graphics context
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_mermaid_diagram")  # Clean-room native mermaid diagram parsing over jam::Document producing the semantic Element tree
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_markdown_graphics")# Markdown and mermaid materialisation, layout and view component
 
 message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 
@@ -364,6 +367,9 @@ target_link_libraries(${PROJECT_NAME}
         jam_document
         jam_web
         jam_plugin_bootstrap
+        jam_pdf
+        jam_mermaid_diagram
+        jam_markdown_graphics
     PUBLIC
         juce::juce_recommended_config_flags
 )

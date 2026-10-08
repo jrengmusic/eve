@@ -36,6 +36,27 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Markdown View — MarkdownComponent in the md Lane; Harness ✅
+
+**Date:** 2026-10-08
+**Duration:** part of one session (jam Sprint 153 is the primary record — decisions, audit triage, violations)
+
+### Files Modified
+- `project-info.md` — `@markdown-style`, `@mermaid-style` aliases; user modules `jam_pdf`, `jam_mermaid_diagram`, `jam_markdown_graphics`; `## binary` (`markdownStyleSheet`, `mermaidStyleSheet`).
+- `cast/identifiers.md` — `markdown`.
+- `Source/EVEView.cpp` — `initialiseTheme` registers the markdown and mermaid style sheets.
+- `Source/EVEViewComponents.cpp` — `registerComponent<jam::MarkdownComponent>`, config callback (harness from disk via `juce::File { __FILE__ }`, `setDocument`, `setAppearance (model.getAppearance())`), `registration.styles` with `StyleMarkdown`.
+- `Source/layout/component.md` — new; one row (`markdown`, style `markdown`); md lane bounds = view local bounds reduced by the eve.md window padding.
+- `Source/layout/eve.md` — `## keys` deleted (its consumers, TextEditor and the keys validator rule, are deleted).
+- `markdown/markdown.md` — new harness: 27 feature sections, 46 mermaid fences; `markdown/JRENG_logo.png`; line 424 and the headerless grid table corrected.
+- `Source/buttons/` — 29 SVGs copied from jfs (ButtonSVG assert).
+
+### State for Continuation
+- Builds: `--debug` and `--no-sign` 0/0.
+- ARCHITECT validates the markdown view against Obsidian.
+- The sandbox toolchain writes 46 PNGs into `markdown/`.
+- `CLAUDE.md:85` still names the TextEditor main view.
+
 ## Sprint: EVE Conforms to jreng-filter-strip — Pure jfs Shell, md Settings Lane, No Installer ✅
 
 **Date:** 2026-10-08

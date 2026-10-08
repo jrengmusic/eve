@@ -30,6 +30,7 @@ namespace Id
     const juce::Identifier down           { juce::String::fromUTF8 ("down") };
     const juce::String     jreng          { juce::String::fromUTF8 ("JRENG") };
     const juce::String     jrengLogo      { juce::String::fromUTF8 ("JRENG_logo.png") };
+    const juce::Identifier markdown       { juce::String::fromUTF8 ("markdown") };
     const juce::Identifier selector       { juce::String::fromUTF8 ("selector") };
     const juce::Identifier up             { juce::String::fromUTF8 ("up") };
 

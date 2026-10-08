@@ -2,12 +2,13 @@
 
 void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 {
-    registration.viewComponents = [] (jam::Registry& r)
+    registration.viewComponents = [this] (jam::Registry& r)
     {
         r.registerComponent<juce::Label> (Id::label);
         r.registerComponent<jam::AnimationStrip> (Id::animationStrip);
         r.registerComponent<jam::AnimationScrambledText> (Id::scrambledText);
         r.registerComponent<jam::Selector> (Id::selector);
+        r.registerComponent<jam::MarkdownComponent> (Id::markdown);
 
         r.registerConfig<jam::Selector> (Id::selector,
                                          Id::toTag (Id::appearance),
@@ -22,6 +23,15 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                                          {
                                              selector->addItemList (map::UIScaleMap::getInstance()->get());
                                          });
+
+        r.registerConfig<jam::MarkdownComponent> (Id::markdown,
+                                                  [this] (jam::MarkdownComponent* markdown)
+                                                  {
+                                                      static const juce::File harness { juce::File { __FILE__ }.getParentDirectory().getSiblingFile ("markdown").getChildFile ("markdown.md") };
+
+                                                      markdown->setDocument (jam::MarkdownDocument::parse (harness.loadFileAsString(), harness.getFullPathName()));
+                                                      markdown->setAppearance (model.getAppearance());
+                                                  });
 
         {
             static constexpr int animationStripFrameCount { 125 };
@@ -51,6 +61,11 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                 scrambledText->setText (lines);
                 scrambledText->start();
             });
+    };
+
+    registration.styles = [] (jam::Registry& r)
+    {
+        r.registerStyle<jam::StyleMarkdown> (Id::markdown);
     };
 
     registration.makeContent = [] (jam::Registry& r)

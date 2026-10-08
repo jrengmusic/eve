@@ -2,23 +2,27 @@
 
 ## index
 
-+-------------------+--------------------------------------------------+
-| alias             | symbol                                           |
-+===================+==================================================+
-| @char             | const char* const                                |
-+-------------------+--------------------------------------------------+
-| @productName      | EVE                                              |
-+-------------------+--------------------------------------------------+
-| @companyName      | JRENG                                            |
-+-------------------+--------------------------------------------------+
-| @legalCompanyName | Jubilant Research of Eclectic Novelty Generation |
-+-------------------+--------------------------------------------------+
-| @bundleIdentifier | com.jreng.EVE                                    |
-+-------------------+--------------------------------------------------+
-| @user-module      | ${CMAKE_CURRENT_SOURCE_DIR}/../jam               |
-+-------------------+--------------------------------------------------+
-| @patch            | ${CAST_USER_MODULE_PATH}/patch                   |
-+-------------------+--------------------------------------------------+
++-------------------+-----------------------------------------------------------+
+| alias             | symbol                                                    |
++===================+===========================================================+
+| @char             | const char* const                                         |
++-------------------+-----------------------------------------------------------+
+| @productName      | EVE                                                       |
++-------------------+-----------------------------------------------------------+
+| @companyName      | JRENG                                                     |
++-------------------+-----------------------------------------------------------+
+| @legalCompanyName | Jubilant Research of Eclectic Novelty Generation          |
++-------------------+-----------------------------------------------------------+
+| @bundleIdentifier | com.jreng.EVE                                             |
++-------------------+-----------------------------------------------------------+
+| @user-module      | ${CMAKE_CURRENT_SOURCE_DIR}/../jam                        |
++-------------------+-----------------------------------------------------------+
+| @patch            | ${CAST_USER_MODULE_PATH}/patch                            |
++-------------------+-----------------------------------------------------------+
+| @markdown-style   | ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/markdown.css |
++-------------------+-----------------------------------------------------------+
+| @mermaid-style    | ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/mermaid.css  |
++-------------------+-----------------------------------------------------------+
 
 ## project info
 
@@ -238,46 +242,53 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## user module
 
-+--------------+----------------------+--------------------------------------------------------------+
-| root         | name                 | description                                                  |
-+==============+======================+==============================================================+
-| @user-module | jam_core             | JAM Core                                                     |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_debug            | Debug instruments — console, log, model monitor              |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_data_structures  | ValueTree management and data model utilities — model,       |
-|              |                      | parameters, JSON conversion                                  |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_dsp              | DSP processors — filters, waveshaping, hysteresis modelling, |
-|              |                      | transient control, oversampling, FIR, noise generation,      |
-|              |                      | spectrum analysis                                            |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_gui              | GUI foundation — Window, Modal, Glass                        |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_graphics         | Graphics utilities, blur, shadows, colours, fonts, mesh      |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_animation        | Foundation animation classes (Animator, AnimationBase,       |
-|              |                      | AnimationScrollingText)                                      |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_freetype         | Vendored FreeType font rasterization library                 |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_vulkan           | Vulkan rendering backend                                     |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_style            | JAM Style — LookAndFeel base + ColourScheme-backed colour    |
-|              |                      | registry                                                     |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_markdown         | Clean-room native CommonMark + GFM markdown parsing and      |
-|              |                      | rendering                                                    |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_document         | Universal line break and reflow over jam::Document (UAX      |
-|              |                      | #14)                                                         |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_web              | HTML authored-subset and CSS Syntax Level 3 subset           |
-|              |                      | tokenizers and parsers                                       |
-+--------------+----------------------+--------------------------------------------------------------+
-| @user-module | jam_plugin_bootstrap | Document-driven plugin bootstrap — view construction, style  |
-|              |                      | management, plugin editor base, standalone shell             |
-+--------------+----------------------+--------------------------------------------------------------+
++--------------+-----------------------+--------------------------------------------------------------+
+| root         | name                  | description                                                  |
++==============+=======================+==============================================================+
+| @user-module | jam_core              | JAM Core                                                     |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_debug             | Debug instruments — console, log, model monitor              |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_data_structures   | ValueTree management and data model utilities — model,       |
+|              |                       | parameters, JSON conversion                                  |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_dsp               | DSP processors — filters, waveshaping, hysteresis modelling, |
+|              |                       | transient control, oversampling, FIR, noise generation,      |
+|              |                       | spectrum analysis                                            |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_gui               | GUI foundation — Window, Modal, Glass                        |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_graphics          | Graphics utilities, blur, shadows, colours, fonts, mesh      |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_animation         | Foundation animation classes (Animator, AnimationBase,       |
+|              |                       | AnimationScrollingText)                                      |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_freetype          | Vendored FreeType font rasterization library                 |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_vulkan            | Vulkan rendering backend                                     |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_style             | JAM Style — LookAndFeel base + ColourScheme-backed colour    |
+|              |                       | registry                                                     |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_markdown          | Clean-room native CommonMark + GFM markdown parsing and      |
+|              |                       | rendering                                                    |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_document          | Universal line break and reflow over jam::Document (UAX #14) |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_web               | HTML authored-subset and CSS Syntax Level 3 subset           |
+|              |                       | tokenizers and parsers                                       |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_plugin_bootstrap  | Document-driven plugin bootstrap — view construction, style  |
+|              |                       | management, plugin editor base, standalone shell             |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_pdf               | Clean-room PDF document model, writer and graphics context   |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_mermaid_diagram   | Clean-room native mermaid diagram parsing over jam::Document |
+|              |                       | producing the semantic Element tree                          |
++--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_markdown_graphics | Markdown and mermaid materialisation, layout and view        |
+|              |                       | component                                                    |
++--------------+-----------------------+--------------------------------------------------------------+
 
 ## juce module
 
@@ -382,6 +393,16 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +-----------+----------------------------------------------------------+----------------------------------+
 | harfbuzz  | `${CAST_JUCE_PATH}/modules/juce_graphics/fonts/harfbuzz` | JUCE-bundled HarfBuzz headers    |
 +-----------+----------------------------------------------------------+----------------------------------+
+
+## binary
+
++--------------------+-----------------+---------------------------------------------+
+| name               | value           | description                                 |
++====================+=================+=============================================+
+| markdownStyleSheet | @markdown-style | Markdown stylesheet, embedded as BinaryData |
++--------------------+-----------------+---------------------------------------------+
+| mermaidStyleSheet  | @mermaid-style  | Mermaid stylesheet, embedded as BinaryData  |
++--------------------+-----------------+---------------------------------------------+
 
 ## layout glob
 

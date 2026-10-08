@@ -37,6 +37,9 @@ void EVEView::initialiseTheme()
                          document.getValueTree (Id::toType (Id::config)),
                          document.getValueTree (Id::toType (Id::config), Id::dark));
 
+    styleManager->registerStyle (files::markdownStyleSheet);
+    styleManager->registerStyle (files::mermaidStyleSheet);
+
     theme = std::make_unique<jam::StyleTheme> (*styleManager, model.getAppearance());
     juce::LookAndFeel::setDefaultLookAndFeel (theme.get());
 }
