@@ -27,13 +27,13 @@ namespace files
  * resolved against the binary-data / asset search path at load time.
  */
 
-    extern const juce::String viewLayout;      ///< Editor geometry and UI size.
+    extern const juce::String viewLayout;      ///< Virgin config: UI size and configuration, seeded to eve.md.
     extern const juce::String panelLayout;     ///< Top panel: settings and about buttons.
     extern const juce::String settingsLayout;  ///< Settings dialog layout.
     extern const juce::String aboutLayout;     ///< About dialog layout.
     extern const juce::String parametersLayout;///< Parameter descriptor tables.
     extern const juce::String configDirectory; ///< User config directory, relative to home.
-    extern const juce::String defaultConfig;   ///< User config document seeded when missing.
+    extern const juce::String defaultConfig;   ///< User config file name on disk.
     extern const juce::String settingsNormal;  ///< Settings-button normal icon.
     extern const juce::String settingsOver;    ///< Settings-button over icon.
     extern const juce::String settingsDown;    ///< Settings-button down icon.

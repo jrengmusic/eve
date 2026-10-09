@@ -149,7 +149,7 @@ the status area.
 
 ### Feature 6: Configuration
 
-- Markdown tables + CSS, CAST conventions (palette + appearance custom properties;
+- Markdown tables + CSS, CAST conventions (colour + appearance custom properties;
   data tables for keymaps, open-with rules, shell, fonts, scrollback budget —
   `terminal / scrollbackBudgetMb`)
 - Parse error at launch: EVE starts with defaults and shows

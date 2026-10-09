@@ -36,6 +36,27 @@
 
 ## SPRINT HISTORY
 
+## Sprint: ViewLayout.md Is the Virgin Config; Launch Crash Fixed; No "palette" ✅
+
+**Date:** 2026-10-09
+**Duration:** part of one session (jam Sprint 154 is the primary record — decisions, audit triage, violations)
+
+### Decisions (ARCHITECT)
+1. *"padding is config, ViewLayout.md is the virgin config. but ViewLayout.md has no padding"*; *"reminder ViewLayout.md == eve.md for virgin machine. eve.md as written/read on disk always wins"*.
+2. *"keep component.md, it should be still the path exactly like jfs"*.
+
+### Files Modified
+- `Source/layout/ViewLayout.md` — the one virgin config: metadata block `version: 0.1.0`, `UI_size`, and the `settings`, `colours`, `window` (`padding`), `style`, `fonts` tables of the former `eve.md`.
+- `Source/layout/eve.md` — deleted (its content is in `ViewLayout.md`).
+- `Source/EVEProcessor.h:59` — `PluginEditorLayout` seeds the user settings from `files::viewLayout`; `files::defaultConfig` stays the disk name `eve.md`.
+- `cast/files.md` — descriptions of `view layout` and `default config`.
+- `tests/ansi_fixpoint/main.cpp` — `indexed256`, `isIndexedVocabularyFixpointStable`, `colourIndices`, `indexedStable`, `"indexedForeground"`, `"indexedBackground"`.
+- `SPEC.md:152` — "colour + appearance custom properties".
+
+### State for Continuation
+- Builds: `--debug` and `--no-sign` 0/0.
+- ARCHITECT runs EVE Standalone: the window opens; the markdown view fills the view bounds less the config padding.
+
 ## Sprint: Markdown View — MarkdownComponent in the md Lane; Harness ✅
 
 **Date:** 2026-10-08

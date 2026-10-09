@@ -200,23 +200,23 @@ static bool isFlagVocabularyFixpointStable()
     return allStable;
 }
 
-static bool isPaletteVocabularyFixpointStable()
+static bool isIndexedVocabularyFixpointStable()
 {
-    static constexpr std::array<uint8_t, 3> paletteIndices {{ 1, 9, 196 }};
+    static constexpr std::array<uint8_t, 3> colourIndices {{ 1, 9, 196 }};
 
     bool allStable { true };
 
-    for (const auto paletteIndex : paletteIndices)
+    for (const auto colourIndex : colourIndices)
     {
         jam::Stamp::Entry foregroundEntry;
-        foregroundEntry.fgMode = static_cast<uint8_t> (map::ColorMode::palette256);
-        foregroundEntry.fgIndex = paletteIndex;
-        allStable = isStampEntryFixpointStable ("paletteForeground" + juce::String (paletteIndex), foregroundEntry) and allStable;
+        foregroundEntry.fgMode = static_cast<uint8_t> (map::ColorMode::indexed256);
+        foregroundEntry.fgIndex = colourIndex;
+        allStable = isStampEntryFixpointStable ("indexedForeground" + juce::String (colourIndex), foregroundEntry) and allStable;
 
         jam::Stamp::Entry backgroundEntry;
-        backgroundEntry.bgMode = static_cast<uint8_t> (map::ColorMode::palette256);
-        backgroundEntry.bgIndex = paletteIndex;
-        allStable = isStampEntryFixpointStable ("paletteBackground" + juce::String (paletteIndex), backgroundEntry) and allStable;
+        backgroundEntry.bgMode = static_cast<uint8_t> (map::ColorMode::indexed256);
+        backgroundEntry.bgIndex = colourIndex;
+        allStable = isStampEntryFixpointStable ("indexedBackground" + juce::String (colourIndex), backgroundEntry) and allStable;
     }
 
     return allStable;
@@ -239,10 +239,10 @@ static bool isTruecolorVocabularyFixpointStable()
 static bool isStampVocabularyFixpointStable()
 {
     const auto flagsStable { isFlagVocabularyFixpointStable() };
-    const auto paletteStable { isPaletteVocabularyFixpointStable() };
+    const auto indexedStable { isIndexedVocabularyFixpointStable() };
     const auto truecolorStable { isTruecolorVocabularyFixpointStable() };
 
-    return flagsStable and paletteStable and truecolorStable;
+    return flagsStable and indexedStable and truecolorStable;
 }
 
 static bool isFixtureSweepFixpointStable (const juce::File& fixturesDirectory)

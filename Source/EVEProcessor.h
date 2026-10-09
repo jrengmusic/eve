@@ -56,7 +56,7 @@ private:
 #endif
     Generated generated;
 
-    jam::PluginEditorLayout layout { BinaryData::fetcher, files::viewLayout, files::defaultConfig };
+    jam::PluginEditorLayout layout { BinaryData::fetcher, files::viewLayout, files::viewLayout };
 
     jam::ParameterManager parameterManager { files::configDirectory, files::defaultConfig };
 
