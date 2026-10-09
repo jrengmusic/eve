@@ -34,7 +34,6 @@ extern const juce::Identifier developer;
 extern const juce::Identifier down;
 extern const juce::String     jreng;
 extern const juce::String     jrengLogo;
-extern const juce::Identifier markdown;
 extern const juce::Identifier selector;
 extern const juce::Identifier up;
 

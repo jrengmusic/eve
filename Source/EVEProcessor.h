@@ -56,9 +56,9 @@ private:
 #endif
     Generated generated;
 
-    jam::PluginEditorLayout layout { BinaryData::fetcher, files::viewLayout, files::viewLayout };
+    jam::PluginEditorLayout layout { jam::PluginEditorLayout::create<jam::ConfigDocument> (BinaryData::fetcher, files::viewLayout, files::viewLayout) };
 
-    jam::ParameterManager parameterManager { files::configDirectory, files::defaultConfig };
+    jam::ParameterManager parameterManager { files::configDirectory, files::defaultConfig, &jam::ConfigDocument::getSettingsValue, &jam::ConfigDocument::setSettingsValue };
 
     jam::AudioModel model { parameterManager, *this, jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
 

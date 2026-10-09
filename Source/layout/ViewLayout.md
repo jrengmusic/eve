@@ -1,5 +1,5 @@
 ---
-version: 0.1.0
+version: 0.0.1
 ---
 
 # EVE
@@ -93,18 +93,3 @@ Component colour assignments. The key is the LookAndFeel colour id; the
 +---------------------------------------+--------+------------+------------+------------------------+
 | --ScrollBar--trackColourId            | string | --blank    | --blank    | Scrollbar track.       |
 +---------------------------------------+--------+------------+------------+------------------------+
-
-## fonts
-
-Terminal font record. The file is an embedded binary resource; height is
-the point height and kerning the kerning factor applied at registration.
-
-+---------+--------+---------------------+---------------------------------------------------------+
-| key     | type   | value               | description                                             |
-+=========+========+=====================+=========================================================+
-| mono    | string | DisplayMonoBook.ttf | Monospaced terminal font file.                          |
-+---------+--------+---------------------+---------------------------------------------------------+
-| height  | float  | 12                  | Point height.                                           |
-+---------+--------+---------------------+---------------------------------------------------------+
-| kerning | float  | 0.1                 | Kerning factor.                                         |
-+---------+--------+---------------------+---------------------------------------------------------+

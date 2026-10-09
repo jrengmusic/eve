@@ -80,7 +80,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
             Id::settings,
             [] (jam::AudioModel& modelToUse)
             {
-                return jam::ViewSettings::create (modelToUse, jam::HtmlDocument::getOrCreate (juce::Identifier { files::settingsLayout }));
+                return jam::ViewSettings::create<jam::ConfigDocument> (modelToUse, jam::HtmlDocument::getOrCreate (juce::Identifier { files::settingsLayout }));
             });
     };
 }

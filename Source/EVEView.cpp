@@ -6,7 +6,7 @@ EVEView::EVEView (jam::AudioModel& newModel,
                   juce::AudioProcessor& processorToConnectTo)
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
 {
-    if (layout.isReady (model))
+    if (layout.getOrCreateConfig (model))
     {
         initialise();
 
@@ -33,12 +33,7 @@ void EVEView::initialiseTheme()
     const auto file { jam::ParameterManager::getInstance()->getUserSettings() };
     const auto document { jam::ConfigDocument::parse (file.loadFileAsString(), file.getFullPathName()) };
 
-    styleManager.create (layout.fonts,
-                         document.getValueTree (Id::toType (Id::config)),
-                         document.getValueTree (Id::toType (Id::config), Id::dark));
-
-    styleManager->registerStyle (files::markdownStyleSheet);
-    styleManager->registerStyle (files::mermaidStyleSheet);
+    styleManager.create (layout.fonts, document.getValueTree (Id::toType (Id::config)));
 
     theme = std::make_unique<jam::StyleTheme> (*styleManager, model.getAppearance());
     juce::LookAndFeel::setDefaultLookAndFeel (theme.get());
