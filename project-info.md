@@ -406,26 +406,24 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## layout glob
 
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| name         | value                                              | description                                              |
-+==============+====================================================+==========================================================+
-| markdown     | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md`   | Component and parameter markdown tables                  |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| css          | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css`  | View stylesheets                                         |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| xml          | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml`  | Default settings XML                                     |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| html         | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html` | Panel, settings, and about HTML layouts                  |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| svg          | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg`  | View layout and about graphics SVG                       |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| images       | `${CMAKE_CURRENT_SOURCE_DIR}/Source/images/*.png`  | Product PNG images — knobs, faders, toggles, backgrounds |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| buttons      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/buttons/*.svg` | Product SVG button states — normal, over, down           |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| productFonts | `${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf`   | Product TrueType fonts                                   |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| jamSvg       | `${CAST_USER_MODULE_PATH}/resources/svg/*.svg`     | Shared JAM SVG icons                                     |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
-| fonts        | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`   | Shared JAM Display and DisplayMono TrueType fonts        |
-+--------------+----------------------------------------------------+----------------------------------------------------------+
++----------+----------------------------------------------------+----------------------------------------------------------+
+| name     | value                                              | description                                              |
++==========+====================================================+==========================================================+
+| markdown | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md`   | Component and parameter markdown tables                  |
++----------+----------------------------------------------------+----------------------------------------------------------+
+| css      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css`  | View stylesheets                                         |
++----------+----------------------------------------------------+----------------------------------------------------------+
+| xml      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml`  | Default settings XML                                     |
++----------+----------------------------------------------------+----------------------------------------------------------+
+| html     | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html` | Panel, settings, and about HTML layouts                  |
++----------+----------------------------------------------------+----------------------------------------------------------+
+| svg      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg`  | View layout and about graphics SVG                       |
++----------+----------------------------------------------------+----------------------------------------------------------+
+| images   | `${CMAKE_CURRENT_SOURCE_DIR}/Source/images/*.png`  | Product PNG images — knobs, faders, toggles, backgrounds |
++----------+----------------------------------------------------+----------------------------------------------------------+
+| buttons  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/buttons/*.svg` | Product SVG button states — normal, over, down           |
++----------+----------------------------------------------------+----------------------------------------------------------+
+| jamSvg   | `${CAST_USER_MODULE_PATH}/resources/svg/*.svg`     | Shared JAM SVG icons                                     |
++----------+----------------------------------------------------+----------------------------------------------------------+
+| fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`   | Shared JAM Display and DisplayMono TrueType fonts        |
++----------+----------------------------------------------------+----------------------------------------------------------+

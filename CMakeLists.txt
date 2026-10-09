@@ -508,7 +508,6 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg"  # View layout and about graphics SVG
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/images/*.png"  # Product PNG images — knobs, faders, toggles, backgrounds
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/buttons/*.svg" # Product SVG button states — normal, over, down
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf"   # Product TrueType fonts
     "${CAST_USER_MODULE_PATH}/resources/svg/*.svg"     # Shared JAM SVG icons
     "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf"   # Shared JAM Display and DisplayMono TrueType fonts
 )

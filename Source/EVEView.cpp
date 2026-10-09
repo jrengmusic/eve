@@ -9,11 +9,7 @@ EVEView::EVEView (jam::AudioModel& newModel,
     if (layout.getOrCreateConfig (model))
     {
         initialise();
-
-        setResizable (false, false);
-
-        const auto [width, height] { view->getUISize (model) };
-        setSize (width, height);
+        setScaling();
     }
 }
 
@@ -24,16 +20,25 @@ void EVEView::fileChanged (const juce::File& file, jam::File::Watcher::Event eve
     if (file == param->getUserSettings()
         and (event == jam::File::Watcher::fileUpdated or event == jam::File::Watcher::fileRenamedNewName))
     {
+        styleManager->registerStyle (getConfigTree());
+        commandManager.setKeyPresses (styleManager->getConfig (Id::keys));
+        setAppearance();
+        setScaling();
         resized();
     }
 }
 
-void EVEView::initialiseTheme()
+juce::ValueTree EVEView::getConfigTree() const
 {
     const auto file { jam::ParameterManager::getInstance()->getUserSettings() };
     const auto document { jam::ConfigDocument::parse (file.loadFileAsString(), file.getFullPathName()) };
 
-    styleManager.create (layout.fonts, document.getValueTree (Id::toType (Id::config)));
+    return document.getValueTree (Id::toType (Id::config));
+}
+
+void EVEView::initialiseTheme()
+{
+    styleManager.create (layout.fonts, getConfigTree());
 
     theme = std::make_unique<jam::StyleTheme> (*styleManager, model.getAppearance());
     juce::LookAndFeel::setDefaultLookAndFeel (theme.get());

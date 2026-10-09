@@ -14,6 +14,8 @@ public:
 private:
     void fileChanged (const juce::File& file, jam::File::Watcher::Event event) override;
 
+    juce::ValueTree getConfigTree() const;
+
     void initialiseTheme() override;
     void initialiseRegistry() override;
     void initialisePanels() override;

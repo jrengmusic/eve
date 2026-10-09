@@ -1,7 +1,9 @@
 ---
 title: Markdown Graphics Harness
 version: 1
-tags: [harness, markdown, mermaid]
+tags:
+  - markdown
+  - mermaid
 ---
 
 # Markdown Graphics Harness
