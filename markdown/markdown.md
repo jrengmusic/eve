@@ -4,6 +4,7 @@ version: 1
 tags:
   - markdown
   - mermaid
+checkbox: "true"
 ---
 
 # Markdown Graphics Harness
