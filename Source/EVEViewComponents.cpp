@@ -2,7 +2,7 @@
 
 void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 {
-    registration.viewComponents = [this] (jam::Registry& r)
+    registration.viewComponents = [] (jam::Registry& r)
     {
         r.registerComponent<juce::Label> (Id::label);
         r.registerComponent<jam::AnimationStrip> (Id::animationStrip);
@@ -25,12 +25,11 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                                          });
 
         r.registerConfig<jam::MarkdownComponent> (Id::markdown,
-                                                  [this] (jam::MarkdownComponent* markdown)
+                                                  [] (jam::MarkdownComponent* markdown)
                                                   {
                                                       static const juce::File harness { juce::File { __FILE__ }.getParentDirectory().getSiblingFile ("markdown").getChildFile ("markdown.md") };
 
                                                       markdown->setDocument (jam::MarkdownDocument::parse (harness.loadFileAsString(), harness.getFullPathName()));
-                                                      markdown->setAppearance (model.getAppearance());
                                                   });
 
         {
@@ -70,17 +69,17 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
     registration.makeContent = [] (jam::Registry& r)
     {
-        r.makeContent.add<jam::AudioModel&> (jam::Format::toCamelCase (Id::aboutBox),
-                                             [] (jam::AudioModel& modelToUse)
+        r.makeContent.add<jam::AudioModel&, juce::LookAndFeel&> (jam::Format::toCamelCase (Id::aboutBox),
+                                             [] (jam::AudioModel& modelToUse, juce::LookAndFeel& lookAndFeel)
                                              {
-                                                 return jam::ViewContent::create (modelToUse, jam::HtmlDocument::getOrCreate (juce::Identifier { files::aboutLayout }));
+                                                 return jam::ViewContent::create (modelToUse, lookAndFeel, jam::HtmlDocument::getOrCreate (juce::Identifier { files::aboutLayout }));
                                              });
 
-        r.makeContent.add<jam::AudioModel&> (
+        r.makeContent.add<jam::AudioModel&, juce::LookAndFeel&> (
             Id::settings,
-            [] (jam::AudioModel& modelToUse)
+            [] (jam::AudioModel& modelToUse, juce::LookAndFeel& lookAndFeel)
             {
-                return jam::ViewSettings::create<jam::ConfigDocument> (modelToUse, jam::HtmlDocument::getOrCreate (juce::Identifier { files::settingsLayout }));
+                return jam::ViewSettings::create (modelToUse, lookAndFeel, jam::HtmlDocument::getOrCreate (juce::Identifier { files::settingsLayout }));
             });
     };
 }

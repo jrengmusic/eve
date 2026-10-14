@@ -12,11 +12,7 @@ public:
     void paintOverChildren (juce::Graphics& g) override;
 
 private:
-    void fileChanged (const juce::File& file, jam::File::Watcher::Event event) override;
-
-    juce::ValueTree getConfigTree() const;
-
-    void initialiseTheme() override;
+    void initialiseTheme (const juce::ValueTree& config) override;
     void initialiseRegistry() override;
     void initialisePanels() override;
     void initialiseView() override;

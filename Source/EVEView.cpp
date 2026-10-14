@@ -6,42 +6,16 @@ EVEView::EVEView (jam::AudioModel& newModel,
                   juce::AudioProcessor& processorToConnectTo)
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
 {
-    if (layout.getOrCreateConfig (model))
-    {
-        initialise();
-        setScaling();
-    }
+    initialise (layout.getOrCreateConfig (model));
+    setScaling();
 }
 
-void EVEView::fileChanged (const juce::File& file, jam::File::Watcher::Event event)
+void EVEView::initialiseTheme (const juce::ValueTree& config)
 {
-    auto* param { jam::ParameterManager::getInstance() };
-
-    if (file == param->getUserSettings()
-        and (event == jam::File::Watcher::fileUpdated or event == jam::File::Watcher::fileRenamedNewName))
-    {
-        styleManager->registerStyle (getConfigTree());
-        commandManager.setKeyPresses (styleManager->getConfig (Id::keys));
-        setAppearance();
-        setScaling();
-        resized();
-    }
-}
-
-juce::ValueTree EVEView::getConfigTree() const
-{
-    const auto file { jam::ParameterManager::getInstance()->getUserSettings() };
-    const auto document { jam::ConfigDocument::parse (file.loadFileAsString(), file.getFullPathName()) };
-
-    return document.getValueTree (Id::toType (Id::config));
-}
-
-void EVEView::initialiseTheme()
-{
-    styleManager.create (layout.fonts, getConfigTree());
+    styleManager.create (layout.fonts, config);
 
     theme = std::make_unique<jam::StyleTheme> (*styleManager, model.getAppearance());
-    juce::LookAndFeel::setDefaultLookAndFeel (theme.get());
+    setLookAndFeel (theme.get());
 }
 
 void EVEView::initialiseRegistry()
@@ -65,7 +39,7 @@ void EVEView::initialiseView()
     auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
     auto& audioProcessor { processor.getAudioProcessor() };
 
-    view = jam::ViewEditor::create<jam::MarkdownDocument> (model, audioProcessor.userInterfaceGetters, audioProcessor.chainEvents, files::viewLayout);
+    view = jam::ViewEditor::create<jam::MarkdownDocument> (model, *theme, audioProcessor.userInterfaceGetters, audioProcessor.chainEvents, files::viewLayout);
     addAndMakeVisible (view.get());
 }
 
