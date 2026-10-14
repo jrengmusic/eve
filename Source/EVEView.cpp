@@ -6,7 +6,7 @@ EVEView::EVEView (jam::AudioModel& newModel,
                   juce::AudioProcessor& processorToConnectTo)
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
 {
-    initialise (layout.getOrCreateConfig (model));
+    initialise (layout.getOrCreateConfig());
     setScaling();
 }
 

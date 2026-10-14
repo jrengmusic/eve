@@ -13,6 +13,7 @@ EVEProcessor::EVEProcessor()
       )
 #endif// !JucePlugin_PreferredChannelConfigurations
 {
+    layout.populateTree (model, layout.getOrCreateConfig());
 }
 
 const juce::String EVEProcessor::getName() const { return JucePlugin_Name; }
@@ -132,7 +133,7 @@ juce::AudioProcessorEditor* EVEProcessor::createEditor()
 void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     juce::MemoryOutputStream stream { destData, false };
-    model.state.writeToStream (stream);
+    model.copyState().writeToStream (stream);
 }
 
 void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
