@@ -30,11 +30,14 @@ namespace Id
 extern const juce::Identifier animationStrip;
 extern const juce::Identifier button;
 extern const juce::Identifier buttonDialog;
+extern const juce::Identifier colorMode;
 extern const juce::Identifier developer;
 extern const juce::Identifier down;
 extern const juce::String     jreng;
 extern const juce::String     jrengLogo;
 extern const juce::Identifier selector;
+extern const juce::Identifier terminal;
+extern const juce::Identifier textEditor;
 extern const juce::Identifier up;
 
 /**______________________________END OF NAMESPACE______________________________*/

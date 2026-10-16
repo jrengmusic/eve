@@ -243,6 +243,7 @@ juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_plugin_bootstrap") # Doc
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_pdf")              # Clean-room PDF document model, writer and graphics context
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_mermaid_diagram")  # Clean-room native mermaid diagram parsing over jam::Document producing the semantic Element tree
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_markdown_graphics")# Markdown and mermaid materialisation, layout and view component
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_terminal")         # VT read-side engine, TTY, protocol
 
 message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 
@@ -372,6 +373,7 @@ target_link_libraries(${PROJECT_NAME}
         jam_pdf
         jam_mermaid_diagram
         jam_markdown_graphics
+        jam_terminal
     PUBLIC
         juce::juce_recommended_config_flags
 )
@@ -517,6 +519,7 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
 file(GLOB CAST_BINARY_FILES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/markdown.css
     ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/mermaid.css
+    ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/terminal.css
 )
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData

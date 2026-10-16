@@ -32,6 +32,7 @@ namespace files
     extern const juce::String settingsLayout;  ///< Settings dialog layout.
     extern const juce::String aboutLayout;     ///< About dialog layout.
     extern const juce::String parametersLayout;///< Parameter descriptor tables.
+    extern const juce::String harness;         ///< Markdown harness document painted through the terminal round trip.
     extern const juce::String configDirectory; ///< User config directory, relative to home.
     extern const juce::String defaultConfig;   ///< User config file name on disk.
     extern const juce::String settingsNormal;  ///< Settings-button normal icon.

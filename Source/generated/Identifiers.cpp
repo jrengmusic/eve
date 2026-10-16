@@ -26,11 +26,14 @@ namespace Id
     const juce::Identifier animationStrip { juce::String::fromUTF8 ("animationStrip") };
     const juce::Identifier button         { juce::String::fromUTF8 ("button") };
     const juce::Identifier buttonDialog   { juce::String::fromUTF8 ("buttonDialog") };
+    const juce::Identifier colorMode      { juce::String::fromUTF8 ("colorMode") };
     const juce::Identifier developer      { juce::String::fromUTF8 ("developer") };
     const juce::Identifier down           { juce::String::fromUTF8 ("down") };
     const juce::String     jreng          { juce::String::fromUTF8 ("JRENG") };
     const juce::String     jrengLogo      { juce::String::fromUTF8 ("JRENG_logo.png") };
     const juce::Identifier selector       { juce::String::fromUTF8 ("selector") };
+    const juce::Identifier terminal       { juce::String::fromUTF8 ("terminal") };
+    const juce::Identifier textEditor     { juce::String::fromUTF8 ("textEditor") };
     const juce::Identifier up             { juce::String::fromUTF8 ("up") };
 
 /**______________________________END OF NAMESPACE______________________________*/

@@ -21,6 +21,8 @@
 +-------------------+-----------------------------------------------------------+
 | @mermaid-style    | ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/mermaid.css  |
 +-------------------+-----------------------------------------------------------+
+| @terminal-style   | ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/terminal.css |
++-------------------+-----------------------------------------------------------+
 
 ## project info
 
@@ -269,6 +271,8 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | @user-module | jam_markdown_graphics | Markdown and mermaid materialisation, layout and view        |
 |              |                       | component                                                    |
 +--------------+-----------------------+--------------------------------------------------------------+
+| @user-module | jam_terminal          | VT read-side engine, TTY, protocol                           |
++--------------+-----------------------+--------------------------------------------------------------+
 
 ## juce module
 
@@ -382,6 +386,8 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | markdownStyleSheet | @markdown-style | Markdown stylesheet, embedded as BinaryData |
 +--------------------+-----------------+---------------------------------------------+
 | mermaidStyleSheet  | @mermaid-style  | Mermaid stylesheet, embedded as BinaryData  |
++--------------------+-----------------+---------------------------------------------+
+| terminalStyleSheet | @terminal-style | Terminal stylesheet, embedded as BinaryData |
 +--------------------+-----------------+---------------------------------------------+
 
 ## layout glob
