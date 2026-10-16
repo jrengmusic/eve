@@ -17,8 +17,6 @@
 +-------------------+-----------------------------------------------------------+
 | @user-module      | ${CMAKE_CURRENT_SOURCE_DIR}/../jam                        |
 +-------------------+-----------------------------------------------------------+
-| @patch            | ${CAST_USER_MODULE_PATH}/patch                            |
-+-------------------+-----------------------------------------------------------+
 | @markdown-style   | ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/markdown.css |
 +-------------------+-----------------------------------------------------------+
 | @mermaid-style    | ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/mermaid.css  |
@@ -221,24 +219,6 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +----------------------+---------------+-------------+----------+---------------------------------------+
 | identicalCodeFolding | Release       |             | /OPT:ICF | Fold identical COMDATs                |
 +----------------------+---------------+-------------+----------+---------------------------------------+
-
-## patch
-
-+--------+---------------------------------------------+----------------------------------------------+
-| root   | name                                        | description                                  |
-+========+=============================================+==============================================+
-| @patch | juce-cached-image-factory-hook.patch        | External CachedComponentImage factory        |
-+--------+---------------------------------------------+----------------------------------------------+
-| @patch | juce-direct2d-helpers-visibility-hook.patch | Direct2D helpers visibility gate             |
-+--------+---------------------------------------------+----------------------------------------------+
-| @patch | juce-image-subsection-hook.patch            | Root image and subsection bounds hooks       |
-+--------+---------------------------------------------+----------------------------------------------+
-| @patch | juce-vulkan-engine-hook.patch               | External graphics context factory for Vulkan |
-+--------+---------------------------------------------+----------------------------------------------+
-| @patch | juce-paint-update-rect-hook.patch           | OS dirty rectangle before native paint       |
-+--------+---------------------------------------------+----------------------------------------------+
-| @patch | juce-adhoc-sign-hook.patch                  | No ad-hoc signature on the VST3 bundle       |
-+--------+---------------------------------------------+----------------------------------------------+
 
 ## user module
 

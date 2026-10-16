@@ -7,6 +7,8 @@
 | @source            | source.cast                            |          |
 | @cmake             | cmake.cast                             |          |
 | @project-info      | ../project-info.md                     |          |
+| @modules           | ../../jam/user-modules-info.md         |          |
+| @juce              | ../../jam/cast/juce.cast               |          |
 | @signing           | signing.md                             |          |
 | @sign              | signing.cast                           |          |
 | @Entitlements      | ../entitlements.plist                  |          |
@@ -79,7 +81,6 @@
 | - [list]: @project-info:compile option:configuration=Release | - [list]: @semicolon      | - [list]: @cmake:win                          |                    |
 | - [list]: @project-info:link option:configuration=Release    | - [list]: @semicolon      | - [list]: @cmake:win                          |                    |
 | - [list]: @project-info:compile option:configuration=Debug   | - [list]: @semicolon      | - [list]: @cmake:win                          |                    |
-| - [list]: @project-info:patch                                |                           | - [list]: @cmake:patch                        |                    |
 | - [list]: @project-info:user module                          |                           | - [list]: @cmake:module                       |                    |
 | > - [list]: @project-info:source                             |                           | > - [list]: @cmake:entry                      |                    |
 | > - [list]: @project-info:macro                              |                           | > - [list]: @cmake:entry                      |                    |
@@ -100,6 +101,8 @@
 |                                                              |                           | - install-copy: @cmake:install-copy           |                    |
 |                                                              |                           | - install-copy-win: @cmake:install-copy-win   |                    |
 |                                                              |                           | - install-file-win: @cmake:install-file-win   |                    |
+|                                                              |                           | - patched-juce: @juce:patched-juce            |                    |
+| - [list]: @modules:submodule:module=patch                    |                           | - [list]: @juce:patch                         |                    |
 +--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
 | > - [list]: @signing:entitlement                             |                           | @sign:[xml]entitlements                       | @Entitlements      |
 |                                                              |                           | > - [list]: @sign:entitlement                 |                    |

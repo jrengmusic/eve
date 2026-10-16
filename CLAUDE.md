@@ -29,9 +29,7 @@
 
 **Active ODE:** None declared
 
-**Active Debt:**
-- DEBT-20260908T000000 — superseded (NO SVG ruling; editor built in code) — disposition at log time
-- DEBT-20260908T000001 — satisfied (EVEAudioProcessor.h uses jam Getters/Events types)
+**Active Debt:** None (DEBT.md holds its title line only).
 
 **Branch:** main (active development)
 
@@ -40,23 +38,25 @@
 **Documentation:**
 - SPEC.md (0.0.1, normative) ✓
 - RFC-EVE-terminal-grand-scheme.md (architecture, evidence, non-negotiables) ✓
-- PLAN-terminal-llgc-parity.md (locked) ✓
-- PLAN-ansidocument.md (locked) ✓
 - ARCHITECTURE.md (not present — not yet written)
 
 ---
 
 ## Layer Order & Key Directories
 
-### 1. JUCE Base + Patches (8.0.14, in-place patched to `/tmp/juce-patched`)
+### 1. JUCE Base + Patches (8.0.14, patched copy built at configure time)
 
-**Six patches applied:**
+**Eight patches applied, in this order** (the `## submodule` rows of `../jam/user-modules-info.md` with `module` = `patch`; the cast manifest `cast/spell.md` indexes that file as `@modules`):
 1. `juce-cached-image-factory-hook.patch` — External CachedComponentImage factory
 2. `juce-direct2d-helpers-visibility-hook.patch` — Direct2D visibility gate
 3. `juce-image-subsection-hook.patch` — Root image + subsection bounds hooks
 4. `juce-vulkan-engine-hook.patch` — External graphics context factory for Vulkan
-5. `juce-paint-update-rect-hook.patch` — OS dirty rectangle before native paint
-6. `juce-attributed-text-hook.patch` — Attributed text integration
+5. `juce-paint-update-rect-hook.patch` — OS dirty rectangle before native paint (applies after vulkan-engine)
+6. `juce-attributed-text-hook.patch` — Attributed text integration (applies after vulkan-engine)
+7. `juce-adhoc-sign-hook.patch` — No ad-hoc signature on the VST3 bundle
+8. `juce-display-changed-hook.patch` — Callback after refresh() finds a display change
+
+**Patched copy:** `~/.cache/cast/juce/<hash>` on macOS, `%LOCALAPPDATA%/cast/juce/<hash>` on Windows. The hash covers the JUCE version and the patch contents. The shared CMake shape for this step is `patched-juce` in `../jam/cast/juce.cast`.
 
 **Location:** `../../JUCE` (sibling to eve directory)
 
@@ -101,7 +101,7 @@
 
 | File | Purpose |
 |------|---------|
-| `project-info.md` | **SSOT for all build metadata** — project name, version, company, formats, signing, compiler flags, module list, CMake defines, architecture list, patch table |
+| `project-info.md` | **SSOT for all build metadata** — project name, version, company, formats, signing, compiler flags, module list, CMake defines, architecture list |
 | `CMakeLists.txt` | **Generated from project-info.md** (CAST oracle) — self-contained single file, zero external cmake modules, exact JUCE version gate, format targets |
 | `cast/cmake.cast` | CAST identifiers table (generates CMakeLists.txt + metadata headers) |
 | `entitlements.plist` | macOS code-signing entitlements (Release builds only) |
@@ -122,11 +122,9 @@
 |----------|------|--------|
 | SPEC.md | Normative specification (0.0.1) | Written ✓ |
 | RFC-EVE-terminal-grand-scheme.md | Architecture, evidence, non-negotiables | Referenced from SPEC ✓ |
-| PLAN-terminal-llgc-parity.md | Implementation plan (locked) | Executed ✓ |
-| PLAN-ansidocument.md | Implementation plan (locked) | Executed ✓ |
 | ARCHITECTURE.md | System architecture (persistent) | **Not yet written** |
 | SPRINT-LOG.md | Cross-session work log | Active (project root, carol/) |
-| DEBT.md | Inter-sprint ledger | Active (project root, two entries deferred) |
+| DEBT.md | Inter-sprint ledger | Active (project root, no entries) |
 
 ---
 
@@ -154,7 +152,7 @@
 
 1. **CAST Oracle:** Every value in CMakeLists.txt traces to project-info.md; no hardcodes. Edit project-info.md, run `cast`, reconfigure.
 
-2. **JUCE Version Gate:** CMakeLists enforces exact JUCE 8.0.14; mismatch is fatal error. Patches applied and stamped on first configure; patch-set hash recomputed if any patch file changes.
+2. **JUCE Version Gate:** CMakeLists enforces exact JUCE 8.0.14; mismatch is fatal error. The patched JUCE copy is built into the cache directory on first configure and stamped; the patch-set hash changes if the JUCE version or any patch file changes.
 
 3. **Paths Resolved Once:** JUCE, JAM modules, Vulkan SDK paths set at CMake configure time (generator expressions route platform/config flags downstream).
 
