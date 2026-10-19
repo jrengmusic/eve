@@ -5,15 +5,6 @@ void EVEView::registerButtons (jam::Registry::Registration& registration)
     registration.buttons = [] (jam::Registry& r)
     {
         r.registerComponent<jam::ButtonSVG> (Id::button);
-        r.registerComponent<jam::ButtonSVG> (Id::toTag (Id::settings),
-                                             juce::StringArray { BinaryData::getString (files::settingsNormal),
-                                                                 BinaryData::getString (files::settingsOver),
-                                                                 BinaryData::getString (files::settingsDown),
-                                                                 juce::String(),
-                                                                 juce::String(),
-                                                                 juce::String(),
-                                                                 juce::String(),
-                                                                 juce::String() });
         r.registerComponent<jam::ButtonSVG> (Id::up,
                                              juce::StringArray { BinaryData::getString (files::upNormal),
                                                                  BinaryData::getString (files::upOver),
@@ -32,8 +23,6 @@ void EVEView::registerButtons (jam::Registry::Registration& registration)
                                                                  juce::String(),
                                                                  juce::String(),
                                                                  juce::String() });
-        r.registerComponent<jam::ButtonLogo> (Id::toTag (Id::aboutBox));
-        r.registerComponent<jam::ButtonDialog> (Id::buttonDialog);
     };
 
     registration.config = [] (jam::Registry& r)
@@ -47,12 +36,5 @@ void EVEView::registerButtons (jam::Registry::Registration& registration)
                                              s->setNavigationButtons (jam::Registry::toButton (reg->make.get (Id::up)),
                                                                       jam::Registry::toButton (reg->make.get (Id::down)));
                                          });
-
-        r.registerConfig<jam::ButtonDialog> (Id::buttonDialog,
-                                             Id::toTag (Id::settings),
-                                             [] (jam::ButtonDialog* d)
-                                             {
-                                                 d->setShouldBeDismissedWhenOutOfFocus (false);
-                                             });
     };
 }

@@ -1,5 +1,5 @@
 ---
-version: 0.0.1
+version: 0.0.2
 ---
 
 # EVE
@@ -39,6 +39,8 @@ ctrl, alt, shift.
 +-----------+--------+-------+---------+--------------------------------+
 | key       | type   | value | choices | description                    |
 +===========+========+=======+=========+================================+
+| settings  | string | cmd+, |         | Open the settings dialog.      |
++-----------+--------+-------+---------+--------------------------------+
 | zoomIn    | string | cmd+= |         | Increase the zoom by zoomStep. |
 +-----------+--------+-------+---------+--------------------------------+
 | zoomOut   | string | cmd+- |         | Decrease the zoom by zoomStep. |

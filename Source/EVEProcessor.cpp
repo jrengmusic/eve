@@ -13,7 +13,7 @@ EVEProcessor::EVEProcessor()
       )
 #endif// !JucePlugin_PreferredChannelConfigurations
 {
-    layout.populateTree (model, layout.getOrCreateConfig());
+    layout.populateTree (model, layout.getOrCreateSettings());
 }
 
 const juce::String EVEProcessor::getName() const { return JucePlugin_Name; }

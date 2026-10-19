@@ -24,7 +24,6 @@
 #include "ProjectInfo.h"
 #include "Files.h"
 #include "Identifiers.h"
-#include "LookupTables.h"
 
 struct Generated
 {

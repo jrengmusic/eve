@@ -64,8 +64,6 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
     registration.viewComponents = [this] (jam::Registry& r)
     {
         r.registerComponent<juce::Label> (Id::label);
-        r.registerComponent<jam::AnimationStrip> (Id::animationStrip);
-        r.registerComponent<jam::AnimationScrambledText> (Id::scrambledText);
         r.registerComponent<jam::Selector> (Id::selector);
         r.registerComponent<jam::TextEditor> (Id::textEditor);
 
@@ -106,33 +104,6 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
                                                textEditor->setDocument (std::move (document));
                                            });
-
-        {
-            static constexpr int animationStripFrameCount { 125 };
-
-            r.registerConfig<jam::AnimationStrip> (Id::animationStrip,
-                                                   Id::toTag (Id::jreng),
-                                                   [] (jam::AnimationStrip* animationStrip)
-                                                   {
-                                                       animationStrip->setImageStrip (jam::ImageLoader::getFromBinary (Id::jrengLogo), animationStripFrameCount);
-                                                       animationStrip->setURL (Id::companyWebsite);
-                                                       animationStrip->start();
-                                                   });
-        }
-
-        r.registerConfig<jam::AnimationScrambledText> (
-            Id::scrambledText,
-            Id::toTag (Id::developer),
-            [] (jam::AnimationScrambledText* scrambledText)
-            {
-                juce::StringArray lines;
-
-                for (const auto& name : map::credits)
-                    lines.add (name);
-
-                scrambledText->setText (lines);
-                scrambledText->start();
-            });
     };
 
     registration.styles = [] (jam::Registry& r)
@@ -142,12 +113,6 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
     registration.makeContent = [] (jam::Registry& r)
     {
-        r.makeContent.add<jam::AudioModel&, juce::LookAndFeel&> (jam::Format::toCamelCase (Id::aboutBox),
-                                             [] (jam::AudioModel& modelToUse, juce::LookAndFeel& lookAndFeel)
-                                             {
-                                                 return jam::ViewContent::create (modelToUse, lookAndFeel, jam::HtmlDocument::getOrCreate (juce::Identifier { files::aboutLayout }));
-                                             });
-
         r.makeContent.add<jam::AudioModel&, juce::LookAndFeel&> (
             Id::settings,
             [] (jam::AudioModel& modelToUse, juce::LookAndFeel& lookAndFeel)

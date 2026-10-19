@@ -36,6 +36,37 @@
 
 ## SPRINT HISTORY
 
+## Sprint: No Panel, Settings on cmd+, — EVE on the Optional-Panel Bootstrap and the Settings Vocabulary ✅
+
+**Date:** 2026-10-19
+**Duration:** one long session (jam Sprint 169 is the primary record: decisions, design, audit triage, violations)
+**Plan:** `PLAN-optional-panel-settings.md` (approved; last step the log)
+
+### Decisions (ARCHITECT)
+1. *"without PanelLayout.html, determinisitically Panel should not be created at all"*; **"Delete About"**; Settings *"created with keyboard shortcut"*, **"cmd+,"**.
+2. *"stick to EVERYTHING using 'Settings', only diverge with markdown vs xml"*; lane type **"SettingsDocument<FormatDocumentType>"**.
+
+### Files Modified
+- Deleted: `Source/layout/PanelLayout.html`, `AboutLayout.html`, `Source/images/JRENG_logo.png`, `Source/buttons/settings_{normal,over,down}.svg`, `cast/lookuptables.md`, `Source/generated/LookupTables.h`.
+- `cast/files.md`: `panel layout`, `about layout`, `settings normal/over/down` rows out; `config directory` → `markdown settings directory`, `default config` → `markdown settings file name`.
+- `cast/identifiers.md`: `animationStrip`, `buttonDialog`, `developer`, `jreng`, `jrengLogo` rows and `## tags` out. `cast/spell.md`: lookup-table and tags blocks out. `project-info.md`: `images` glob row out, `html` description.
+- `Source/EVEView.h/.cpp`: `initialisePanels`, `attachAboutDialog` out; `getOrCreateSettings`; `initialiseTheme (settings)`.
+- `Source/EVEViewPanelCallbacks.cpp`: only the `UIScale` callback. `EVEViewRegistration.cpp`: settings ButtonSVG, ButtonLogo, ButtonDialog out. `EVEViewComponents.cpp`: AnimationStrip, ScrambledText, `aboutBox` content out.
+- `Source/EVEProcessor.h/.cpp`: `jam::SettingsDocument<jam::ConfigDocument>`, `files::markdownSettingsDirectory`, `files::markdownSettingsFileName`.
+- `Source/layout/ViewLayout.md`: `## keys` row `settings | string | cmd+,`; version `0.0.2`.
+- `PLAN-optional-panel-settings.md`: new.
+
+### State for Continuation
+- Build `cast cast/spell.md --debug`: `EXIT=0`, 0 errors, 0 warnings. ARCHITECT runs EVE Standalone: no panel row; `cmd+,` opens Settings; APPEARANCE / UI_SCALE write to `~/.config/end/eve.md` (re-seeded by version 0.0.2).
+- `CLAUDE.md` Source/layout row still lists `PanelLayout.html` and `AboutLayout.html`.
+- Next (ARCHITECT): the TextEditor state machine with ValueTree.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
 ## Sprint: One Atom, One Style Word, Both Lanes on One SSOT — CMYK Mermaid, Display-Scale Diagrams ✅
 
 **Date:** 2026-10-17

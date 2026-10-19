@@ -6,13 +6,13 @@ EVEView::EVEView (jam::AudioModel& newModel,
                   juce::AudioProcessor& processorToConnectTo)
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
 {
-    initialise (layout.getOrCreateConfig());
+    initialise (layout.getOrCreateSettings());
     setScaling();
 }
 
-void EVEView::initialiseTheme (const juce::ValueTree& config)
+void EVEView::initialiseTheme (const juce::ValueTree& settings)
 {
-    styleManager.create (layout.fonts, config);
+    styleManager.create (layout.fonts, settings);
 
     theme = std::make_unique<jam::StyleTheme> (*styleManager, model.getAppearance());
     setLookAndFeel (theme.get());
@@ -26,12 +26,6 @@ void EVEView::initialiseRegistry()
     registerViewComponents (registration);
 
     registry.create (registration);
-}
-
-void EVEView::initialisePanels()
-{
-    panel = jam::ViewPanel::create (model, jam::HtmlDocument::getOrCreate (juce::Identifier { files::panelLayout }));
-    addAndMakeVisible (panel.get());
 }
 
 void EVEView::initialiseView()

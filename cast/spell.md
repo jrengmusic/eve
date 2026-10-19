@@ -1,63 +1,55 @@
 ## index
 
-+--------------------+----------------------------------------+----------+
-| alias              | symbol                                 | format   |
-+====================+========================================+==========+
-| @code              | ../../jam/cast/code.cast               |          |
-| @source            | source.cast                            |          |
-| @cmake             | cmake.cast                             |          |
-| @project-info      | ../project-info.md                     |          |
-| @modules           | ../../jam/user-modules-info.md         |          |
-| @juce              | ../../jam/cast/juce.cast               |          |
-| @signing           | signing.md                             |          |
-| @sign              | signing.cast                           |          |
-| @Entitlements      | ../entitlements.plist                  |          |
-| @ProjectInfo       | ../Source/generated/ProjectInfo.h      |          |
-| @CMakeLists        | ../CMakeLists.txt                      |          |
-| @space             | U+0020                                 | fromUTF8 |
-| @semicolon         | ;                                      |          |
-| @files             | files.md                               |          |
-| @identifiers       | identifiers.md                         |          |
-| @lookuptables      | lookuptables.md                        |          |
-| @Files             | ../Source/generated/Files.h            |          |
-| @FilesSource       | ../Source/generated/Files.cpp          |          |
-| @Identifiers       | ../Source/generated/Identifiers.h      |          |
-| @IdentifiersSource | ../Source/generated/Identifiers.cpp    |          |
-| @LookupTables      | ../Source/generated/LookupTables.h     |          |
-| @Generated         | ../Source/generated/Generated.h        |          |
-| @credits           | jam::LookupTable<int, const char*, 22> |          |
-+--------------------+----------------------------------------+----------+
++--------------------+-------------------------------------+----------+
+| alias              | symbol                              | format   |
++====================+=====================================+==========+
+| @code              | ../../jam/cast/code.cast            |          |
+| @source            | source.cast                         |          |
+| @cmake             | cmake.cast                          |          |
+| @project-info      | ../project-info.md                  |          |
+| @modules           | ../../jam/user-modules-info.md      |          |
+| @juce              | ../../jam/cast/juce.cast            |          |
+| @signing           | signing.md                          |          |
+| @sign              | signing.cast                        |          |
+| @Entitlements      | ../entitlements.plist               |          |
+| @ProjectInfo       | ../Source/generated/ProjectInfo.h   |          |
+| @CMakeLists        | ../CMakeLists.txt                   |          |
+| @space             | U+0020                              | fromUTF8 |
+| @semicolon         | ;                                   |          |
+| @files             | files.md                            |          |
+| @identifiers       | identifiers.md                      |          |
+| @Files             | ../Source/generated/Files.h         |          |
+| @FilesSource       | ../Source/generated/Files.cpp       |          |
+| @Identifiers       | ../Source/generated/Identifiers.h   |          |
+| @IdentifiersSource | ../Source/generated/Identifiers.cpp |          |
+| @Generated         | ../Source/generated/Generated.h     |          |
++--------------------+-------------------------------------+----------+
 
 ## headers
 
-+----------------+------------------------------------------------------------------------+-------------+
-| file           | brief                                                                  | description |
-+================+========================================================================+=============+
-| ProjectInfo.h  | ```                                                                    |             |
-|                | @file ProjectInfo.h                                                    |             |
-|                | @brief Project metadata — the generated ProjectInfo namespace.         |             |
-|                | ```                                                                    |             |
-+----------------+------------------------------------------------------------------------+-------------+
-| Files.h        | ```                                                                    |             |
-|                | @file Files.h                                                          |             |
-|                | @brief Product asset file names.                                       |             |
-|                | ```                                                                    |             |
-+----------------+------------------------------------------------------------------------+-------------+
-| Identifiers.h  | ```                                                                    |             |
-|                | @file Identifiers.h                                                    |             |
-|                | @brief Product identifier vocabulary.                                  |             |
-|                | ```                                                                    |             |
-+----------------+------------------------------------------------------------------------+-------------+
-| LookupTables.h | ```                                                                    |             |
-|                | @file LookupTables.h                                                   |             |
-|                | @brief Product lookup tables.                                          |             |
-|                | ```                                                                    |             |
-+----------------+------------------------------------------------------------------------+-------------+
-| Generated.h    | ```                                                                    |             |
-|                | @file Generated.h                                                      |             |
-|                | @brief Generated-header umbrella — re-exports every generated concern. |             |
-|                | ```                                                                    |             |
-+----------------+------------------------------------------------------------------------+-------------+
++---------------+------------------------------------------------------------------------+-------------+
+| file          | brief                                                                  | description |
++===============+========================================================================+=============+
+| ProjectInfo.h | ```                                                                    |             |
+|               | @file ProjectInfo.h                                                    |             |
+|               | @brief Project metadata — the generated ProjectInfo namespace.         |             |
+|               | ```                                                                    |             |
++---------------+------------------------------------------------------------------------+-------------+
+| Files.h       | ```                                                                    |             |
+|               | @file Files.h                                                          |             |
+|               | @brief Product asset file names.                                       |             |
+|               | ```                                                                    |             |
++---------------+------------------------------------------------------------------------+-------------+
+| Identifiers.h | ```                                                                    |             |
+|               | @file Identifiers.h                                                    |             |
+|               | @brief Product identifier vocabulary.                                  |             |
+|               | ```                                                                    |             |
++---------------+------------------------------------------------------------------------+-------------+
+| Generated.h   | ```                                                                    |             |
+|               | @file Generated.h                                                      |             |
+|               | @brief Generated-header umbrella — re-exports every generated concern. |             |
+|               | ```                                                                    |             |
++---------------+------------------------------------------------------------------------+-------------+
 
 ## output
 
@@ -128,32 +120,12 @@
 |                                                              |                           | - [description]: @headers:brief               |                    |
 |                                                              |                           | - [list]: @code:identifier                    |                    |
 +--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| - [list]: @identifiers:tags                                  |                           | @code:namespace                               | @Identifiers       |
-|                                                              |                           | - name: Id                                    |                    |
-|                                                              |                           | - [list]: @code:identifier                    |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
 | > - [list]: @identifiers:identifiers                         |                           | @source:source                                | @IdentifiersSource |
 |                                                              |                           | - file: Identifiers.h                         |                    |
 |                                                              |                           |                                               |                    |
 |                                                              |                           | @code:namespace                               |                    |
 |                                                              |                           | - name: Id                                    |                    |
 |                                                              |                           | > - [list]: @code:identifier-definition       |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| - [list]: @identifiers:tags                                  |                           | @code:namespace                               | @IdentifiersSource |
-|                                                              |                           | - name: Id                                    |                    |
-|                                                              |                           | - [list]: @code:identifier-definition         |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| > > - [list]: @lookuptables:credits                          | - [list]: @code:linebreak | @code:namespace                               | @LookupTables      |
-|                                                              |                           | - macro: #pragma once                         |                    |
-|                                                              |                           | - generated:                                  |                    |
-| > > - [list]: @lookuptables:credits:key                      | > > - [list]: @code:comma | - name: map                                   |                    |
-|                                                              |                           | - [description]: @headers:brief               |                    |
-| > > - [list]: @lookuptables:credits:value                    |                           |                                               |                    |
-|                                                              |                           |                                               |                    |
-|                                                              |                           | @code:lookup-table                            |                    |
-|                                                              |                           | - type: @credits                              |                    |
-|                                                              |                           | - name: credits                               |                    |
-|                                                              |                           | > > - [list]: @code:entry                     |                    |
 +--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
 
 ## output index
