@@ -36,6 +36,70 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Reflow at the Window Width — TextEditor Is the Only Renderer; the Harness Prints from the AST ✅
+
+**Date:** 2026-10-21
+**Duration:** one session, 2026-10-21 (context compacted once)
+**Plan:** `PLAN-reflow.md` (Steps 0–10 and the execution state; also `~/.claude/plans/giggly-dancing-pike.md`)
+
+### Decisions (ARCHITECT, verbatim)
+1. *"css width is necessary to set baseline, a default "config". but without it reflow at Component side should just always adhere to whatever available space from juce::Component::getLocalBounds().getWidth()"*; `maxLineWidth`: **"Unset means bounds"**.
+2. *"mermaid diagram, images, tables, follow exactly the same logic … images could simply use AffineTransform or juce::Rectangle API to fit"*.
+3. *"in EVE reflow should always the FINAL materialiser, the renderer, the COMPONENT. the TextEditor"*; *"ideally TextEditor just call ReflowDocument API to reflow ANYTHING, SSOT"*.
+4. *"Table should wrap each column"*; *"each table column can be treated exactly like whole component "column""*; **"only real table"**; *""one line" is the data. but rendered reflow adding/removing lines"*.
+5. Table mark **"OSC 133 marker"**; mark writer **"Print from the AST"**; decorations **"Layout properties"**.
+6. *"all "terminal" concern always at Processor (audio thread) hot path? lock free"*.
+7. Names: `lineStart, E`; `columnStart, F`; `fill, G`. Quote bar: *"just make consistent. what's the established pattern?"* — a quote bar is a fill (`jam_MarkdownGraphics.cpp` `addQuoteBars`), so no bar key.
+
+### Agents Participated
+- COUNSELOR — plan, rulings record, every delegation brief, validation of each Engineer return by own reads, audit triage (30 resolved, 14 rejected with reads), visual validation of the captures, doxygen read-through and three corrections, log.
+- Pathfinder (haiku) — code reads, whatdbg traces and samples, Release timing runs, capture sweeps, read-only git.
+- Engineer (sonnet) — Steps 1–8, audit fixes in three batches, builds, ephemeral timing lines and their removal, doxygen pass.
+- Auditor (opus) — one sprint audit (40 findings).
+
+### Files Modified (28 tracked + 1 new)
+- EVE:
+  - `Source/EVETerminalProcessor.h/.cpp` — `load` parses, calls `addLines`, and prints the AST into engine rows inside `suspendProcessing` (`:50-89`). No `MarkdownComponent`, no `GraphicsContext`. Per line: `getNumRows`, `addRows`, `addRow`, `setAtom`, `addCells`, `addImage`, `getDiagramImage`, `getNumObjects`, `addMarkers`. `prepare` sizes history from `engine.getNumBytes()`.
+  - `Source/layout/style.css` — `maxLineWidth` deleted (R1: unset means bounds).
+  - `PLAN-reflow.md` — new.
+- jam:
+  - `cast/terminal.md`, `cast/core.md`, `cast/markdown.md`; generated `jam_Terminal.h`, `jam_Core.*`, `jam_Markdown.*` — `ShellIntegration` rows `lineStart E`, `columnStart F`, `fill G`; `indent` moved to core.
+  - `jam_terminal/graphics/jam_TerminalEncoder.h/.cpp` — `appendOscCommand`, `appendShellIntegration`, `appendLineStart`, `appendColumnStart`, `appendFill`; `appendImageArgument` is one template plus the Colour overload; `appendOscIntroducer` folded into `appendOscCommand`.
+  - `jam_terminal/document/jam_AnsiDocument.h/.cpp` — OSC 133 `E`/`F`/`G` decode into `Id::indent`, column child lines (with their images) and `Id::fill` children. Arguments are checked at the entry; `getShellIntegrationProperties` table; `addSegments` builds the cell-line segments once.
+  - `jam_terminal/graphics/jam_TerminalGraphicsEngine.h/.cpp` — `MarkerPlacement` / `addMarkerPlacement`; `appendRowSpan` writes markers in the row text; `getNumBytes()` of the prepared rows; `getNumBase64Bytes`.
+  - `jam_gui/widgets/jam_TextEditor.h/.cpp` — reflow at the visible width minus the indent; per-column reflow (`setTableRows`); images fitted `onlyReduceInSize` (`setImageRows`), also in columns; fills painted; runs built at layout for visible lines only (`addVisibleRuns`); `setLane`, `getContentWidth`.
+  - `jam_style/jam_StyleCustom.h/.cpp` — `getLineIndent` reads `Id::indent` cells × cell width.
+  - `jam_markdown_graphics/style/jam_StyleMarkdown.h/.cpp` — `getLineWidth (availableWidth)` caps at `maxLineWidth` only when the sheet has it; `getBlock` / `getType` public.
+  - `jam_markdown_graphics/graphics/jam_MarkdownGraphics.h/.cpp` — `getPills`, `getPill`, `getFills`, `hasFill` public; the only author of line fills.
+  - `jam_markdown_graphics/component/jam_MarkdownComponent.cpp` — `getLineWidth` through `StyleMarkdown`; diagram raster through `MermaidGraphics::getImage`.
+  - `jam_mermaid_diagram/diagram/jam_MermaidGraphics.h/.cpp` — `getImage`, the one mermaid raster.
+
+### Alignment Check
+- [x] BLESSED principles followed — one reflow (`ReflowDocument::setRows`), one fill author (`MarkdownGraphics::getFills`), one mermaid raster; no allocation on the audio-thread path (SPEC.md:255); paint builds nothing (ruling 6).
+- [x] NAMES.md adhered — new names approved or from established families (`getFills` beside `getPills`, `setAtom` in the `AttributedString::set` family, `appendShellIntegration` in the `append*` family).
+- [x] MANIFESTO.md principles applied — creation at load (the print); marks complete at decode; materialisation at layout.
+
+### Problems Solved
+- Column cap: the old lane laid out the harness at `maxLineWidth 100em` and ended each row with `\n`, so TextEditor could split lines but never join them. Now one row is one logical line of any length, and TextEditor reflows at its bounds (1600 wide: a 147-character line on one row).
+- `std::bad_variant_access` at the first pull: `addCoveredImages` read `Id::height` of `Id::fill` children; fixed with `isTag (Id::image)`.
+- Audit: 40 findings; 30 resolved, 14 rejected with reads (PLAN-reflow.md, Step 10). One acceptance (#4) was wrong at first: `getType` / `getBlock` were private; the build failed and they were made public.
+
+### State for Continuation
+- Builds through cast, 0 errors, 0 warnings: EVE `--debug` and `--no-sign`. Doxygen 0 warnings, jam and eve (scratch Doxyfiles from the nvim templates; EVE's CMake has no `doxygen` target). Debug trace: `END outcome=timeout stops=0`.
+- Launch is not lower than Step 0 (processor → first painted 749–807 ms). Measured costs (Release): the image round trip ~290 ms (picture ~97, PNG encode ~90, base64 + PNG decode ~101), advances ~55 ms (PLAN-reflow.md Step 9).
+- Open, not shown to be caused by this sprint: Han ideographs blank at `markdown/markdown.md:481`, `:483`; full-width line `:489` blank; grid cell `:471-472` joins two bullets.
+- Per-column wrap with long cell text is not exercised by the harness.
+- Tooling: the whatdbg sampler fails with `timeout must be >= 0` (`~/.carol/skills/whatdbg-trace/sample.lua:51-52`, clock read twice; `trace.lua:190` clamps).
+- Process: three Engineer edits used Python writers without backup (TextEditor, AnsiDocument, AnsiDocument.h doxygen); every changed region was read in full, no damage. The Auditor left background work; it was stopped at log time.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
+---
+
 ## Sprint: EVE Launch in Subseconds — Terminal Round Trip on the JUCE Plugin Contract; Style Is the Sole Raster Author ✅
 
 **Date:** 2026-10-21
@@ -239,406 +303,3 @@ Objective: *"EVE opens in subseconds, grand total, like jfs; find and remove eve
 ### Debts Deferred
 - None
 
-## Sprint: ViewLayout.md Is the Virgin Config; Launch Crash Fixed; No "palette" ✅
-
-**Date:** 2026-10-09
-**Duration:** part of one session (jam Sprint 154 is the primary record — decisions, audit triage, violations)
-
-### Decisions (ARCHITECT)
-1. *"padding is config, ViewLayout.md is the virgin config. but ViewLayout.md has no padding"*; *"reminder ViewLayout.md == eve.md for virgin machine. eve.md as written/read on disk always wins"*.
-2. *"keep component.md, it should be still the path exactly like jfs"*.
-
-### Files Modified
-- `Source/layout/ViewLayout.md` — the one virgin config: metadata block `version: 0.1.0`, `UI_size`, and the `settings`, `colours`, `window` (`padding`), `style`, `fonts` tables of the former `eve.md`.
-- `Source/layout/eve.md` — deleted (its content is in `ViewLayout.md`).
-- `Source/EVEProcessor.h:59` — `PluginEditorLayout` seeds the user settings from `files::viewLayout`; `files::defaultConfig` stays the disk name `eve.md`.
-- `cast/files.md` — descriptions of `view layout` and `default config`.
-- `tests/ansi_fixpoint/main.cpp` — `indexed256`, `isIndexedVocabularyFixpointStable`, `colourIndices`, `indexedStable`, `"indexedForeground"`, `"indexedBackground"`.
-- `SPEC.md:152` — "colour + appearance custom properties".
-
-### State for Continuation
-- Builds: `--debug` and `--no-sign` 0/0.
-- ARCHITECT runs EVE Standalone: the window opens; the markdown view fills the view bounds less the config padding.
-
-## Sprint: Markdown View — MarkdownComponent in the md Lane; Harness ✅
-
-**Date:** 2026-10-08
-**Duration:** part of one session (jam Sprint 153 is the primary record — decisions, audit triage, violations)
-
-### Files Modified
-- `project-info.md` — `@markdown-style`, `@mermaid-style` aliases; user modules `jam_pdf`, `jam_mermaid_diagram`, `jam_markdown_graphics`; `## binary` (`markdownStyleSheet`, `mermaidStyleSheet`).
-- `cast/identifiers.md` — `markdown`.
-- `Source/EVEView.cpp` — `initialiseTheme` registers the markdown and mermaid style sheets.
-- `Source/EVEViewComponents.cpp` — `registerComponent<jam::MarkdownComponent>`, config callback (harness from disk via `juce::File { __FILE__ }`, `setDocument`, `setAppearance (model.getAppearance())`), `registration.styles` with `StyleMarkdown`.
-- `Source/layout/component.md` — new; one row (`markdown`, style `markdown`); md lane bounds = view local bounds reduced by the eve.md window padding.
-- `Source/layout/eve.md` — `## keys` deleted (its consumers, TextEditor and the keys validator rule, are deleted).
-- `markdown/markdown.md` — new harness: 27 feature sections, 46 mermaid fences; `markdown/JRENG_logo.png`; line 424 and the headerless grid table corrected.
-- `Source/buttons/` — 29 SVGs copied from jfs (ButtonSVG assert).
-
-### State for Continuation
-- Builds: `--debug` and `--no-sign` 0/0.
-- ARCHITECT validates the markdown view against Obsidian.
-- The sandbox toolchain writes 46 PNGs into `markdown/`.
-- `CLAUDE.md:85` still names the TextEditor main view.
-
-## Sprint: EVE Conforms to jreng-filter-strip — Pure jfs Shell, md Settings Lane, No Installer ✅
-
-**Date:** 2026-10-08
-**Duration:** one session (jam Sprint 152 is the primary record — decisions, audit triage, violations)
-**Plan:** `../jam/PLAN-eve-conformance.md`
-
-### Decisions (ARCHITECT)
-1. Shell **"Pure jfs shell"**: the TextEditor, AnsiDocument and eve.md wiring leave EVEView; panel **"About + Settings only"**, layouts **"Derive from jfs"**.
-2. md lane mapping **"Yes, this mapping"**: `ViewLayout.md` carries the base UI size; `eve.md` is the binary default settings, seeded to **"~/.config/end/eve.md"**, disk wins, version in a **"metadata block"**.
-3. Formats **"Standalone, VST3, AU"**; *"eve will be shipped with END. eve itself doesnt create installer"*; jreng signing profile only.
-
-### Files Modified
-- `project-info.md` — jfs table set (plugin format, compile/link option, macro, toolchain flows per format), no installer/pack/licence rows; icon `Source/icons/end-icon.png` (copy of END's).
-- `cast/spell.md`, `cast/signing.md`, `cast/signing.cast` (new), `cast/cmake.cast` (jfs template, JAM literals, no installer/pack/toolchain-file lane), `cast/files.md`, `cast/identifiers.md`, `cast/lookuptables.md` (new, jfs credits).
-- `Source/EVEProcessor.h`, `.cpp`, `EVEAudioProcessor.h`, `EVEView.h`, `.cpp`, `EVEViewRegistration.cpp`, `EVEViewComponents.cpp`, `EVEViewPanelCallbacks.cpp` — jfs shell, About and Settings only.
-- `Source/layout/ViewLayout.md` (`## UI_size`), `eve.md` (metadata block, `--name` palette keys and style values, no `## UI_size`), `PanelLayout.html`, `AboutLayout.html`, `SettingsLayout.html` (derived from jfs), `parameters.md` (`mode` row removed); `Source/buttons/` (settings, up, down SVGs), `Source/images/JRENG_logo.png`.
-- Generated by cast: `CMakeLists.txt`, `entitlements.plist`, `Source/generated/*`.
-
-### Problems Solved
-- EVE builds through cast with 0 errors and 0 warnings in `--debug` and `--no-sign`; Standalone, VST3 and AU artefacts install.
-
-### State for Continuation
-- Runtime is untested (ARCHITECT): host load, About, Settings write-back into `~/.config/end/eve.md`.
-- The next unit is the View: the TextEditor as EVE's main component (monospace and rich text), then markdown materialisation.
-- `CLAUDE.md` and `HANDOFF.md` still describe the TextEditor-era EVE.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
-## Sprint: Signing Lane — `[description]` Migration; `cast/signing.md`; Generated `entitlements.plist` ✅
-
-**Date:** 2026-10-04
-**Duration:** part of one session (jam Sprint 150 is the primary record)
-**Plan:** `dev/jam/PLAN-signing.md` (locked)
-
-### Decisions (ARCHITECT)
-1. *"now let's fix the entitlements generation for ALL project"*; *"ensure everything is table driven"*.
-2. **"Migrate in this sprint"**; lane switch **"Own file per chain (Recommended)"**; keys **"Rows in ## signing"**, **"type column"**.
-
-### Files Modified
-- Migration `[comment]` → `[description]`: `cast/cmake.cast` (3 tokens), `cast/spell.md` (3 bindings, 1 header cell), `cast/files.md`, `cast/identifiers.md`, `project-info.md` (header cells, 16 in all).
-- `cast/signing.md` — NEW. `## signing` moved from `project-info.md`; entitlement rows `cs.allow-unsigned-executable-memory`, `cs.disable-library-validation`.
-- `cast/spell.md` — index `@signing`, `@Entitlements`; `- [list]: @signing:signing`; output group `@code:[xml]entitlements` → `@Entitlements`; `CMakeLists.txt` brief names `cast/signing.md`.
-- `CMakeLists.txt:21` — the brief line. `entitlements.plist` — now generated.
-
-### Problems Solved
-- The Sprint 149 blocker `cast: spell.md:100 (structure): unknown reserved name: [comment]` is gone. Oracle (scratch mirror, `## toolchain` removed): `entitlements.plist` = the previous file plus the banner; `CMakeLists.txt` and the generated headers otherwise byte-identical.
-
-### State for Continuation
-- Not built. The EVE build and visual checks owed from the STAMP Conformance sprint are still owed; EVE also needs a `jam_document` user-module row.
-- `cast/.output_table_extract.txt` is not declared by the manifest and still holds `- comment:` and `@project-info:signing` text.
-- This log now holds 7 entries against its "keep last 5" rule; no entry was rotated.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
-## Sprint: STAMP Conformance — `getCodec` Four Members (not compiled) ✅
-
-**Date:** 2026-10-04
-**Duration:** one session
-**Repos:** jam (Sprint 149, the full record), stamp, eve, jreng-filter-strip
-**Plan:** `../jam/PLAN-stamp.md` (locked; step 12 and the audit touch eve)
-
-### Agents Participated
-- COUNSELOR (fable-5) — plan, delegation, validation by read
-- Engineer — `getCodec`
-- Auditor — one sweep (finding 65 is eve's)
-
-### Files Modified (eve)
-- `Source/EVEView.cpp` — `getCodec()` gives the four `Document::Index::Codec` members (`encode`, `decode`, `getNumBytes`, `clear`); the null test at `:45` is explicit (`decodedLine != nullptr`).
-- `carol/SPRINT-LOG.md` — this entry
-
-### Alignment Check
-- [x] CODING — explicit null check
-- [ ] Not compiled: `cast cast/spell.md` stops at `cast/spell.md:100 unknown reserved name: [comment]`. The manifest predates the cast reserved name `[description]`.
-
-### State for Continuation
-- Before EVE builds: migrate the manifest to `[description]`; add a `jam_document` module row (`jam_gui` now depends on it); `jam::TextEditor` is in `jam_gui`.
-- Owed after the build: render `tests/ansi_fixpoint/fixtures/ls.ansi` and compare with the pre-sprint view; test the vim keys.
-- jam changed under EVE: `AnsiDocument::setRows` and its two siblings are deleted (wrap is `ReflowDocument::setRows` with the LookAndFeel measure); `Document::Index` sums row pixels; `TextEditor` reads font, metrics and palette from `jam::StyleCustom`.
-- The xterm palette for a terminal LookAndFeel (`StyleCustom::getPaletteColour`) has no code; EVE has no `StyleCustom` subclass. ARCHITECT rules where it lives (jam Sprint 149, finding 41).
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None commanded
-
-## Sprint: Shared JUCE Patch Cache + camelCase Vocabulary Migration (END/jam) + Standalone Teardown Fixes ✅
-
-**Date:** 2026-09-21
-**Duration:** one session
-**Repos:** eve, end, jam, jreng-filter-strip
-
-### Agents Participated
-- COUNSELOR (fable-5) — root-cause reads (CMake stamp gate, APVTS state restore, ConfigValidator rule, LookAndFeel teardown order, `_` key parse), scope quoting, per-step verification by own reads, three trivial edits by hand (theme.md:201, bimaps.md:47–53, jam_AudioStandaloneApp.cpp:54–62)
-- Pathfinder ×1 — END identifier consumer survey (95 rows: `Id::` consumers, config-doc keys, jam overlap)
-- Engineer ×6 — cmake.cast cache block (×3 repos); END identifiers/config snake→camel; jam four config rows; END residue (SVG stems, keys rows); jam `keys` rule delete + `replaceState`; END `loadGraphics` key = stem + `normalOn.svg`
-- Auditor — not run (ARCHITECT interrupted before the sweep and moved to build/test)
-
-### Files Modified (eve 2, end 11 + 4 renames, jam 6, jreng-filter-strip 1)
-**eve**
-- `cast/cmake.cast:81–101` — JUCE patch cache moves from `$TMPDIR/juce-patched` (macOS purges idle files per file; the stamp survived, the tree did not) to `~/.cache/cast/juce/<sha256(version + patch set)>` (`%LOCALAPPDATA%` on Windows); gate is `EXISTS <dir>/.patch-stamp`, stamp written last; `CAST_JUCE_TEMP_DIR`/stamp-compare deleted. `CMakeLists.txt` regenerated by ARCHITECT.
-- `carol/SPRINT-LOG.md` — this entry
-**end**
-- `cast/cmake.cast:81–101` — same cache block
-- `cast/identifiers.md` — 65 string values snake→camelCase (C++ names unchanged); 8 dead rows deleted (`actionList`, `hint`, `labelBackground`, `labelText`, `ligatures`, `sidebarSize`, `spinner`, `statusBar`); `keys`/`splitLine` rows deleted by ARCHITECT (jam owns both — consumers jam_ConfigValidator.cpp:77, jam_TextEditor.cpp:657)
-- `cast/bimaps.md:47–53` — `FileFlex` values `tabBar`, `tabHighlight`, `normalOn`, `resizerBar` (stem = graphics key)
-- `Source/config/keys.md`, `display.md`, `theme/gfx/theme.md` — every key and prose cross-reference camelCase; `theme.md:201` `splitLine`; three consumer-less bindings kept as rows (`newWindow`, `renameTab`, `actionList`)
-- `Source/config/svg/` — `resizerBar.svg`, `tabBar.svg`, `tabHighlight.svg`, `normalOn.svg` (renamed, content byte-identical)
-- `Source/lookAndFeel/EventRegistration.cpp:134–150` — `loadGraphics` keys each segment by `propName`; the last-`_` suffix parse deleted
-**jam**
-- `cast/identifiers.md:79,532,533,927` — `analyzerMode`, `focusedPane`, `focusedTab`, `panelHeight` strings camelCase
-- `jam_markdown/document/jam_ConfigValidator.cpp` — `keys` rule (every `## keys` row `type == string`) deleted; END keys.md:24 `prefixTimeout | int` is a legitimate row (ENDActions.h:76). `.h` prose now says three rules.
-- `jam_data_structures/model/jam_AudioModel.cpp:173` — `setState` uses APVTS `replaceState`; `copyPropertiesAndChildrenFrom` dropped parameter nodes absent from saved host state (EVE MODE node → invalid tree → jam_TextEditor.cpp:86 assert)
-- `jam_plugin_bootstrap/standalone/jam_AudioStandaloneApp.cpp:54–62` — `~MainWindow` clears the content component before `setDefaultLookAndFeel (nullptr)`; the old order broadcast a fallback LookAndFeel_V4 into a live editor whose TextEditor re-derives `StyleCustom` on `lookAndFeelChanged`
-**jreng-filter-strip**
-- `cast/cmake.cast:104–124` — same cache block
-
-### Alignment Check
-- [x] BLESSED — **S**: one JUCE cache keyed by content, shared by every project and framework; identifier table follows the consumer (project-only → project table, jam-consumed → jam); **B**: teardown order fixed in the owner (`MainWindow`), no guard added in `TextEditor`; **E**: no string parse for a key — the stem is the key
-- [x] NAMES.md — one new name, `CAST_JUCE_CACHE_DIR` (CAST_* family); `normalOn` is the established `map::ButtonState` name
-- [x] MANIFESTO.md — no defensive guards added; the two crash fixes remove a wrong order and a wrong copy, nothing re-checks
-- [ ] Auditor sweep — not run this sprint (ARCHITECT interrupt); COUNSELOR verified every Engineer output by direct read
-
-### Problems Solved
-- `cast` in eve failed on a gutted `$TMPDIR/juce-patched` (stamp present, `CMakeLists.txt` absent) — cache relocated and keyed by content
-- END/jam `Id` redefinitions (`keys`, `splitLine`) — ownership ruled by consumer; snake_case (Lua-era) vocabulary retired across END and jam's four config rows
-- END assert at ConfigModel.cpp:185 — jam's EVE-shaped `keys` rule rejected END's `prefixTimeout | int`
-- EVE assert at juce_ValueTree.cpp:777 — stale `~/Library/Application Support/EVE.settings` restored without the MODE node
-- EVE crash on close — LookAndFeel reset before editor destruction
-- END flex SVGs not rendered — bimap stems and the `_` key parse
-
-### State for Continuation
-- Build: eve, end, jreng-filter-strip all built clean per ARCHITECT; END tab `normalOn` background pending ARCHITECT's rebuild after the last two edits
-- Seeded user copies: `~/.config/end/*.md` and `~/.config/end/themes/*/flex/` still carry snake_case keys and old SVG names on this machine; END re-seeds only missing files (ConfigModel.cpp:38–51, :130–135) — ARCHITECT's disk
-- jfs persisted settings keys change: `Id::toTag` is `toUpperCase` (jam_Id.h:16), so `ANALYZER_MODE`/`PANEL_HEIGHT` → `ANALYZERMODE`/`PANELHEIGHT`; old user values are not read
-- Doc drift (descriptive, not edited): end `SPEC.md:57,101,102,181`, `ARCHITECTURE.md:221–233` still spell `focused_pane`/`focused_tab`/`focused_session`
-- `end/.project:53–65` still lists `$TMPDIR/juce-patched` include paths — regenerated by whatever writes `.project`
-- Doxygen: jam_ConfigValidator.h prose corrected; no regen run
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
-## Sprint: TextEditor Foundation — Renderer Core, MODE-Node State, Vim Basic ✅
-
-**Date:** 2026-09-20
-**Duration:** one session (continued across compaction, 2026-09-19 → 20)
-
-### Agents Participated
-- COUNSELOR (fable-5) — orchestration, PLAN-texteditor-foundation.md (Locked Decisions amended on every ARCHITECT ruling), per-step validation by own reads
-- Pathfinder ×1 — inventory (one fabricated `shape()` line caught by read, discarded)
-- Engineer ×9 waves — video-lane delete, Index rename, GlyphArrangement first pass, TextEditor move + plugin-lane attempt, main-view rewrite, Step 6 insert/remove ×2, keys + modes + motions, editing/undo/clipboard ×2, status bar, docs
-- Auditor — none (ARCHITECT: "NO AUDIT")
-
-### Files Modified (jam 16, eve 14 — key entries)
-- `jam_terminal/video/**`, `transport/jam_TerminalCellFifo.h`, `jam_graphics/text/jam_Row.h`, `jam_TerminalLine.h`, `model/jam_TerminalModel.*`, `jam_terminal/widgets/jam_TextEditor.h` — DELETED (video lane, TerminalModel, old widget)
-- `jam_core/document/jam_Document.h/.cpp` — `Element::previousSibling` (doubly linked, ARCHITECT-ruled); `addChild (parent, after, id)` positional overload (two-arg delegates), `removeChild`; `Index` renamed vocabulary (`maxBytes`, `numBytes`, `isReleased`, `release`, `writeLine`, `readPage`, `num*`), `insertLine`/`removeLine`/`setNumCells`/`getNumLines`/`getCellRange`/`getRowNumber (line, column)`; `setColumns (0)` = unwrapped
-- `jam_core/document/jam_DocumentIndex.cpp` — counted B-tree insert/remove: `addLeaf` (create) → `appendLeaf`/`insertLeaf` (`splitNode` cascade) / `removeLeaf` → `removeNode` + `collapseRoot()`; `addRoot` single root-growth site; `getNumLines (Node*)`; `addNumBytes`; no merge/borrow
-- `jam_markdown/document/jam_MarkdownBlockParser.cpp:1683` — `replaceLastChild` on `addChild`/`removeChild` (hand walk deleted)
-- `jam_markdown/document/jam_ConfigValidator.h/.cpp` — fourth rule `keys` (every row `type == string`)
-- `jam_vulkan/font/jam_GlyphArrangement.h/.cpp` — public first pass `clear()`, `shape (cells, start, end, row)`, private `addEntry`
-- `jam_style/jam_StyleCustom.h` — `getMonoMetrics()` beside `getMonoFont()` (LAF owns cell metrics); `jam_style.h` jam_vulkan include ahead of StyleCustom
-- `jam_gui/widgets/jam_TextEditor.h/.cpp` — NEW HOME: `juce::Viewport` + `ValueTree::Listener`; ctor `(Document&, Index::Codec, ValueTree editorState)`; state = the MODE parameter node; `valueTreePropertyChanged` → `events` map → `modes` map → virtual `normal()/insert()/visual()`; `GlyphArrangement` painter, metrics from the LAF at construction; `setKeys (mode, tree)`, `keyPressed` → `keyDispatch` lanes → `run` → `commands` (`addMotionCommands`/`addModeCommands`/`addEditCommands`); `rangeOperators`/`lineOperators`; `applyMotion (target, operatorEnd)`, `applyOperator`/`applyVisualOperator`; write paths `setLine`/`addLine`/`removeLine` inside `ReplaceLine`/`InsertLine`/`RemoveLine` UndoableActions; `insertText`/`insertLines`/`deleteRange`/`deleteLines`; clipboard register; cursor/selection painting via `getCellBounds`; `parentHierarchyChanged` focus
-- `jam_gui/jam_gui.h/.cpp` — TextEditor included; `jam_terminal.h` include removed
-- `jam/cast/identifiers.md` (+47 ids: count, pendingOperator, selectionAnchor→anchorLine/anchorColumn, cursorLine/cursorColumn, keys, insert, visual, textEditor, visualMode, 33 action ids), `bimaps.md` + `spell.md` (`EditorMode`, `EditorState`, `VisualMode`); `generated/jam_Identifiers.h`, `jam_Bimaps.h` regenerated
-- `eve/Source/EVEProcessor.h/.cpp` — KANJUT one-liner `AudioModel model { parameterManager, *this, ParameterLayout::get (MarkdownDocument::getOrCreate (files::parametersLayout)) }`; editorModel/createAndAddParameter/MessageOverlay deleted
-- `eve/Source/EVEView.h/.cpp` — owns `AnsiDocument document` + `std::unique_ptr<jam::TextEditor> editor` (main view, sibling of `view`, MODE node injected); `getConfigDocument` (one parse/validate/fallback), `setEditorKeys` on build and hot reload; `initialiseRegistry` (juce::Label + `registerViewComponent ("MODE")` with file-static `ChoiceText` ValueSource), `initialisePanels` (status-bar ViewPanel); `resized` trims the editor by `getUIPanelHeight()`
-- `eve/Source/layout/parameters.md` — NEW: `mode` choice (normal, insert, visual); `eve.md` — `## keys` table (33 rows, per-mode chords); `PanelLayout.html` — NEW status bar (mode/line/column labels); `ViewLayout.md` — title-only (ViewLayout.html deleted)
-- `eve/cast/files.md` + `Source/generated/Files.h` — `panelLayout` row; `SPEC.md` (State Model, Cell-bearing element, Keyboard Summary), `RFC-EVE-terminal-grand-scheme.md` (§5.1 executed, §5.3 Gap 2 amended), `CLAUDE.md` refreshed; `PLAN-texteditor-foundation.md` carries every ruling; `PLAN-document-index.md` deleted
-
-### Alignment Check
-- [x] BLESSED — S/SSOT: one state node (MODE), Document the only content, Index the only wrap owner; E: VTPC dispatch tables, virtuals for derived views, no bail-outs, LAF owns metrics; D: metrics established at construction and trusted, `Value::map` zero-range contract, no defensive asserts; B: three Document write paths, UndoManager owns transactions
-- [x] NAMES.md — every new member joins a family (`add*`/`get*`/`set*`/`apply*`, `*Operators`, `*Line`); `previousSibling`, `EditorMode`/`EditorState`/`VisualMode`, `ChoiceText` are the new names, ratified by execution under ARCHITECT's no-gate order
-- [x] MANIFESTO.md — Lean splits on every function COUNSELOR read; registration tables (`add*Commands`) remain long by nature
-- [ ] Auditor — skipped on ARCHITECT's order ("complete the plan. NO AUDIT. NO GATE"); doxygen pass not run (Code Hygiene: post-audit)
-
-### Problems Solved
-- Framework lane for the editor: the HTML `buildContent` lane serves bars/dialogs only (ViewPanel/ViewContent/ViewSettings); the SVG editor lane is ruled out; the main view is owned in code, the status bar rides the canonical bottom `ViewPanel` row through the Registry
-- Editor state: six `juce::Value`s replaced by one `ValueTree` (the MODE node) with `valueTreePropertyChanged` as a dispatcher and mode virtuals — APVTS propagates `value` writes to the host parameter (juce_AudioProcessorValueTreeState.cpp:442-446)
-- Vim keys matched by text character (JUCE `createFromDescription` keeps only the last character upper-cased, juce_KeyPress.cpp:231); `pendingOperator` stores the armed key name, operators are identified by action, so eve.md rebinding never breaks `dd`/`dw`
-- `Element` made doubly linked (ARCHITECT ruling) so `removeChild` is O(1) and the block parser's hand walk died
-- Shared `$TMPDIR/juce-patched` was re-patched by an END configure (END's patch set lacks the attributed-text hook) — EVE reconfigure restores its stamp; agents no longer build END from EVE work
-
-### State for Continuation
-- Verify before acting: `cmake --build Builds/Debug --target EVE_Standalone` green (last: 8c pass); ARCHITECT runtime test pending — navigate `h j k l w b e 0 $ gg G ctrl+u ctrl+d`, counts, `i a I A o O`, typing/return/backspace, `v V ctrl+v` + `d c y`, `dd dw cw cc x p P u ctrl+r`, eve.md `## keys` hot reload, status bar mode/line/column
-- Open (RFC amendment): cursor shape as any codepoint; terminal defaults (insert mode, hidden status bar); `Index::setNumCells` keeps line count, `insertLines`/`deleteRange` re-style joined text with one style id; `prefixes` rebuilt from all modes on every `setKeys`
-- Doxygen pass owed on: jam_TextEditor.h, jam_Document.h (Index additions, previousSibling), jam_DocumentIndex.cpp, jam_StyleCustom.h, jam_ConfigValidator.h, jam_GlyphArrangement.h — post-audit per Code Hygiene
-- Toolchain: eve `cast cast/spell.md` runs the full Release toolchain; the AAX wraptool step fails on a missing iLok licence (pre-existing)
-
-### Debts Paid
-- `DEBT-20260908T000000` — superseded by ARCHITECT's NO SVG ruling: no component.md/ViewLayout.svg join; the editor is built in code, the status bar is HTML through the Registry
-- `DEBT-20260908T000001` — already satisfied: `EVEAudioProcessor.h:16,:19` declare `jam::ViewManager::Getters`/`Events`
-
-### Debts Deferred
-- None
-
----
-
-## Sprint: TextEditor Viewport Widget + eve.md Config/Style Chain ✅
-
-**Date:** 2026-09-15
-**Duration:** one session (continued across compaction)
-
-### Agents Participated
-- COUNSELOR (fable-5) — orchestration, seam design, RFC/doc authorship, per-step validation
-- Pathfinder ×3 — style-flow facts, MessageOverlay wiring facts, grid-parser trace (killed on ARCHITECT's type-string correction)
-- Engineer ×15 waves — config/style/watcher/overlay seams, TextEditor restructures, audit sweep, doxygen pass, hygiene
-- Auditor ×1 — 47 findings, all resolved or dispositioned
-
-### Files Modified (jam 20, eve 12, end 4 — key entries)
-- `jam_terminal/widgets/jam_TextEditor.h` — rewritten: juce::Viewport subclass; owns AnsiDocument, Document::Index, static wire codec; nested Content painter; visibleAreaChanged → Index::setViewport; setContentSize with column-change gate; font materialised once at lookAndFeelChanged
-- `jam_terminal/jam_terminal.h` — jam_style dependency declared + included; include-map comment corrected
-- `jam_core/document/jam_Document.h` + `jam_DocumentIndex.cpp` — public `Index::setViewport (firstRow, lastRow)`; paintRow reads via the readying `getElement`; getPrefixTotal param nouns
-- `jam_data_structures/parameter/jam_ParameterManager.h/.cpp` — explicit ctor (settingExtension default), `getOrCreateUserSettings (defaults, document, configFile)` overload, 2-arg delegates, `isSettingsOld` const&
-- `jam_plugin_bootstrap/layout/jam_PluginEditorLayout.h` — md lane overloads: `isReady/loadDefaultSettings/isSettingsValid/populateTree (…, configFile)`; ConfigValidator gate + UI-scale parity + xml-parity debug::Log
-- `jam_style/style_manager/jam_StyleManager.h/.cpp` — ValueTree ctor (config/darkConfig), public `registerStyle (ValueTree, ValueTree)` reload API, `hasFont`, `registerFont (alias, filename, height, kerning)`, md window-read branches, null-guards; jam_style purged of markdown types (layer law — the compiler exposed jam_style below jam_markdown via jam_mermaid_diagram)
-- `jam_style/style_manager/jam_StyleTheme.h/.cpp` — `getMonoFont` override (hasFont-gated, StyleCustom fallback); `jam_StyleCustom.h` getMonoFont → juce::FontOptions
-- `jam_gui/widgets/jam_MessageOverlay.h/.cpp` — absorbed from END; fontCallback member, noSplitLine at decision points, axisLineStyle default from map::OverlayAxisLine
-- `jam_markdown/document/jam_ConfigDocument.h/.cpp` — `getValueTree (rootType, valueColumn)`; 1-arg delegates with Id::value
-- `jam/cast` — identifiers.md rows message/overlay/config/mono; bimaps.md + spell.md OverlayAxisLine
-- `eve/Source/EVEProcessor.h/.cpp` — ctor injection into EVEView (getters deleted); OVERLAY row + Id::message ParameterText (messageCapacity) on terminalModel; layout carries files::defaultConfig
-- `eve/Source/EVEView.h/.cpp` — configFile from cast strings (`.config/end` + `eve.md`); isReady gate with binary-defaults fallback + overlay validator error; dual-source initialiseTheme; fileChanged hot-reload (validate → registerStyle trees → broadcast); two-line resized via theme->getWindowPadding; ViewEditor::create + editor size both read eve.md
-- `eve/Source/layout/eve.md` — NEW: settings (UI_SCALE/APPEARANCE), UI_size (SSOT), colours palette, window chrome, style (light/dark), fonts (mono DisplayMonoBook 12) — pandoc grids, uniform 100-col, type strings int/float/colour/string
-- `eve/Source/layout/ViewLayout.md` — title-only (UI_size moved); `style.css`, `DefaultSettings.xml` — DELETED
-- `eve/cast/files.md` — configDirectory ".config/end", defaultConfig "eve.md"; `CLAUDE.md` file table refreshed; `RFC-EVE-terminal-grand-scheme.md` — Gap 2 executed amendment + NEXT SPRINT mandate; both PLAN files deleted
-- `end/Source` — MessageOverlay files deleted, call sites repointed to jam::MessageOverlay
-
-### Alignment Check
-- [x] BLESSED — B: TextEditor owns its document machinery; E: chain extended at seams only, zero parallel channels; S: eve.md single config truth, UI_size single home; D: event-driven end to end (watcher + DarkModeSettingListener)
-- [x] NAMES.md — lexicon strings verified at source (int/float/bool, `--`-prefixed colour ids); setContentSize/fontCallback/registerStyle family shapes
-- [x] MANIFESTO.md — layer law enforced by compiler evidence; fonts materialised at state updates
-- [x] Auditor once (47 findings: fixed in 4 waves; rejections cited to rulings/CODING's own forms; records listed below)
-
-### Problems Solved
-- Blank/crashed launches root-caused by evidence, not guesses: silent md gates (now xml-parity logged), zombie editor on gate failure (now binary-defaults + overlay error), grid `type` cells using C++ id names instead of lexicon strings ("int"/"float"), ViewEditor's non-template getUISize consumer of the deleted ViewLayout table
-- jam_style ↔ jam_markdown cycle exposed by compiler; style lane redesigned to jam_core ValueTree types
-- END-generated map::OverlayAxisLine moved into jam cast for shared MessageOverlay
-
-### State for Continuation
-- NEXT SPRINT (ARCHITECT-ruled, verbatim in RFC-EVE-terminal-grand-scheme.md §5.3 Gap 2 amendment): jam::TextEditor as a full-feature vim-based text editor — text editing; modal insert/normal/visual; configurable cursor shape (any codepoint incl. emoji); terminal defaults insert-mode/status-bar-hidden with Visual-mode copy; terminal wires in afterwards like nvim's own terminal (refs: ~/Documents/Poems/dev/endless/ SPEC.md:44-45,:98-152; ~/Documents/Poems/dev/neovim/)
-- Verify before acting: build green post-audit-sweep (ARCHITECT's build at log time), doxygen regen zero warnings
-- Open ARCHITECT rulings: eve.md window `close` row (title-strip clearance, jam_ViewContent.h:83-86); END's duplicate OverlayAxisLine cast blocks (end/cast/bimaps.md:1-17, spell.md:105-111) collide at END's next regen; jam_style.h:10 deps line still names jam_markdown (build-graph change)
-- On-record residuals: defaultFixture absolute path (EVEView.cpp:4, dies with the pty lane); isSettingsOld Xml::parse noise on md files; ButtonTab unguarded static_cast; textEditorId + "TERMINAL" tree id pending cast registration; StyleManager config-lane parity gaps (metrics/appearance/multi-font — unused by eve.md today); window opacity 0.75 on disk (ARCHITECT-tuned)
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None commanded this sprint. Ledger carries DEBT-20260908T000000 (editor lane join) and DEBT-20260908T000001 (processor registries) — untouched, outside this sprint's scope, standing for the next scope per JRENG law.
-
-## Sprint: Document::Index — Counted B-tree Lookup + Residency Tier (buffer-bench verdict → clean-room jam) ✅
-
-**Date:** 2026-09-15
-**Duration:** one session (spans 2026-09-14 → 15)
-**Plan:** PLAN-buffer-bench.md (executed, then deleted per hygiene ruling — evidence lives in tests/buffer_bench/artifacts/results.md) → PLAN-document-index.md (locked, executed)
-
-### Agents Participated
-- COUNSELOR (fable-5) — two /goplan cycles, ruling relay, per-step validation, two audit triages (41 + 38 findings, all resolved), RFC/SPEC amendments
-- Pathfinder ×2 — harness/Document inventory; Index-sprint discovery (Document internals, EVE config lane)
-- Librarian ×1 (domain-mode) — rope/line-index survey, cited: Boehm–Atkinson–Plass 1995, Ropey, xi-rope, Tatham counted B-tree, JumpRope, Vim memline, VS Code piece tree, Zed SumTree
-- Engineer ×10 waves — bench harness (Steps 1–5 + audit fixes + spill lane), jam Index core, tier, EVE wiring, audit resolution, L extractions + doxygen authoring
-- Auditor ×2 — buffer-bench sweep (NEEDS_WORK, 41 findings) and document-index sweep (NEEDS_WORK, 38 findings); every finding resolved or corrected in-sprint
-
-### Decisions (ARCHITECT-ruled)
-1. Document stays the SSOT — no rewrite; the one-shot AST contract holds; editing is line-level state update, never a second content model.
-2. Name: `Document::Index` (over LineIndex/Line/Lines) — joins Document's nested vocabulary family (Property/Span/Token/Cells).
-3. Full tier inside Index: budget + watermark eviction + wire-byte spill + rehydrate.
-4. Budget default 1/16 machine RAM, ceiling not reservation; EVE override row `scrollbackBudgetMb` (camelCase — ARCHITECT corrected my snake_case); the shipped table was REMOVED so the machine-relative default is the live path.
-5. Spill format: ANSI wire bytes — the byte-fixpoint-proven lane.
-6. Candidate triangle measured (counted B-tree, width skip-list vs bare walk, cached anchor); winner counted B-tree, arity 16; ONE winner ships — no dual mode.
-7. Editor-first build order affirmed (the RFC's own §5.3/§6.1 ordering).
-
-### Files Modified (eve)
-- `tests/buffer_bench/` (NEW) — sandbox harness: CMakeLists.txt, main.cpp, Anchor.h, CountedTree.h, SkipList.h, ProjectInfo.h; artifacts/results.md + per-run files. Measured verdict: index beats every chain strategy 4–5 orders of magnitude at 10⁶–10⁷ lines; spill 89 B/line, rehydrate ~100 µs/50-line page, byte-exact round trip; backward scroll is structurally O(N) on the chain (no prevSibling, jam_Document.h:194-197)
-- `Source/EVEView.h/.cpp` — `documentIndex` (tiered) over ansiDocument; static `getCodec` (jam_terminal encode + AnsiDocument::parse); framework single-call table/row config read; file-scope Identifiers
-- `Source/layout/ViewLayout.md` — net unchanged (terminal table added Step 4, removed at audit per decision 4)
-- `RFC-EVE-terminal-grand-scheme.md` — [AMENDED 2026-09-15] ×3 (§3.3 Index ruling + constants, §5.3 gap 1 closed, §7.4 deferral withdrawn) + sourced-figure correction (310–850 B/line resident, per-run artifacts)
-- `SPEC.md` — Feature 2.3 residency tier ("no line is ever lost to the tier"); Feature 6 override row; State Model Index sentence
-- `PLAN-document-index.md` (NEW, locked); `PLAN-buffer-bench.md` deleted
-
-### Files Modified (jam)
-- See jam/carol/SPRINT-LOG.md Sprint 122 — jam_Document.h (Index surface + doxygen), jam_DocumentIndex.cpp (NEW), jam_core.cpp registration, jam_BinaryCodec.h/.cpp DCF enforcement
-
-### Alignment Check
-- [x] BLESSED — B: Owner<Node> flat ownership, TemporaryFile RAII; S: eviction is whole-Cells state update, residentBytes single owner; E: Codec injected at construction, jam_core gained zero upward includes (layer law audit-verified); L: every function ≤30 lines after addLeaf/addSpan extraction; D: fixed-seed gates, byte-exact spill fixpoint, append/evict interleave gate
-- [x] NAMES.md — ratified set in PLAN-document-index.md plus in-sprint ratifications: appendCarry, addCounts, setCold, addLeaf, addSpan, getPath/getLeftmostHotPath/getResidentBytes
-- [x] CODING.md — audit-verified after resolution of all 38 findings
-- [ ] Doxygen zero-warning UNVERIFIED — regen entry point is nvim `<leader>bd` only (build-doxygen.sh is nvim-state-driven); ARCHITECT runs interactively or accepts author-only
-
-### Problems Solved
-- First bench matrix invalidated (-O0 build + use-after-free in the append lane) — caught by audit, fixed, re-measured at -O3
-- `cells->clear()` retains malloc'd capacity — eviction freed nothing; fixed by whole-object Cells replacement (the plan's own "complete replaces complete")
-- Stale ancestor `isCold` under append/evict interleave (throw path) — setCold recompute + new interleave gate
-- Blank-line rehydrate null dereference — empty parse ⇒ empty Cells, never dereference
-- Hand-rolled config table lookup → framework getTables/getTableRow single calls
-- Unsourced 602 B/line RFC figure → corrected to the sourced 310–850 range
-
-### State for Continuation
-- Verify before acting: buffer_bench, ansi_fixpoint, llgc_parity all exit 0 (2026-09-15); EVE Debug Standalone/VST3/AU link clean
-- `documentIndex` has NO production reader yet — the viewer paints the document directly; viewport-driven paint through getElement is the buffer/widget sprint; an evicted line paints empty until then (unreachable at shipped defaults)
-- Index lifetime contract: raw Element* leaves — rebuild the Index after any re-parse (doxygen states it)
-- CAST identifier-lane residual: "terminal"/"scrollbackBudgetMb" are file-scope statics in EVEView.cpp, not generated Id:: entries
-- Unexplained one-off: one bench run exited 1 with completely empty output, never reproduced
-- First-light goal (HANDOFF.md — EVE renders ls.ansi on screen) still open, untouched by this sprint
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- DEBT-20260908T000000, DEBT-20260908T000001 — standing from the prior ledger; outside this sprint's ARCHITECT-defined scope
-
-## Sprint: Terminal LLGC Full Feature Parity — One-Shot Viewer + llgc_parity ✅
-
-**Date:** 2026-09-13
-**Duration:** one session
-**Plan:** PLAN-terminal-llgc-parity.md (locked; jam-side implementation logged in jam/carol/SPRINT-LOG.md Sprint 119, same date)
-
-### Agents Participated
-- COUNSELOR: fable-5 — design lock, plan, delegations, per-step validation, 48-finding audit triage
-- Librarian ×1, Pathfinder ×4, Engineer ×9 waves, Auditor ×1 — full roster in jam Sprint 119
-
-### Files Modified (eve repo)
-- `PLAN-terminal-llgc-parity.md` — NEW: the locked plan (cell law, patch seam, both image lanes, ratified names)
-- `project-info.md` — sixth patch row (`juce-attributed-text-hook.patch`) in the `## patch` table; `jam_terminal` row in `## user module`
-- `CMakeLists.txt` — cast-regenerated only: six-entry patch list, jam_terminal module + link lines
-- `tests/ansi_fixpoint/CMakeLists.txt` — consumes the PATCHED JUCE tree via the mirrored stamp machinery (same /tmp target, idempotent with eve); `addRegistrySeed` deleted from main.cpp (NAMES Rule 6 `seed` ban; Stamp now self-interns its default)
-- `tests/llgc_parity/` — NEW: the sprint's formal proof. Four suites: (1) native-component byte-fixpoint + text-content oracle (Label/TextButton/GroupComponent under LookAndFeel_V4, headless); (2) software-renderer pixel oracle over a flat-geometry fixture, zero mismatch budget, AA-boundary + fractional-coverage exemptions only, box-drawing drawLine coverage; (3) image round-trip — OSC 1337 decoded by TerminalITerm2Decoder pixel-exact, half-block downsample + fixpoint, covered-region blank asserted non-vacuously; (4) rounded-rect bg inheritance, curved cell-granular clips, transparency colour-lerp with character survival. Artifacts dump to `artifacts/*.ansi` for `cat` eyeball
-- `Source/EVEView.h/.cpp` — one-shot viewer: `ansiDocument` + `terminalView` (jam::TextEditor) members; fixture from the standalone command line (cwd-relative safe); full-bounds temporary placement (ARCHITECT amends visually); `setReadOnly` call removed with the API's death
-
-### Alignment Check
-- [x] Both harnesses green from eve root; EVE_Standalone Debug links clean; three consecutive llgc_parity runs byte-identical
-- [x] The backend-swap proof stands: the same `juce::Graphics` surface renders to Vulkan (EVE viewer) and to escape bytes (harness) with zero component knowledge
-
-### Problems Solved
-- EVE compiles jam_terminal for the first time (module row + cast regen — 3 generated lines)
-- The harness exposed two real writer defects and one fix interaction before any consumer shipped (detail in jam Sprint 119)
-
-### How ARCHITECT Runs It
-- Viewer: `./Builds/Debug/EVE_artefacts/Debug/Standalone/EVE.app/Contents/MacOS/EVE tests/ansi_fixpoint/fixtures/ls.ansi`
-- Eyeball: `cat tests/llgc_parity/artifacts/*.ansi` in any truecolor terminal
-
-### Debts Paid
-- None commanded
-
-### Debts Deferred / Ledger Standing
-- DEBT-20260908T000000 (component.md editor-lane join) and DEBT-20260908T000001 (processor registry retypes) — standing, target the EVE plugin lane, untouched this sprint
-- Builds/Release partial (killed runaway cast build; artifacts only)
-
----
-
-*(older sprints rotated to git history)*
