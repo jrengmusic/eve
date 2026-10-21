@@ -8,6 +8,7 @@ EVEView::EVEView (jam::AudioModel& newModel,
 {
     initialise (layout.getOrCreateSettings());
     setScaling();
+    static_cast<EVEProcessor&> (*getAudioProcessor()).getTerminalProcessor().load (harness);
 }
 
 void EVEView::initialiseTheme (const juce::ValueTree& settings)
@@ -31,10 +32,33 @@ void EVEView::initialiseRegistry()
 void EVEView::initialiseView()
 {
     auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
-    auto& audioProcessor { processor.getAudioProcessor() };
+    auto& terminalProcessor { processor.getTerminalProcessor() };
 
-    view = jam::ViewEditor::create<jam::MarkdownDocument> (model, *theme, audioProcessor.userInterfaceGetters, audioProcessor.chainEvents, files::viewLayout);
+    view = jam::ViewEditor::create<jam::MarkdownDocument> (model, *theme, terminalProcessor.userInterfaceGetters, terminalProcessor.chainEvents, files::viewLayout);
     addAndMakeVisible (view.get());
 }
 
 void EVEView::paintOverChildren (juce::Graphics& g) { transition.paint (g, getLocalBounds()); }
+
+void EVEView::resized()
+{
+    jam::PluginEditor::resized();
+
+    const auto area { jam::ViewManager::getComponentBounds (*view).toFloat() };
+    const auto metrics { theme->getOrCreateMonoMetrics() };
+    const auto cells { jam::Cell::Rectangle::fromPixel (area.withZeroOrigin(), metrics.cellWidth, metrics.cellHeight) };
+    const auto* display { juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()) };
+
+    jassert (display != nullptr);
+
+    const auto pixels { (area * (juce::Component::getApproximateScaleFactorForComponent (view.get()) * static_cast<float> (display->scale))).getSmallestIntegerContainer() };
+
+    model.getValue (Id::toTag (Id::winsize), Id::value).setValue (juce::var { jam::TerminalWinsize { cells.width, cells.height, pixels.getWidth(), pixels.getHeight() }.pack() });
+}
+
+void EVEView::setWinsize()
+{
+    auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
+
+    processor.setWinsize (jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getValue (Id::toTag (Id::winsize), Id::value).getValue())));
+}

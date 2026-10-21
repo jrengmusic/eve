@@ -14,6 +14,7 @@ EVEProcessor::EVEProcessor()
 #endif// !JucePlugin_PreferredChannelConfigurations
 {
     layout.populateTree (model, layout.getOrCreateSettings());
+    terminalProcessor.setWinsize (getWinsize());
 }
 
 const juce::String EVEProcessor::getName() const { return JucePlugin_Name; }
@@ -69,7 +70,15 @@ void EVEProcessor::changeProgramName (int index, const juce::String& newName)
 
 void EVEProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    juce::ignoreUnused (sampleRate, samplesPerBlock);
+    suspendProcessing (true);
+
+    spec.sampleRate = sampleRate;
+    spec.maximumBlockSize = static_cast<juce::uint32> (samplesPerBlock);
+    spec.numChannels = static_cast<juce::uint32> (getTotalNumInputChannels());
+
+    terminalProcessor.prepare (spec);
+
+    suspendProcessing (false);
 }
 
 void EVEProcessor::releaseResources() {}
@@ -106,6 +115,8 @@ void EVEProcessor::process (juce::AudioBuffer<SampleType>& buffer)
 
     for (auto i { nInput }; i < nOutput; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
+
+    terminalProcessor.process();
 }
 
 void EVEProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -139,12 +150,25 @@ void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
 void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto state { juce::ValueTree::readFromData (data, sizeInBytes) }; state.isValid())
+    {
         model.setState (state);
+        terminalProcessor.setWinsize (getWinsize());
+    }
 }
 
-EVEAudioProcessor& EVEProcessor::getAudioProcessor() noexcept
+EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept
 {
-    return audioProcessor;
+    return terminalProcessor;
+}
+
+jam::TerminalWinsize EVEProcessor::getWinsize() const
+{
+    return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getValue (Id::toTag (Id::winsize), Id::value).getValue()));
+}
+
+void EVEProcessor::setWinsize (jam::TerminalWinsize newWinsize)
+{
+    terminalProcessor.setWinsize (newWinsize);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new EVEProcessor(); }

@@ -8,10 +8,3 @@
 
 ---
 
-## DEBT-20261016T214137
-
-**Observation:** EVE Standalone needs about 5–7 s from launch until the window shows; jfs Standalone, built with the same jam, opens almost at once.
-**Divergence:** The EVEView constructor runs the whole terminal round trip synchronously on the message thread before the window exists (EVEViewComponents.cpp registerConfig<jam::TextEditor> lambda → getTerminalFrame): MarkdownDocument::parse of markdown/markdown.md, MarkdownComponent layout, one software image per mermaid diagram at display scale, one OSC 1337 PNG+Base64 encode per image into a std::tmpfile, AnsiDocument::parse, one PNG decode per image in the TextEditor.
-**Expectation:** EVE opens in subseconds, grand total, like jfs; find and remove every bottleneck on the launch path.
-
----

@@ -290,29 +290,31 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## source
 
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| name                 | value                            | description                                                                |
-+======================+==================================+============================================================================+
-| processorHeader      | Source/EVEProcessor.h            | juce::AudioProcessor plugin entry class declaration                        |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| processorSource      | Source/EVEProcessor.cpp          | juce::AudioProcessor plugin entry, state serialization, createPluginFilter |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| audioProcessorHeader | Source/EVEAudioProcessor.h       | Audio processor class declaration                                          |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| viewHeader           | Source/EVEView.h                 | Plugin editor class declaration, jam::PluginEditor                         |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| viewSource           | Source/EVEView.cpp               | Plugin editor — theme, component registry, panel and view construction     |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| viewRegistration     | Source/EVEViewRegistration.cpp   | Plugin editor button registration and dialog config                        |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| viewComponents       | Source/EVEViewComponents.cpp     | Plugin editor view component configs                                       |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| viewPanelCallbacks   | Source/EVEViewPanelCallbacks.cpp | Plugin editor panel, about and settings dialog callbacks                   |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| identifiersSource    | Source/generated/Identifiers.cpp | Product identifier vocabulary definitions                                  |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
-| filesSource          | Source/generated/Files.cpp       | Product asset file name definitions                                        |
-+----------------------+----------------------------------+----------------------------------------------------------------------------+
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| name                    | value                            | description                                                                 |
++=========================+==================================+=============================================================================+
+| processorHeader         | Source/EVEProcessor.h            | juce::AudioProcessor plugin entry class declaration                         |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| processorSource         | Source/EVEProcessor.cpp          | juce::AudioProcessor plugin entry, state serialization, createPluginFilter  |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| terminalProcessorHeader | Source/EVETerminalProcessor.h    | Terminal processor class declaration                                        |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| terminalProcessorSource | Source/EVETerminalProcessor.cpp  | Terminal processor chain: harness load, engine ring, history and live lanes |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| viewHeader              | Source/EVEView.h                 | Plugin editor class declaration, jam::PluginEditor                          |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| viewSource              | Source/EVEView.cpp               | Plugin editor — theme, component registry and view construction             |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| viewRegistration        | Source/EVEViewRegistration.cpp   | Plugin editor button registration and dialog config                         |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| viewComponents          | Source/EVEViewComponents.cpp     | Plugin editor view component configs                                        |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| viewPanelCallbacks      | Source/EVEViewPanelCallbacks.cpp | Plugin editor UI scale and winsize callbacks                                |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| identifiersSource       | Source/generated/Identifiers.cpp | Product identifier vocabulary definitions                                   |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| filesSource             | Source/generated/Files.cpp       | Product asset file name definitions                                         |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
 
 ## macro
 
@@ -403,7 +405,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +----------+----------------------------------------------------+---------------------------------------------------+
 | html     | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html` | Settings HTML layout                              |
 +----------+----------------------------------------------------+---------------------------------------------------+
-| svg      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg`  | View layout and about graphics SVG                |
+| svg      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg`  | View layout graphics SVG                          |
 +----------+----------------------------------------------------+---------------------------------------------------+
 | buttons  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/buttons/*.svg` | Product SVG button states — normal, over, down    |
 +----------+----------------------------------------------------+---------------------------------------------------+

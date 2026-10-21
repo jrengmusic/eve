@@ -55,6 +55,35 @@ or has a cited external precedent. The composition is the novel part.
 No wait, no yield, no sleep, no contention on the producer — exactly like an audio
 thread. The clock is controllable via a virtual audio device.
 
+> **[AMENDED 2026-10-20 — the isomorphism, current state]** The table above
+> names parts that no longer exist. The current map, read from source:
+>
+> | Audio plugin (JFS) | EVE today |
+> |---|---|
+> | `FilterStripProcessor` (plugin processor) | `EVEProcessor` |
+> | `FilterStripAudioProcessor` (the chain) | `EVETerminalProcessor` — ARCHITECT: *"EVEAudioProcessor should be renamed as EVETerminalProcessor but treated exactly like JFS AudioProcessor, IDENTICAL topology, identical ownership, treading etc"* |
+> | `processBlock` (the clock) | `processBlock` — *"processBlock drains the bytes"*; *"writing bytes is processBlock"* |
+> | `juce::dsp::ProcessSpec` at `prepare` | the terminal spec at `prepare`: *"exactly like process spec for init"* |
+> | `setOversamplingFactor` → `setFactor` (run-time resize, `FilterStripAudioProcessor.cpp:103-128`, `jam_Oversampler.cpp:66-91`) | `setWinsize`: *"setFactor IS setWinsize, it's resizing buffer for processing"* |
+> | `AudioBuffer` block | `jam::AnsiBuffer` (chain byte block) |
+> | Lock-free FIFO to the editor (`SpectrumFIFO`) | `jam::TerminalFIFO` over `juce::AbstractFifo` (one reader, one writer: `juce_AbstractFifo.h:40-42`) |
+> | APVTS + instance PARAM nodes | the terminal state machine (DEC modes, cursor, margins, pen): *"it belong to APVTS. the processor state. non automatable parameter. stateInfo"* |
+> | `parameterChanged` → `Function::Map` setter → `calc()` (`FilterStripAudioProcessor.cpp:155-159`, `TETRIS.md:139-160`) | a VT command → `Function::Map` entry → state update (`jam_AnsiDocument.cpp:572-583`, `:620-636`): *"command is command… how the internal handles it are ISOMORPHIC"*. The entry point differs: a command arrives in the byte stream, in order, never through `parameterChanged`. |
+> | Analyzer pulls through `userInterfaceGetters` on a timer (`kuassa_Analyzer.h:301-305`) | `TextEditor` pulls the history lane and the live lane through `userInterfaceGetters` on a timer |
+> | `getStateInformation` / `setStateInformation` | the same — the state machine is the state blob; END is the host |
+>
+> `TerminalParser`, `TerminalCellFifo`, `TerminalModel` and `TerminalVideo` are
+> deleted (§5.1 [EXECUTED 2026-09-20]; `jam_terminal/parser/` holds only
+> `.gitkeep` and `jam_TerminalCSI.h`, neither included by `jam_terminal.h`).
+> ARCHITECT: *"our terminal parser now is AnsiDocument"*.
+>
+> Transport law: ARCHITECT, *"there is no try-lock. ALWAYS LOCK FREE"*; *"READ
+> HOW JUCE DID IT. why the fuck we need to redesign atomic transport?"*. The only
+> crossing primitive is `juce::AbstractFifo`: two `juce::Atomic<int>`, one atomic
+> read or store per call, no loop, no yield (`juce_AbstractFifo.h:319`,
+> `juce_AbstractFifo.cpp:67-140`). Data waits only for two clocks: the
+> `processBlock` period and the `TextEditor` timer.
+
 ---
 
 ## 1. The Problem — Proven Unsolved, From Source
@@ -221,6 +250,29 @@ two token species:
 - **Imperative tokens** (cursor, erase, scroll): grid commands driving the bounded
   working grid — never document structure.
 
+> **[AMENDED 2026-10-20 — the parser is AnsiDocument]** ARCHITECT: *"our
+> terminal parser now is AnsiDocument"*. `AnsiDocument` is the decode-in half
+> (`jam_AnsiDocument.h:1-9`; `jam_terminal.h:68-69`), a jam::Document domain.
+>
+> - **Vocabulary today:** text, SGR, CUF (`cursorForward`), OSC 8, OSC 1337,
+>   newline (`jam_AnsiDocument.cpp:189-199`, `:620-630`). The CSI vocabulary
+>   already names cursor position, erase, scroll and the scroll region
+>   (`generated/jam_Terminal.h:916-1002`); they are not in the dispatch table yet.
+> - **Command dispatch:** each command is a `Function::Map` entry keyed by its
+>   final byte or SGR code (`jam_AnsiDocument.cpp:572-583`, `:620-636`) — the
+>   isomorph of the JFS `parameters` map. Commands apply in stream order
+>   (`build`, `:201-202`).
+> - **State and content:** the state a command leaves (modes, cursor, margins,
+>   pen) is the state machine, kept as processor state through stateInfo. The
+>   cells a command clears or moves are content, never ValueTree (§8).
+> - **Restartable parse:** `addLines` appends raw bytes; `Document::parse()`
+>   tokenizes from `tokenStart` and stops before an incomplete UTF-8 tail; an
+>   unterminated escape tail is kept for the next append (`jam_AnsiDocument.cpp`,
+>   `addLines`, `build`).
+> - **Allocation:** the build allocates (token array, line children, cells).
+>   Thus `AnsiDocument` as a whole belongs on the message side (§3.3). The PTY era
+>   splits it (§3.6 amendment).
+
 ### 3.5 ANSI is a wire encoding — at exactly two edges
 
 Between the edges, everything lives as clean UTF-8 + structure, the same substance
@@ -272,6 +324,70 @@ AttributedChar). Cell units need no font metrics. Amendment 16/19 stands
 pixel layout — accumulate advance, break at bound, step baseline — only the unit and
 metric source differ, and in cells every quantity is integral.
 
+> **[AMENDED 2026-10-20 — the pipeline on the JUCE plugin contract]** The
+> pipeline above is replaced. The terminal writer does not wrap: ARCHITECT,
+> *"wrapping and reflow is RENDERING concern. NOT Terminal Video job… it should
+> just print to materialise not the layout engine… the widget, the Viewport:
+> DECOUPLED"*. The "wrap at column bound" text above described the deleted
+> `terminal::TextLayout`.
+>
+> **The contract.** ARCHITECT: *"NO POKING LAYERS. MUST BE ENCAPSULTED"*. JUCE
+> plugin contract: *"View → Model (APVTS) → parameterChanged() → Chain;
+> Visualizer pulls via getters"*, *"Visualization pulls; ProcessorChain never
+> pushes"* (`TETRIS.md:79-99`). The View tells and pulls. It never writes into
+> the chain.
+>
+> **Two rendering layers.** ARCHITECT: *"our Terminal LLGC is juce contract, can
+> be used to paint any component into terminal context… we can use it as SSOT
+> for our terminal round trip now. because we will WIRE PTY"*.
+> `terminal::GraphicsContext` materialises cells, and `GraphicsEngine` writes
+> bytes. The Vulkan LLGC (with its software fallback) renders pixels on the
+> message thread. *"Paint is NOT MATERIALISATION. Paint is a call for whatever
+> ALREADY MATERIALISED… materialisation can be done ANYWHERE"*.
+>
+> ```
+> MESSAGE THREAD
+>   EVEView tells: harness File reference, WINSIZE (instance PARAM node)
+>   EVETerminalProcessor::load (File)  — the Convolution loadImpulseResponse shape
+>     MemoryMappedFile (readOnly) → MarkdownDocument parse in place (the AST, chain-owned)
+>     size cold resources (suspendProcessing → prepare lane)
+>     chain-owned materialiser (TextEditor + StyleMarkdown, no wrap) paints once
+>       into terminal::GraphicsContext → GraphicsEngine row ring (write handle)
+>   TextEditor (bound) timer pulls: history lane → AnsiDocument SSOT (append)
+>                                    live lane    → live AnsiDocument (replaced whole)
+>
+> AUDIO THREAD (processBlock — the clock)
+>   apply pending winsize (setWinsize ≙ setFactor) — resize live row count in capacity
+>   GraphicsEngine::process(): rows above the newest winsize.rows → history lane bytes
+>                              newest winsize.rows rows → live lane bytes (on change)
+>
+> IMAGELOADER POOL
+>   file decodes (queued at load); completion → callAsync to the message thread
+> ```
+>
+> - **Harness role.** ARCHITECT: **"Shell output, like cat"**. The whole harness
+>   is written once; its lines pass the live rows and retire to the history.
+> - **Rows.** ARCHITECT: **"Rows unbounded, rows count"**. A grid row is one
+>   logical line of any length; `winsize.rows` bounds only the row count.
+>   `GraphicsContext` clips vertically only.
+> - **Cold and hot.** The AST, the materialiser, the rings and the grid are cold
+>   resources, owned by the chain and sized at prepare; hot state holds
+>   pointers (`TETRIS.md:230-285`).
+> - **Style.** The materialiser uses the plugin_bootstrap Style: the
+>   processor-owned `PluginEditorLayout` (`fonts`, `getOrCreateSettings`) and
+>   the process-wide `StyleManager` (`jam_StyleManager.h:22`), the lane of cast
+>   `printHelp` (`Help.cpp:10-35`).
+> - **No lock.** Each FIFO has one writer and one reader.
+>
+> **The PTY era.** The TTY reader thread fires `Id::data` per chunk
+> (`jam_TerminalTTY.cpp:28-63`) and is the one writer of the input
+> `TerminalFIFO`; `processBlock` is its one reader. `processBlock` decodes the
+> bytes in order into the live rows with the non-allocating half of
+> `AnsiDocument` (tokenize and command dispatch into prepared storage); the tree
+> build stays on the history lane, on the message side. The live grid then has
+> one writer, the decoder, in place of the harness paint. The capacity bound
+> becomes the max window size (`RFC:47`).
+
 ### 3.7 Resize — the property, proven by construction
 
 - History: logical lines, width-independent → re-wrapped at paint for any width,
@@ -281,7 +397,133 @@ metric source differ, and in cells every quantity is integral.
 - SIGWINCH path: TTY `TIOCSWINSZ` → processor resizes bounded grid → widget
   re-derives layout. The widget never owned content, so it can destroy none.
 
+> **[AMENDED 2026-10-20 — resize is setWinsize, the setFactor isomorph]**
+>
+> - **Init.** `prepare (spec)` sizes the cold resources once, from
+>   `prepareToPlay` inside `suspendProcessing` (`FilterStripProcessor.cpp:103-116`).
+> - **Run time.** ARCHITECT: *"winsize could be change RUNTIME exactly like
+>   setFactor, setFactor IS setWinsize, it's resizing buffer for processing"*.
+>   EVEView writes the packed winsize to the `WINSIZE` instance node; the
+>   callback tells `EVEProcessor::setWinsize()`, which tells the chain a
+>   pending packed atomic (`TerminalWinsize::pack`, one atomic store,
+>   `jam_TerminalWinsize.h:9-11`) — the `pendingOversamplingFactor` shape. The
+>   chain applies it at block start, inside the running `processBlock`, within
+>   the prepared capacity.
+> - **History.** Never touched, never sent again (ruling 25: *"not even SIGWINCH
+>   should touch it"*). Rows that leave the live count retire to the history as
+>   appends.
+> - **Widget.** The `TextEditor` reflows its documents for its width through
+>   `ReflowDocument::setRows` (`jam_TextEditor.cpp:60-70`, `:181-196`).
+> - **Two scrolls.** ARCHITECT: *"our widget scroll is actual scroll, a Viewport
+>   scroll, never conflate them"*. Terminal scroll is SU / SD inside the DECSTBM
+>   region (`generated/jam_Terminal.h:975-976`, `:993`): a content operation.
+>   Widget scroll is the `juce::Viewport` of `TextEditor`: rendering only.
+> - **Why EVE differs.** Four of five surveyed terminals store the wrapped grid
+>   as the truth, and all five couple state to rendering (§1). EVE decouples the
+>   live buffer and the history from the layout entirely.
+
 ---
+
+### 3.8 The harness is the original file [ADDED 2026-10-20]
+
+ARCHITECT: *"the correct mental model is to think the harness is analogous to
+vim swap file. it's the SSOT complete AST, on disk"*. In vim terms the harness
+is the original file: an unchanged data block *"can have a negative block
+number… the lines in this data block can be read from the original file"*
+(neovim `memline.c:26-32`). Only what the terminal writes goes to a backing
+store.
+
+- **Read.** ARCHITECT: **"mmap readOnly"**. `juce::MemoryMappedFile` maps the
+  file at its fixed size, the class contract (`juce_MemoryMappedFile.h:57-63`);
+  the parse reads the mapped bytes in place. Today the harness is a disk file
+  (`EVEView.cpp:65`) copied by `loadFileAsString` (`jam_TextEditor.cpp:41`).
+- **Who loads.** ARCHITECT: *"the loader could be at Processor? View just tell
+  the reference it's holding? isnt this just like how juce convolution loads
+  IR?"* — `Convolution::loadImpulseResponse (const File&)` posts the reference
+  and the engine is built off the caller (`juce_Convolution.cpp:888-898`,
+  `:837-846`). Thread: **"In the tell, message thread"** (mmap, parse 4 ms,
+  addLines 5 ms; no loader thread, so nothing idles —
+  `BackgroundMessageQueue` sleeps 10 ms when empty, `juce_Convolution.cpp:121-122`).
+- **Lock.** JUCE's Convolution takes locks around its queue (`popMutex`
+  `:98`, `SpinLock` `:683`, `std::mutex` `:751`). EVE keeps the topology and
+  crosses only through `AbstractFifo`.
+
+### 3.9 Storage tier and state [ADDED 2026-10-20]
+
+ARCHITECT: *"mmap now? swap later for session restoration? most of terminal
+state machine i think can be stored exactly as stateInfo blob, just like juce
+dump EVE.settings for standalone, hence as a plugin it is the transport
+getState/setState info with END as host"*.
+
+- **State machine → state blob.** `getStateInformation` writes
+  `model.copyState()` (`EVEProcessor.cpp:144-157`); the Standalone saves it as
+  `filterState` in `EVE.settings` when the window closes
+  (`jam_AudioStandaloneApp.cpp:70-74`, `:151`); a host saves it in its session.
+  Scalar and mode state only (§8).
+- **mmap** fits the original file: read-only, fixed size. It cannot back a
+  growing history: *"If the file is resized after being opened, the behaviour is
+  undefined"* (`juce_MemoryMappedFile.h:57-58`), and it has no flush — a
+  `readWrite` change reaches disk *"at the whim of the OS"* (`:51-52`,
+  `:101-109`).
+- **Swap (the vim model)** fits the running buffer, later, for session
+  restoration: block tree over the line text, changed blocks written
+  (`memline.c:5-24`, `memfile.c:1-22`). The only framework path that guarantees
+  bytes on disk is `FileOutputStream::flush()` → `fsync` / `FlushFileBuffers`
+  (`juce_FileOutputStream.cpp:82-86`, `juce_SharedCode_posix.h:541-545`,
+  `juce_Files_windows.cpp:468-473`).
+- **Today.** `Document::Index` holds the B-tree and the row geometry only
+  (`jam_Document.h:482-574`); the residency tier of §3.3 is not in the code
+  (no spill, rehydrate or eviction in `jam_core/document`).
+
+### 3.10 One raster code, two lanes [ADDED 2026-10-20]
+
+ARCHITECT: *"juce rasterizer is SLOW. we have FAST LANE with Vulkan, with its
+software fallback, why cant we use that as the SSOT?"*; *"Vulkan can stays with
+its message thread contract, while Terminal could be used in any context"*.
+
+- **Fast lane = raster SSOT [AMENDED 2026-10-20].** ARCHITECT: *"do not
+  change Vulkan CONTRACT. it must stays as is. we only abstract its software
+  rasterizer being used as SSOT on TerminalGraphics"*. The terminal lane draws
+  its rasters through the software rasterizer of the fast lane,
+  `LowLevelGraphicsGlyphRenderer` over the software renderer
+  (`jam_VulkanEngine.h:38-42`). The Vulkan GPU path and its message-thread
+  contract (`jam_VulkanImagePixelData.h:40`) stay as they are, and they serve the
+  View only.
+- **GlyphRasterizer.** The rasterising core leaves `GlyphAtlas`: backend
+  configuration and key → coverage into a caller-owned buffer, through the
+  already-shared `MonoCoverageWriter` (`jam_GlyphAtlas.h:144`,
+  `jam_GlyphAtlas.cpp:617-625`, `jam_TerminalGraphicsContext.cpp:365-366`).
+  Each lane keeps its own cache: the Vulkan atlas under its message-thread
+  contract (its `cache` changes with no lock, `jam_GlyphAtlas.cpp:143-153`), the
+  terminal engine as cold resources.
+- **Allocation.** The paint is creation, so it can allocate (MANIFESTO E);
+  `juce::EdgeTable` allocates per construction (`juce_EdgeTable.cpp:301-303`)
+  and runs only in the paint. The audio thread rasterises nothing.
+- **Raster configuration [AMENDED 2026-10-21].** ARCHITECT: *"rasterizer/embolden
+  should be at LLGC only"*; *"the sole author should be Style since the SSOT is
+  css-settings. so css carried by binary as default, write to disk as settings
+  (exactly like other settings contract), settings always win, when a project did
+  not "open" the parameter as settings, Style always return the default carried
+  css"*; *"LookAndFeel communicate to GlyphAtlas. Window is responsible for
+  rendering engine, PluginEditor should not ever know about Vulkan"*.
+  1. `GlyphRasterizer` holds the backend, gamma, contrast, embolden and the
+     coverage table. `GlyphAtlas::setRasterization` / `setEmbolden` tell it and
+     flush the cache (`jam_GlyphAtlas.cpp:65-75`).
+  2. `StyleManager::getFontsStyleValue` returns the settings sheet value
+     (`Id::toTag` key) when the project opens it, else the CSS `@font-face`
+     attribute (`jam_StyleManager.cpp:118-129`). JFS carries the CSS default only
+     (`jreng-filter-strip/Source/layout/style.css:216-224`); EVE opens
+     `RASTERIZER`, `GAMMA`, `CONTRAST`, `EMBOLDEN` in `ViewLayout.md`
+     `## settings`, seeded to `~/.config/end/eve.md`.
+  3. `StyleTheme` (the LookAndFeel) tells the atlas
+     (`jam_StyleTheme.cpp:25-45`). `StyleManager` registers embedded faces in
+     `jam::Typeface` and holds no atlas call (`jam_StyleManager.cpp:99-101`).
+  4. The `VulkanEngine` constructor default stays (*"do not change Vulkan
+     CONTRACT"*).
+- **History capacity [ADDED 2026-10-21].** ARCHITECT: *"history capacity same
+  Settings contract: ViewLayout.md to eve.md, 10k row"*. `HISTORY_CAPACITY` (int,
+  10000 rows) sizes the history lane; the live lane is sized by the winsize alone
+  (`EVETerminalProcessor.cpp:20-31`, `jam_TerminalProcessor.cpp:5-9`).
 
 ## 4. Ecosystem — EVE and END
 
@@ -365,6 +607,28 @@ in jam; no editable text buffer exists anywhere — the buffer is pure greenfiel
 
 Caveat, ARCHITECT-ruled: these parts were **never assembled into a fully working
 terminal**. Subsystem completeness ≠ architecture proven. The assembly is EVE.
+
+> **[AMENDED 2026-10-20 — inventory, current state]**
+>
+> - **Gone:** `TerminalParser`, `TerminalVideo`, `TerminalCellFifo`,
+>   `TerminalModel`, `terminal::TextLayout` (§5.1 executed; `jam_terminal.h`
+>   includes none of them).
+> - **Parser:** `AnsiDocument` (§3.4 amendment).
+> - **Chain parts (jam_terminal/processor):** `TerminalFIFO` (a
+>   `juce::OutputStream` over `juce::AbstractFifo`), `AnsiBuffer` (the chain
+>   byte block, sized at prepare), `TerminalProcessor` (the chain member that
+>   owns an output `TerminalFIFO`).
+> - **Writer:** `terminal::GraphicsEngine` on the TETRIS verbs `prepare` /
+>   `process` / `reset`, with its draw scratch sized at `prepare`;
+>   `terminal::GraphicsContext` is the juce LLGC that materialises cells.
+> - **Project chain:** `EVETerminalProcessor` (ruling: renamed from
+>   `EVEAudioProcessor`, the JFS chain isomorph).
+> - **Shared raster core:** `GlyphRasterizer` (§3.10).
+> - **Widget:** `jam::TextEditor` (`juce::Viewport`) pulls through
+>   `bindToProcessor` and a timer; it reflows over stored advances with
+>   `ReflowDocument::setRows`.
+> - **TTY:** `TerminalTTY` posix and windows — the PTY-era producer of the
+>   input lane.
 
 ### 5.3 Gap-list (to build — the actual new work)
 
@@ -537,6 +801,24 @@ byte-identical to the original. No surveyed terminal passes this today (§1).
   into the Model.
 - No terminal mental model from training data. When in doubt, re-read §0 and §1.
 - BLESSED governs; CAROL contract applies; scope is ARCHITECT's alone.
+
+> **[AMENDED 2026-10-20 — added non-negotiables, ARCHITECT verbatim]**
+>
+> - *"ALWAYS LOCK FREE"* — no lock, no try-lock; every crossing is a
+>   `juce::AbstractFifo` with one writer and one reader.
+> - *"writing bytes is processBlock"* — the byte write is a chain verb on the
+>   audio thread, never in a paint scope or a destructor.
+> - *"NO POKING LAYERS. MUST BE ENCAPSULTED"* — the View tells and pulls only;
+>   the chain owns its engine, rings and grid.
+> - *"wrapping and reflow is RENDERING concern"* — no wrap in the writer; the
+>   widget reflows.
+> - *"Paint is NOT MATERIALISATION"* — paint calls only what is already
+>   materialised.
+> - *"CONTRACT NON-NEGOTIABLE… 0 copy 0 mutations 0 temp containers 0 shadow
+>   state 0 handroll method 0 hack… MUST USE FRAMEWORK API to its fullest
+>   extent… always UNIDIRECTIONAL"*.
+> - The reader-thread rule above now binds `processBlock`, the clock that
+>   drains the bytes.
 
 ---
 

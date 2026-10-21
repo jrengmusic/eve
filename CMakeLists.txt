@@ -281,12 +281,13 @@ juce_generate_juce_header(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE
     Source/EVEProcessor.h            # juce::AudioProcessor plugin entry class declaration
     Source/EVEProcessor.cpp          # juce::AudioProcessor plugin entry, state serialization, createPluginFilter
-    Source/EVEAudioProcessor.h       # Audio processor class declaration
+    Source/EVETerminalProcessor.h    # Terminal processor class declaration
+    Source/EVETerminalProcessor.cpp  # Terminal processor chain: harness load, engine ring, history and live lanes
     Source/EVEView.h                 # Plugin editor class declaration, jam::PluginEditor
-    Source/EVEView.cpp               # Plugin editor — theme, component registry, panel and view construction
+    Source/EVEView.cpp               # Plugin editor — theme, component registry and view construction
     Source/EVEViewRegistration.cpp   # Plugin editor button registration and dialog config
     Source/EVEViewComponents.cpp     # Plugin editor view component configs
-    Source/EVEViewPanelCallbacks.cpp # Plugin editor panel, about and settings dialog callbacks
+    Source/EVEViewPanelCallbacks.cpp # Plugin editor UI scale and winsize callbacks
     Source/generated/Identifiers.cpp # Product identifier vocabulary definitions
     Source/generated/Files.cpp       # Product asset file name definitions
 )
@@ -509,7 +510,7 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css"  # View stylesheets
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml"  # Default settings XML
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html" # Settings HTML layout
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg"  # View layout and about graphics SVG
+    "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg"  # View layout graphics SVG
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/buttons/*.svg" # Product SVG button states — normal, over, down
     "${CAST_USER_MODULE_PATH}/resources/svg/*.svg"     # Shared JAM SVG icons
     "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf"   # Shared JAM Display and DisplayMono TrueType fonts

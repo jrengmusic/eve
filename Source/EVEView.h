@@ -9,6 +9,7 @@ public:
              jam::PluginEditorLayout& newLayout,
              juce::AudioProcessor& processorToConnectTo);
 
+    void resized() override;
     void paintOverChildren (juce::Graphics& g) override;
 
 private:
@@ -20,6 +21,10 @@ private:
     void registerViewComponents (jam::Registry::Registration& registration);
 
     void attachPanelCallbacks() override;
+
+    void setWinsize();
+
+    const juce::File harness { juce::File { __FILE__ }.getParentDirectory().getSiblingFile ("markdown").getChildFile (files::harness) };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEView)
 };

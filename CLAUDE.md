@@ -18,7 +18,7 @@
 
 ## Current State
 
-**Last Sprint:** One Atom, One Style Word, Both Lanes on One SSOT — CMYK Mermaid, Display-Scale Diagrams (2026-10-17) (`carol/SPRINT-LOG.md:39`)
+**Last Sprint:** No Panel, Settings on cmd+, — EVE on the Optional-Panel Bootstrap and the Settings Vocabulary (2026-10-19) (`carol/SPRINT-LOG.md:39`)
 
 **Active ODE:** None found in `carol/SPRINT-LOG.md` or `DEBT.md`.
 
@@ -35,14 +35,14 @@
 | Path | Role |
 |------|------|
 | `Source/EVEProcessor.h/.cpp` | Plugin entry, state serialisation |
-| `Source/EVEAudioProcessor.h` | Audio processor declaration |
-| `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry, panel and view construction |
+| `Source/EVETerminalProcessor.h/.cpp` | Terminal chain: harness load, engine ring, history and live lanes |
+| `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction |
 | `Source/EVEViewRegistration.cpp` | Button registration and dialog config |
 | `Source/EVEViewComponents.cpp` | View component configs |
-| `Source/EVEViewPanelCallbacks.cpp` | Panel, About and Settings callbacks |
+| `Source/EVEViewPanelCallbacks.cpp` | UI scale and winsize callbacks |
 | `Source/generated/` | CAST output: `Identifiers.*`, `Files.*` (build-time, do not edit) |
-| `Source/layout/` | Layout and style documents: `ViewLayout.md`, `component.md`, `parameters.md`, `style.css`, `PanelLayout.html`, `AboutLayout.html`, `SettingsLayout.html` |
-| `Source/buttons/`, `Source/images/`, `Source/icons/` | Button SVGs, PNG images, app icon |
+| `Source/layout/` | Layout and style documents: `ViewLayout.md`, `component.md`, `parameters.md`, `style.css`, `SettingsLayout.html` |
+| `Source/buttons/`, `Source/icons/` | Button SVGs, app icon |
 | `markdown/` | Markdown and mermaid harness (`markdown/markdown.md`) |
 
 ---
@@ -78,7 +78,7 @@ Read the index first, then the compound XML, before any grep. See the `doxygen-p
 ## Build
 
 1. `project-info.md` is the SSOT. `CMakeLists.txt` is generated from it by CAST. Do not edit `CMakeLists.txt` by hand.
-2. Regenerate and build: `cast cast/spell.md --debug` (`carol/SPRINT-LOG.md:92`).
+2. Regenerate and build: `cast cast/spell.md --debug` (`carol/SPRINT-LOG.md:60`).
 3. Build directories: `Builds/Debug`, `Builds/Release`.
 4. JUCE version gate: exact match to 8.0.14 (`CMakeLists.txt:215`). A mismatch stops configure.
 5. Patched JUCE cache: `~/.cache/cast/juce/<hash>` on macOS, `%LOCALAPPDATA%/cast/juce/<hash>` on Windows (`CMakeLists.txt:136-152`). The hash covers the JUCE version and the patch files.

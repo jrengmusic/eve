@@ -5,5 +5,5 @@ Component inventory of the markdown view lane. Row order is creation order: the 
 +----+------------+-----------+-------+------+----------+---------+-------+
 | z  | type       | parameter | image | dark | style    | primary | event |
 +====+============+===========+=======+======+==========+=========+=======+
-| 0  | textEditor |           |       |      | terminal |         |       |
+| 0  | textEditor | winsize   |       |      | terminal |         |       |
 +----+------------+-----------+-------+------+----------+---------+-------+
