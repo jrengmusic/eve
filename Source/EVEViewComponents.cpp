@@ -1,5 +1,10 @@
 #include "EVEView.h"
 
+static juce::File getHarness()
+{
+    return juce::File { __FILE__ }.getParentDirectory().getSiblingFile ("markdown").getChildFile (files::harness);
+}
+
 void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 {
     registration.viewComponents = [] (jam::Registry& r)
@@ -21,6 +26,13 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                                          {
                                              selector->addItemList (map::UIScaleMap::getInstance()->get());
                                          });
+
+        r.registerConfig<jam::TextEditor> (Id::textEditor,
+                                           Id::toTag (Id::winsize),
+                                           [] (jam::TextEditor* textEditor)
+                                           {
+                                               textEditor->load (getHarness());
+                                           });
     };
 
     registration.styles = [] (jam::Registry& r)

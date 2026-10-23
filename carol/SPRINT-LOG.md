@@ -36,6 +36,73 @@
 
 ## SPRINT HISTORY
 
+## Sprint: TextEditor nvim Parity — the Harness Is an Editable Buffer; History in the TextEditor, Live in the Processor ✅
+
+**Date:** 2026-10-24
+**Duration:** multi-session, 2026-10-23 → 2026-10-24
+**Plan:** `PLAN-texteditor-nvim-parity.md` (Steps 0–12, Amendments A and B, the B corrections, the Audit B triage). jam Sprint 171 is the primary record.
+
+### Decisions (ARCHITECT, verbatim)
+1. *"vim core features parity first then. so we have interactivity, correct design by contract of TextEditor state machine with juce::ValueTree. and the harness file just become another file to load and edit."*
+2. *"TextEditor state machine, (juce::ValueTree) will be attached to EVEProcessor APVTS"*.
+3. *"eve terminal "NORMAL" screen is actually always in TextEditor INSERT mode"*.
+4. *"scrollback budget always cap from settings"*; *"what scollback budget? not scrollback capacity?"*.
+5. *"decouple. Processor is live buffer, TextEditor will hold history at least that's how the terminal designed. so SIGWINCH never ever destroy history content."*
+
+### Agents Participated
+- COUNSELOR — plan and amendments, briefs, validation by read, audit triage, SPEC/RFC amendments, log.
+- Engineer (sonnet) — code, builds, sync, doxygen. Pathfinder (haiku) — reads, inventory. Auditor (opus) — three audits.
+
+### Files Modified (10 tracked + 1 new)
+- `Source/EVETerminalProcessor.h/.cpp`:
+  - `load` and its print helpers are deleted.
+  - The `Id::textEditor` getter `(AnsiDocument&, const std::function<void (AnsiDocument&, bool, int)>&)` pulls into the view's history document and gives the live document and the capacity.
+  - `getHistoryCapacity()` reads the `HISTORY_CAPACITY` setting from the current state tree at use (`jam::Model::getChildWithID (…).getProperty`). It builds no `juce::Value`, and it survives `replaceState`.
+  - The constructor takes the model only.
+- `Source/EVEProcessor.h` — `terminalProcessor { model }`.
+- `Source/EVEView.h/.cpp`:
+  - The `harness` member and the constructor `load` tell are deleted.
+  - The constructor grabs keyboard focus in `callAsync` (END pattern, `ENDView.cpp:28-42`).
+  - `focusGained` forwards focus to `createKeyboardFocusTraverser()->getDefaultComponent (this)`, the TextEditor (endless pattern, `Display.cpp:212`).
+- `Source/EVEViewComponents.cpp` — file-static `getHarness()`, and a captureless `registerConfig<jam::TextEditor> (Id::textEditor, Id::toTag (Id::winsize), …)` that calls `load (getHarness())`.
+- `Source/layout/ViewLayout.md`:
+  - the `## normal`, `## insert` and `## visual` key sheets;
+  - the `HISTORY_CAPACITY` description: *"the swap keeps this many lines in memory"*.
+- `SPEC.md`:
+  - Feature 2.3: the TextEditor owns the history and its swap.
+  - State Model: ownership, pull, edits.
+  - Feature 6: the scrollback cap is `HISTORY_CAPACITY`.
+- `RFC-EVE-terminal-grand-scheme.md` — the §3.9 amendments: the swap, the Codec, the decouple, the capacity through the pull.
+- `CLAUDE.md`. `PLAN-texteditor-nvim-parity.md` (new).
+
+### Alignment Check
+- [x] BLESSED principles followed
+- [x] NAMES.md adhered
+- [x] MANIFESTO.md principles applied
+
+### Problems Solved
+- The config lambda captured the view inside the shared Registry, where the first holder wins. The config is captureless, and the capacity comes through the pull.
+- Runtime crash: `jassert (historyRows > 0)` in `prepare`. A `juce::Value` member bound at construction found no settings node yet. It would also point to a replaced tree after `replaceState`. The capacity is now read at use.
+
+### State for Continuation
+- `cast cast/spell.md --debug`: 0 errors, 0 warnings.
+- Runtime:
+  - A whatdbg trace launch (25 s) has no stop.
+  - Keys sent through the OS reach `TextEditor::keyPressed`: `j`, Escape, `j`, `x`, `u`, `i`, Return, Backspace. A temporary `debug::Log` proved it, and the log was then removed.
+  - An AppleScript quit gives `exit=0`, with no assertion, no leak and no crash report.
+  - ARCHITECT confirmed the keyboard works. The status row is now a separate row below the text.
+  - A trackpad-scroll assert in `jam::TextEditor::paintRows` (a visible line with no runs) is fixed. The runs were rebuilt from a stale view area. jam Sprint 171 has the detail.
+- No interactive check of the editor has run yet. The plan's Verification list covers it. Delete `~/.config/end/eve.md` first, so the key sheets seed.
+- The chain (`prepare`, `setWinsize`, FIFO sizing) stays for the TTY sprint (Design 6). A window size change does not resize the FIFOs.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
+---
+
 ## Sprint: Reflow at the Window Width — TextEditor Is the Only Renderer; the Harness Prints from the AST ✅
 
 **Date:** 2026-10-21

@@ -475,6 +475,47 @@ getState/setState info with END as host"*.
   (`jam_Document.h:482-574`); the residency tier of §3.3 is not in the code
   (no spill, rehydrate or eviction in `jam_core/document`).
 
+> **[AMENDED 2026-10-24 — texteditor-nvim-parity sprint]** ARCHITECT: *"swap,
+> this sprint."*, *"this will be also used as the terminal cache"*,
+> *"content SSOT should not owned by TextEditor … the actual content should live
+> in Processor"*, *"what scollback budget? not scrollback capacity?"*.
+>
+> **The swap.** The swap is `Document::Swap`, its own object (MANIFESTO E
+> rule 1: one responsibility). `jam::TerminalProcessor` owns it beside the
+> history and live documents (MANIFESTO B; TETRIS cold state).
+> - It takes an injected `Codec` (`encode`, `decode`, `clear`) and one RAII
+>   `juce::TemporaryFile`.
+> - It keeps `HISTORY_CAPACITY` hot lines, from the `## settings` row. Above
+>   that, it spills the leading hot lines of the document chain down to 7/8.
+> - A line is encoded once, and its span is reused at the next eviction.
+> - `rehydrate (line)` reads the span back.
+>
+> **The Codec.**
+> - The encoder is the LLGC writer `TerminalGraphicsEngine::appendLine`.
+>   ARCHITECT: *"materialisation from id to actual bytes is LLGC
+>   responsibility"*.
+> - A true-colour id is `terminalColourId` plus the RGB value, so every
+>   document gives the same id. The decoder therefore parses in its own
+>   `AnsiDocument`, and the history document's parser state never moves.
+> - Eviction replaces the cells of a line and its columns as whole objects.
+>
+> **The Index.** `Document::Index` is geometry only. The TextEditor owns it,
+> with its glyph runs and decoded images, and pulls the content through the
+> view getter. The editor state machine is the TextEditor's component node in
+> the plugin state (SPEC.md, State Model).
+>
+> **[AMENDED 2026-10-24 — decouple]** ARCHITECT: *"decouple. Processor is live
+> buffer, TextEditor will hold history at least that's how the terminal
+> designed. so SIGWINCH never ever destroy history content."* This amendment
+> replaces the ownership above:
+> - `jam::TerminalProcessor` owns the live document only.
+>   `pull (historyDocument)` appends the history bytes to the caller's document.
+> - The TextEditor owns the history document, its `Document::Swap` and its
+>   `Codec`. It loads files and applies edits and undo on its own document.
+> - A resize replaces only the live document. The history survives SIGWINCH.
+> - The getter gives the `HISTORY_CAPACITY` value to the TextEditor at each
+>   pull, and the TextEditor sets the swap capacity from it.
+
 ### 3.10 One raster code, two lanes [ADDED 2026-10-20]
 
 ARCHITECT: *"juce rasterizer is SLOW. we have FAST LANE with Vulkan, with its
@@ -707,6 +748,43 @@ terminal**. Subsystem completeness ≠ architecture proven. The assembly is EVE.
    >
    > Open items, not yet ruled: cursor shape as an arbitrary codepoint, and
    > the terminal-usage defaults (always insert mode, hidden status bar).
+
+   > **[AMENDED 2026-10-24 — texteditor-nvim-parity sprint]** ARCHITECT:
+   > *"IDENTICAL UX PARITY with neovim, but not ALL THE COMPLETE FEATURES. only
+   > core editing and navigation"*. The vim core is in `jam::TextEditor`.
+   >
+   > **State.** It lives on the TextEditor's component node, not on a `MODE`
+   > parameter (SPEC.md, State Model).
+   >
+   > **Status bar.** `jam::TextEditorStatusBar` is a child of the editor. It
+   > binds the same node, has its own colour ids, and shows outside insert mode.
+   >
+   > **Keys.** The bindings come from the `eve.md` sheets `## normal`,
+   > `## insert` and `## visual`. Dispatch is through the tables `getMotions()`
+   > and `getActions()`.
+   >
+   > **Edits.**
+   > - An edit is a creation: the new line is parsed from LLGC wire bytes into
+   >   the Document (*"Document always parse"*).
+   > - The undo actions `InsertLine` and `RemoveLine` link and unlink line
+   >   elements, and a replace is one transaction of both.
+   > - Every property of the editor state machine is on the node. The editor
+   >   holds no member copy of mode, cursor, anchor, count or pending operator.
+   >
+   > **Harness.** The processor loads the harness as an editable file buffer,
+   > with `jam::TerminalProcessor::load` (the Convolution model of §3.8). The
+   > old `EVETerminalProcessor::load` and its print helpers are deleted. The
+   > TextEditor owns no content: it pulls the processor's documents through the
+   > view getter, and tells edits and rehydrates the same way.
+   >
+   > **Namespace.** The `jam::terminal` namespace is deleted. ARCHITECT: *"NO
+   > FUCKING terminal namespace. DELETE. write functions at its correct
+   > domain"*.
+   > - The classes are `TerminalGraphicsContext`, `TerminalGraphicsEngine` and
+   >   `TerminalTrueColours`.
+   > - The byte writers are statics of the engine, and `TerminalIndexedColours`
+   >   holds the indexed-colour statics.
+   > - `jam::Format` holds `appendDecimal` and `appendUtf8`.
 3. **Terminal LLGC completion** — geometry parity only (text goes through jam's
    pipeline, §3.6). Six stubs at jam_TerminalGraphicsContext.h: `fillPath`/
    `clipToPath` (:344, :332), `drawImage`/`clipToImageAlpha` (:345, :333),

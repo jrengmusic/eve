@@ -48,6 +48,144 @@ ctrl, alt, shift.
 | zoomReset | string | cmd+0 |         | Reset the zoom to its default. |
 +-----------+--------+-------+---------+--------------------------------+
 
+## normal
+
+Key bindings of the text editor in normal mode. A chord is matched by text character and is case-sensitive. A two-character value is a prefix sequence. A key description such as ctrl+u or escape names a non-printing key.
+
++-----------------+--------+--------+---------+----------------------------+
+| key             | type   | value  | choices | description                |
++=================+========+========+=========+============================+
+| left            | string | h      |         | Move left                  |
++-----------------+--------+--------+---------+----------------------------+
+| down            | string | j      |         | Move down                  |
++-----------------+--------+--------+---------+----------------------------+
+| up              | string | k      |         | Move up                    |
++-----------------+--------+--------+---------+----------------------------+
+| right           | string | l      |         | Move right                 |
++-----------------+--------+--------+---------+----------------------------+
+| wordForward     | string | w      |         | Word forward               |
++-----------------+--------+--------+---------+----------------------------+
+| wordBackward    | string | b      |         | Word backward              |
++-----------------+--------+--------+---------+----------------------------+
+| wordEnd         | string | e      |         | Word end                   |
++-----------------+--------+--------+---------+----------------------------+
+| lineStart       | string | 0      |         | Line start                 |
++-----------------+--------+--------+---------+----------------------------+
+| lineEnd         | string | $      |         | Line end                   |
++-----------------+--------+--------+---------+----------------------------+
+| documentStart   | string | gg     |         | Document start             |
++-----------------+--------+--------+---------+----------------------------+
+| documentEnd     | string | G      |         | Document end               |
++-----------------+--------+--------+---------+----------------------------+
+| halfPageUp      | string | ctrl+u |         | Half page up               |
++-----------------+--------+--------+---------+----------------------------+
+| halfPageDown    | string | ctrl+d |         | Half page down             |
++-----------------+--------+--------+---------+----------------------------+
+| insertBefore    | string | i      |         | Enter insert before cursor |
++-----------------+--------+--------+---------+----------------------------+
+| insertAfter     | string | a      |         | Enter insert after cursor  |
++-----------------+--------+--------+---------+----------------------------+
+| insertLineStart | string | I      |         | Enter insert at line start |
++-----------------+--------+--------+---------+----------------------------+
+| insertLineEnd   | string | A      |         | Enter insert at line end   |
++-----------------+--------+--------+---------+----------------------------+
+| openLineBelow   | string | o      |         | Open line below            |
++-----------------+--------+--------+---------+----------------------------+
+| openLineAbove   | string | O      |         | Open line above            |
++-----------------+--------+--------+---------+----------------------------+
+| leaveMode       | string | escape |         | Leave mode                 |
++-----------------+--------+--------+---------+----------------------------+
+| visualCharacter | string | v      |         | Enter visual (character)   |
++-----------------+--------+--------+---------+----------------------------+
+| visualLine      | string | V      |         | Enter visual (line)        |
++-----------------+--------+--------+---------+----------------------------+
+| visualBlock     | string | ctrl+v |         | Enter visual (block)       |
++-----------------+--------+--------+---------+----------------------------+
+| yank            | string | y      |         | Yank                       |
++-----------------+--------+--------+---------+----------------------------+
+| delete          | string | d      |         | Delete operator            |
++-----------------+--------+--------+---------+----------------------------+
+| change          | string | c      |         | Change operator            |
++-----------------+--------+--------+---------+----------------------------+
+| deleteCharacter | string | x      |         | Delete character           |
++-----------------+--------+--------+---------+----------------------------+
+| pasteAfter      | string | p      |         | Paste after                |
++-----------------+--------+--------+---------+----------------------------+
+| pasteBefore     | string | P      |         | Paste before               |
++-----------------+--------+--------+---------+----------------------------+
+| undo            | string | u      |         | Undo                       |
++-----------------+--------+--------+---------+----------------------------+
+| redo            | string | ctrl+r |         | Redo                       |
++-----------------+--------+--------+---------+----------------------------+
+
+## insert
+
+Key bindings of the text editor in insert mode. A key description such as escape or return names a non-printing key. A printable key that has no binding inserts its text.
+
++----------------+--------+-----------+---------+-----------------+
+| key            | type   | value     | choices | description     |
++================+========+===========+=========+=================+
+| leaveMode      | string | escape    |         | Leave mode      |
++----------------+--------+-----------+---------+-----------------+
+| splitLine      | string | return    |         | Split line      |
++----------------+--------+-----------+---------+-----------------+
+| deleteBackward | string | backspace |         | Delete backward |
++----------------+--------+-----------+---------+-----------------+
+
+## visual
+
+Key bindings of the text editor in visual mode. A chord is matched by text character and is case-sensitive. A two-character value is a prefix sequence. A key description such as ctrl+u or escape names a non-printing key.
+
++-----------------+--------+--------+---------+--------------------------+
+| key             | type   | value  | choices | description              |
++=================+========+========+=========+==========================+
+| left            | string | h      |         | Move left                |
++-----------------+--------+--------+---------+--------------------------+
+| down            | string | j      |         | Move down                |
++-----------------+--------+--------+---------+--------------------------+
+| up              | string | k      |         | Move up                  |
++-----------------+--------+--------+---------+--------------------------+
+| right           | string | l      |         | Move right               |
++-----------------+--------+--------+---------+--------------------------+
+| wordForward     | string | w      |         | Word forward             |
++-----------------+--------+--------+---------+--------------------------+
+| wordBackward    | string | b      |         | Word backward            |
++-----------------+--------+--------+---------+--------------------------+
+| wordEnd         | string | e      |         | Word end                 |
++-----------------+--------+--------+---------+--------------------------+
+| lineStart       | string | 0      |         | Line start               |
++-----------------+--------+--------+---------+--------------------------+
+| lineEnd         | string | $      |         | Line end                 |
++-----------------+--------+--------+---------+--------------------------+
+| documentStart   | string | gg     |         | Document start           |
++-----------------+--------+--------+---------+--------------------------+
+| documentEnd     | string | G      |         | Document end             |
++-----------------+--------+--------+---------+--------------------------+
+| halfPageUp      | string | ctrl+u |         | Half page up             |
++-----------------+--------+--------+---------+--------------------------+
+| halfPageDown    | string | ctrl+d |         | Half page down           |
++-----------------+--------+--------+---------+--------------------------+
+| leaveMode       | string | escape |         | Leave mode               |
++-----------------+--------+--------+---------+--------------------------+
+| visualCharacter | string | v      |         | Enter visual (character) |
++-----------------+--------+--------+---------+--------------------------+
+| visualLine      | string | V      |         | Enter visual (line)      |
++-----------------+--------+--------+---------+--------------------------+
+| visualBlock     | string | ctrl+v |         | Enter visual (block)     |
++-----------------+--------+--------+---------+--------------------------+
+| yank            | string | y      |         | Yank                     |
++-----------------+--------+--------+---------+--------------------------+
+| delete          | string | d      |         | Delete operator          |
++-----------------+--------+--------+---------+--------------------------+
+| change          | string | c      |         | Change operator          |
++-----------------+--------+--------+---------+--------------------------+
+| deleteCharacter | string | x      |         | Delete character         |
++-----------------+--------+--------+---------+--------------------------+
+| pasteAfter      | string | p      |         | Paste after              |
++-----------------+--------+--------+---------+--------------------------+
+| pasteBefore     | string | P      |         | Paste before             |
++-----------------+--------+--------+---------+--------------------------+
+
 ## settings
 
 Plugin settings. The chain populates the persisted-parameter subtree from
@@ -68,7 +206,7 @@ this table on first launch; the host state overrides it after restore.
 +------------------+--------+----------+--------------------------------------------------------------------------------+
 | EMBOLDEN         | string | false    | Synthetic embolden of rasterized glyphs: true or false.                        |
 +------------------+--------+----------+--------------------------------------------------------------------------------+
-| HISTORY_CAPACITY | int    | 10000    | Scrollback history capacity of the instance, in rows.                          |
+| HISTORY_CAPACITY | int    | 10000    | Scrollback history capacity in rows; the swap keeps this many lines in memory. |
 +------------------+--------+----------+--------------------------------------------------------------------------------+
 | WINSIZE          | int    | 0        | Terminal size of the instance, packed jam::TerminalWinsize; EVEView writes it. |
 +------------------+--------+----------+--------------------------------------------------------------------------------+

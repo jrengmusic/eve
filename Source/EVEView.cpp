@@ -8,7 +8,16 @@ EVEView::EVEView (jam::AudioModel& newModel,
 {
     initialise (layout.getOrCreateSettings());
     setScaling();
-    static_cast<EVEProcessor&> (*getAudioProcessor()).getTerminalProcessor().load (harness);
+    juce::MessageManager::callAsync ([this] { grabKeyboardFocus(); });
+}
+
+void EVEView::focusGained (FocusChangeType)
+{
+    if (auto traverser { createKeyboardFocusTraverser() })
+    {
+        if (auto* defaultComponent { traverser->getDefaultComponent (this) })
+            defaultComponent->grabKeyboardFocus();
+    }
 }
 
 void EVEView::initialiseTheme (const juce::ValueTree& settings)

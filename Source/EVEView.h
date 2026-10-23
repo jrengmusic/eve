@@ -13,6 +13,8 @@ public:
     void paintOverChildren (juce::Graphics& g) override;
 
 private:
+    void focusGained (FocusChangeType cause) override;
+
     void initialiseTheme (const juce::ValueTree& settings) override;
     void initialiseRegistry() override;
     void initialiseView() override;
@@ -23,8 +25,6 @@ private:
     void attachPanelCallbacks() override;
 
     void setWinsize();
-
-    const juce::File harness { juce::File { __FILE__ }.getParentDirectory().getSiblingFile ("markdown").getChildFile (files::harness) };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEView)
 };

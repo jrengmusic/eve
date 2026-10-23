@@ -35,15 +35,15 @@
 | Path | Role |
 |------|------|
 | `Source/EVEProcessor.h/.cpp` | Plugin entry, state serialisation |
-| `Source/EVETerminalProcessor.h/.cpp` | Terminal chain: harness load, engine ring, history and live lanes |
+| `Source/EVETerminalProcessor.h/.cpp` | Terminal chain: engine ring, history and live lanes |
 | `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction |
 | `Source/EVEViewRegistration.cpp` | Button registration and dialog config |
-| `Source/EVEViewComponents.cpp` | View component configs |
+| `Source/EVEViewComponents.cpp` | View component configs; the TextEditor config loads the harness as an editable file buffer |
 | `Source/EVEViewPanelCallbacks.cpp` | UI scale and winsize callbacks |
 | `Source/generated/` | CAST output: `Identifiers.*`, `Files.*` (build-time, do not edit) |
 | `Source/layout/` | Layout and style documents: `ViewLayout.md`, `component.md`, `parameters.md`, `style.css`, `SettingsLayout.html` |
 | `Source/buttons/`, `Source/icons/` | Button SVGs, app icon |
-| `markdown/` | Markdown and mermaid harness (`markdown/markdown.md`) |
+| `markdown/` | Harness file (`markdown/markdown.md`), edited as source text in the TextEditor |
 
 ---
 

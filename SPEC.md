@@ -87,11 +87,15 @@ layout event only).
    *view's* scrollback access but the SSOT retains the session record for the
    session lifetime. Alternate screen: app-owned, redrawn by the app per VT contract
    (RFC §1 boundary).
-3. **Scrollback:** unbounded in content, tiered in residency — a hot window
-   (default 1/16 machine RAM, `terminal / scrollbackBudgetMb` override) lives
-   in the Document; colder lines spill losslessly to disk as ANSI wire bytes
-   (byte-exact round trip) and rehydrate on access (RFC §7.4 amendment,
-   2026-09-15). No line is ever lost to the tier.
+3. **Scrollback:** unbounded in content, swapped in residency. The TextEditor
+   owns the history content and its `Document::Swap`. The processor owns only
+   the live area. ARCHITECT: *"decouple. Processor is live buffer, TextEditor
+   will hold history at least that's how the terminal designed. so SIGWINCH
+   never ever destroy history content."*
+   - A hot window of `HISTORY_CAPACITY` lines (the `## settings` row) stays
+     in memory.
+   - Colder lines spill to disk as ANSI wire bytes and rehydrate on access.
+   - No line is ever lost to the swap.
 
 ### Feature 3: Scrollback Navigation
 
@@ -150,30 +154,50 @@ the status area.
 ### Feature 6: Configuration
 
 - Markdown tables + CSS, CAST conventions (colour + appearance custom properties;
-  data tables for keymaps, open-with rules, shell, fonts, scrollback budget —
-  `terminal / scrollbackBudgetMb`)
+  data tables for keymaps, open-with rules, shell, fonts; the scrollback cap is
+  the `HISTORY_CAPACITY` settings row)
 - Parse error at launch: EVE starts with defaults and shows
   `config error: <file>:<line> — <message>` in the status area; never fails to launch
 
 ## State Model
 
 The content SSOT is a `jam::Document` of `Id::line` elements, each carrying
-`Id::cells` (`AnsiDocument` builds it today). Line and row lookup, and the
-storage tier, are the job of `Document::Index` — a counted B-tree with
-`insert`, `remove`, `append`, `getCellRange`, and `getRowNumber (line,
-column)`.
+`Id::cells` (`AnsiDocument` builds it).
+- **Ownership:** `jam::TerminalProcessor` owns the live document. The
+  TextEditor owns the history document and its `Document::Swap`. The swap
+  keeps `HISTORY_CAPACITY` lines in memory and spills older lines to a swap
+  file. A resize replaces only the live document, so SIGWINCH never destroys
+  history content.
+- **Pull:** the TextEditor calls the view getter with its history document.
+  The processor appends the history bytes to it, then gives the live document
+  and the `HISTORY_CAPACITY` value to the TextEditor's visitor for the
+  duration of the call. Thus the swap capacity follows the settings at each
+  pull.
+- **Layout state** (advances, rows, row heights) lives on each line as value
+  data.
+- **Geometry:** the TextEditor owns its geometry lookup `Document::Index`, a
+  counted B-tree of lines, rows and pixels, together with its glyph runs and
+  decoded images.
+- **Edits:** an edit is a creation. The TextEditor builds the cells of a new
+  line from existing cells and typed or pasted text, makes a new line element
+  in its history document, and an undo action links it in place of the old
+  line. No edit parses bytes, so control bytes in text become literal cells.
 
-Editor state is ONE `juce::ValueTree`: the host parameter node of `MODE` (the
-one `choice` row in `parameters.md` — `normal`, `insert`, `visual` — and
-host-automatable). That node carries the properties of the generated
-`map::EditorState` bimap: `visualMode`, `cursorLine`, `cursorColumn`,
-`anchorLine`, `anchorColumn`, `count`, `pendingOperator`. The host serialises
-this node with the rest of the plugin state.
+Editor state is ONE `juce::ValueTree`: the TextEditor's component node in the
+plugin state, from `AudioModel::getOrCreateComponentState (componentID)`. The
+node carries `mode` (a `map::EditorMode` value: `insert`, `normal`, `visual`;
+the default is `insert`), `visualMode` (a `map::VisualMode` value:
+`character`, `line`, `block`), `cursorLine`, `cursorColumn`,
+`cursorWantedColumn`, `anchorLine`, `anchorColumn`, `count`, `operatorCount`,
+`pendingOperator` and `pendingChord`. The host serialises this node with the
+rest of the plugin state.
 
 `TextEditor` is a `juce::ValueTree::Listener`. Its `valueTreePropertyChanged`
-dispatches through a `Function::Map`. A `MODE` change reaches one of the
-virtuals `normal()`, `insert()`, or `visual()`; derived views override the
-virtual they need.
+dispatches the changed property through a `Function::Map`.
+`TextEditorStatusBar` binds the same node. It shows the mode and the
+`line:column` ruler while the mode is not `insert`. Its colours are its own
+colour ids, `--TextEditorStatusBar--backgroundColourId` and
+`--TextEditorStatusBar--textColourId`.
 
 The unnamed register is `juce::SystemClipboard`.
 

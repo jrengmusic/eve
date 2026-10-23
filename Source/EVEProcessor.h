@@ -64,7 +64,7 @@ private:
 
     jam::AudioModel model { parameterManager, *this, jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
 
-    EVETerminalProcessor terminalProcessor { *this, model };
+    EVETerminalProcessor terminalProcessor { model };
 
     juce::dsp::ProcessSpec spec;
 
