@@ -69,5 +69,5 @@ void EVEView::setWinsize()
 {
     auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
 
-    processor.setWinsize (jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getValue (Id::toTag (Id::winsize), Id::value).getValue())));
+    processor.setWinsize();
 }

@@ -32,10 +32,14 @@ among ours.
 
 ## Core Principles
 
-1. **MVP** — Model holds state; Processor (reader thread, audio discipline) owns
+1. **MVP** — Model holds state; Processor (audio thread, audio discipline) owns
    terminal emulation; View Components are dumb, paint-only, own nothing.
-2. **Two dedicated threads** — reader (PTY/parser/grid, per RFC §8 prohibitions)
-   and message (SSOT append, layout, paint). CellFifo between them. Nothing else.
+2. **Host-plugin threads** — the audio thread reads and writes the PTY in
+   `processBlock` and decodes the bytes into the engine rows; the message thread
+   appends history, lays out and paints. Lock-free FIFOs (`juce::AbstractFifo`) join
+   them. No thread of EVE's own. ARCHITECT: *"why cant we use AUDIO thread as the
+   READER thread?"*; *"Input: READER, Audio Thread, TTY. Output: Terminal LLGC. also
+   Audio thread … Renderer is Vulkan … message thread"*.
 3. **Non-destruction contract** — widget content is never destroyed by SIGWINCH or
    resize. Only an explicit `clear` (ED 2 / ED 3 semantics, below) wipes the
    *screen* — and history scrollback is still retained (tmux-like).
@@ -56,7 +60,7 @@ among ours.
 | **Preview** | right dock, show/hide | v1: images (SKiT decoder formats) + read-only text/code |
 
 All Components are peers in the app layout. Docks toggle without any effect on the
-terminal Component's content or the reader thread (a dock toggle is a message-thread
+terminal Component's content or the audio-thread decoder (a dock toggle is a message-thread
 layout event only).
 
 ## Features
@@ -65,7 +69,7 @@ layout event only).
 
 **Happy path:**
 1. EVE launches → spawns `$SHELL` (fallback `/bin/zsh` macOS, PowerShell Windows) in a PTY at the terminal Component's cell size
-2. Bytes flow: PTY → parser → grid/retirement → CellFifo → SSOT → layout → paint
+2. Bytes flow: PTY → `processBlock` (audio thread) → decoder → engine rows → history and live FIFOs → TextEditor (message thread) → layout → paint
 3. Keyboard/mouse → TerminalKeyboard/TerminalMouse encoders → PTY write
 4. Shell exits → terminal Component shows: `[process exited — <code>]` on the line after last output; input disabled; history remains browsable
 
@@ -87,24 +91,36 @@ layout event only).
    *view's* scrollback access but the SSOT retains the session record for the
    session lifetime. Alternate screen: app-owned, redrawn by the app per VT contract
    (RFC §1 boundary).
-3. **Scrollback:** unbounded in content, swapped in residency. The TextEditor
-   owns the history content and its `Document::Swap`. The processor owns only
-   the live area. ARCHITECT: *"decouple. Processor is live buffer, TextEditor
-   will hold history at least that's how the terminal designed. so SIGWINCH
-   never ever destroy history content."*
-   - A hot window of `HISTORY_CAPACITY` lines (the `## settings` row) stays
-     in memory.
-   - Colder lines spill to disk as ANSI wire bytes and rehydrate on access.
-   - No line is ever lost to the swap.
+3. **Scrollback:** unbounded in content, block-resident in memory. The processor
+   owns the history record, `jam::SwapDocument`, so the record outlives the
+   view. ARCHITECT: *"TextEditor INDEED hold the history but already
+   materialised on demand. that's exactly the design. but the document SSOT
+   outlives the widget."*
+   - The record follows the JUCE disk-streaming pipeline. ARCHITECT: *"follow
+     JUCE pattern, API verbatim? within the adherence into our CONTRACT?"*
+     The history FIFO carries the rows. The message-thread pull drains them.
+     The record appends each drained block to its file one time.
+   - A block holds at least `SwapDocument::bytesPerBlock` bytes and ends at a
+     line end. Memory holds at most `SwapDocument::numBlocks` blocks and the
+     open block.
+   - The TextEditor is the receiver. It lays out the blocks that the view needs.
+     It keeps the line count and the pixel height of every block.
+   - No line is ever lost. The file keeps every byte for the session.
+   - History is append-only. ARCHITECT: *"history is append-only, clear with
+     "clear" command."*
 
 ### Feature 3: Scrollback Navigation
 
 - Scroll wheel / trackpad: scrolls the view through history; new output does not
   yank the view while scrolled (a `[N new lines]` pill appears bottom-right;
   clicking it or pressing `G` returns to live tail).
-- Keyboard (terminal Component focused, "nav mode" entered with `Ctrl+Shift+K`,
-  left with `Esc` or `i`): `k`/`j` line up/down, `Ctrl+u`/`Ctrl+d` half-page,
-  `gg` top of history, `G` live tail.
+- Keyboard (terminal Component focused): the TextEditor starts in TERMINAL mode,
+  where every key goes to the shell. `` ` `` then `]` enters NORMAL, a read-only,
+  copy-only view of the history; `Esc` or `i a I A o O` return to TERMINAL. In NORMAL:
+  `k`/`j` line up/down, `Ctrl+u`/`Ctrl+d` half-page, `gg` top of history, `G` live
+  tail, `v`/drag select, `y` yank. ARCHITECT: *"` is bind key to enter TERMINAL modal
+  mode. ` + ], TERMINAL modal mode is TextEditor NORMAL"*; *"return to terminal,
+  history should not be editable. read only, copy only"*.
 
 ### Feature 4: Finder Layer
 
@@ -154,39 +170,41 @@ the status area.
 ### Feature 6: Configuration
 
 - Markdown tables + CSS, CAST conventions (colour + appearance custom properties;
-  data tables for keymaps, open-with rules, shell, fonts; the scrollback cap is
-  the `HISTORY_CAPACITY` settings row)
+  data tables for keymaps, open-with rules, shell, fonts; the history FIFO size
+  is the `HISTORY_CAPACITY` settings row)
 - Parse error at launch: EVE starts with defaults and shows
   `config error: <file>:<line> — <message>` in the status area; never fails to launch
 
 ## State Model
 
-The content SSOT is a `jam::Document` of `Id::line` elements, each carrying
-`Id::cells` (`AnsiDocument` builds it).
-- **Ownership:** `jam::TerminalProcessor` owns the live document. The
-  TextEditor owns the history document and its `Document::Swap`. The swap
-  keeps `HISTORY_CAPACITY` lines in memory and spills older lines to a swap
-  file. A resize replaces only the live document, so SIGWINCH never destroys
-  history content.
-- **Pull:** the TextEditor calls the view getter with its history document.
-  The processor appends the history bytes to it, then gives the live document
-  and the `HISTORY_CAPACITY` value to the TextEditor's visitor for the
-  duration of the call. Thus the swap capacity follows the settings at each
-  pull.
+The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
+`jam::Document` of `Id::line` elements, each carrying `Id::cells`.
+- **Ownership:** `jam::TerminalProcessor` owns the live document and the
+  history record `SwapDocument`. A resize replaces only the live document, so
+  SIGWINCH never destroys history content. ARCHITECT: *"GUI is ephemeral …
+  gui only materialisation, on demand"*.
+- **Record:** `SwapDocument` appends each drained block to its file and keeps
+  the byte range of every block. It parses a block into an `AnsiDocument` when
+  the view asks for it. It keeps at most `numBlocks` blocks and the open block
+  in memory.
+- **Pull:** the TextEditor calls the view getter. The processor drains its
+  FIFOs. It then gives the history record, the live document and whether the
+  live document changed to the TextEditor's visitor for the duration of the
+  call. The TextEditor reads the record only inside that call.
 - **Layout state** (advances, rows, row heights) lives on each line as value
   data.
-- **Geometry:** the TextEditor owns its geometry lookup `Document::Index`, a
-  counted B-tree of lines, rows and pixels, together with its glyph runs and
-  decoded images.
-- **Edits:** an edit is a creation. The TextEditor builds the cells of a new
-  line from existing cells and typed or pasted text, makes a new line element
-  in its history document, and an undo action links it in place of the old
-  line. No edit parses bytes, so control bytes in text become literal cells.
+- **Geometry:** the TextEditor keeps one `Document::Index` for each resident
+  history block and one for the live document, with their glyph runs and
+  decoded images. It also keeps the line count and the pixel height of every
+  history block. One cursor line space covers the history lines, then the live
+  lines.
+- **Read only:** the history is not editable. ARCHITECT: *"return to terminal,
+  history should not be editable. read only, copy only"*.
 
 Editor state is ONE `juce::ValueTree`: the TextEditor's component node in the
 plugin state, from `AudioModel::getOrCreateComponentState (componentID)`. The
-node carries `mode` (a `map::EditorMode` value: `insert`, `normal`, `visual`;
-the default is `insert`), `visualMode` (a `map::VisualMode` value:
+node carries `mode` (a `map::EditorMode` value: `normal`, `visual`,
+`terminal`; the default is `normal`), `visualMode` (a `map::VisualMode` value:
 `character`, `line`, `block`), `cursorLine`, `cursorColumn`,
 `cursorWantedColumn`, `anchorLine`, `anchorColumn`, `count`, `operatorCount`,
 `pendingOperator` and `pendingChord`. The host serialises this node with the
@@ -195,7 +213,7 @@ rest of the plugin state.
 `TextEditor` is a `juce::ValueTree::Listener`. Its `valueTreePropertyChanged`
 dispatches the changed property through a `Function::Map`.
 `TextEditorStatusBar` binds the same node. It shows the mode and the
-`line:column` ruler while the mode is not `insert`. Its colours are its own
+`line:column` ruler in `normal` and `visual` mode. Its colours are its own
 colour ids, `--TextEditorStatusBar--backgroundColourId` and
 `--TextEditorStatusBar--textColourId`.
 
@@ -216,41 +234,27 @@ later sprints implement it.
 
 ## Keyboard Summary
 
-| Action | Normal | Insert | Visual |
+| Action | Normal | Visual | Terminal |
 |---|---|---|---|
-| Move left | `h` | | `h` |
-| Move down | `j` | | `j` |
-| Move up | `k` | | `k` |
-| Move right | `l` | | `l` |
-| Word forward | `w` | | `w` |
-| Word backward | `b` | | `b` |
-| Word end | `e` | | `e` |
-| Line start | `0` | | `0` |
-| Line end | `$` | | `$` |
-| Document start | `gg` | | `gg` |
-| Document end | `G` | | `G` |
-| Half page up | `ctrl+u` | | `ctrl+u` |
-| Half page down | `ctrl+d` | | `ctrl+d` |
-| Enter insert before cursor | `i` | | |
-| Enter insert after cursor | `a` | | |
-| Enter insert at line start | `I` | | |
-| Enter insert at line end | `A` | | |
-| Open line below | `o` | | |
-| Open line above | `O` | | |
-| Leave mode | `escape` | `escape` | `escape` |
-| Enter visual (character) | `v` | | `v` |
-| Enter visual (line) | `V` | | `V` |
-| Enter visual (block) | `ctrl+v` | | `ctrl+v` |
-| Yank | `y` | | `y` |
-| Delete operator | `d` | | `d` |
-| Change operator | `c` | | `c` |
-| Delete character | `x` | | `x` |
-| Paste after | `p` | | `p` |
-| Paste before | `P` | | `P` |
-| Undo | `u` | | |
-| Redo | `ctrl+r` | | |
-| Split line | | `return` | |
-| Delete backward | | `backspace` | |
+| Move left | `h` | `h` | |
+| Move down | `j` | `j` | |
+| Move up | `k` | `k` | |
+| Move right | `l` | `l` | |
+| Word forward | `w` | `w` | |
+| Word backward | `b` | `b` | |
+| Word end | `e` | `e` | |
+| Line start | `0` | `0` | |
+| Line end | `$` | `$` | |
+| Document start | `gg` | `gg` | |
+| Document end | `G` | `G` | |
+| Half page up | `ctrl+u` | `ctrl+u` | |
+| Half page down | `ctrl+d` | `ctrl+d` | |
+| Return to terminal | `escape` `i` `a` `I` `A` `o` `O` | | |
+| Leave mode | | `escape` | `` `] `` |
+| Enter visual (character) | `v` | `v` | |
+| Enter visual (line) | `V` | `V` | |
+| Enter visual (block) | `ctrl+v` | `ctrl+v` | |
+| Yank | `y` | `y` | |
 
 All bindings are config-table entries; the table above is the shipped
 default. A chord is matched by text character and is case-sensitive.

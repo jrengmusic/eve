@@ -31,7 +31,6 @@ namespace files
     const juce::String viewLayout                { juce::String::fromUTF8 ("ViewLayout.md") };
     const juce::String settingsLayout            { juce::String::fromUTF8 ("SettingsLayout.html") };
     const juce::String parametersLayout          { juce::String::fromUTF8 ("parameters.md") };
-    const juce::String harness                   { juce::String::fromUTF8 ("markdown.md") };
     const juce::String markdownSettingsDirectory { juce::String::fromUTF8 (".config/end") };
     const juce::String markdownSettingsFileName  { juce::String::fromUTF8 ("eve.md") };
     const juce::String upNormal                  { juce::String::fromUTF8 ("up_normal.svg") };

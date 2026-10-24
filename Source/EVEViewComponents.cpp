@@ -1,10 +1,5 @@
 #include "EVEView.h"
 
-static juce::File getHarness()
-{
-    return juce::File { __FILE__ }.getParentDirectory().getSiblingFile ("markdown").getChildFile (files::harness);
-}
-
 void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 {
     registration.viewComponents = [] (jam::Registry& r)
@@ -26,13 +21,59 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                                          {
                                              selector->addItemList (map::UIScaleMap::getInstance()->get());
                                          });
+    };
 
-        r.registerConfig<jam::TextEditor> (Id::textEditor,
-                                           Id::toTag (Id::winsize),
-                                           [] (jam::TextEditor* textEditor)
-                                           {
-                                               textEditor->load (getHarness());
-                                           });
+    registration.events = [this] (jam::Registry& r)
+    {
+        r.bindEvent.add<juce::Component*&, jam::ViewManager::Events*, const juce::String&, const juce::String&> (
+            Id::textEditor,
+            [this] (juce::Component* component, jam::ViewManager::Events* chainEvents, const juce::String& eventName, const juce::String&)
+            {
+                enum class TerminalInputCallback { write };
+
+                auto* textEditor { static_cast<jam::TextEditor*> (component) };
+                auto& callbacks { chainEvents->at (juce::Identifier { eventName }) };
+
+                textEditor->onKeyPress = [&callbacks, applicationCursor = model.getValue (Id::toTag (Id::applicationCursor), Id::value)] (const juce::KeyPress& key)
+                {
+                    const auto bytes { jam::TerminalKeyboard::map (key, static_cast<bool> (applicationCursor.getValue())) };
+                    const auto isSent { not bytes.empty() };
+
+                    if (isSent)
+                        callbacks.get (static_cast<int> (TerminalInputCallback::write), bytes.data(), static_cast<int> (bytes.size()));
+
+                    return isSent;
+                };
+
+                textEditor->onMouse = [&callbacks,
+                                       mouseTracking = model.getValue (Id::toTag (Id::mouseTracking), Id::value),
+                                       mouseSgr = model.getValue (Id::toTag (Id::mouseSgr), Id::value)] (jam::TerminalMouse::Type type,
+                                                                                                         jam::TerminalMouse::Button button,
+                                                                                                         jam::Cell::Point cell,
+                                                                                                         const juce::ModifierKeys& mods)
+                {
+                    const auto bytes { jam::TerminalMouse::map (type,
+                                                                button,
+                                                                cell.x,
+                                                                cell.y,
+                                                                mods,
+                                                                static_cast<int> (mouseTracking.getValue()),
+                                                                static_cast<bool> (mouseSgr.getValue())) };
+                    const auto isReported { bytes.getSize() > 0 };
+
+                    if (isReported)
+                        callbacks.get (static_cast<int> (TerminalInputCallback::write),
+                                       static_cast<const char*> (bytes.getData()),
+                                       static_cast<int> (bytes.getSize()));
+
+                    return isReported;
+                };
+
+                textEditor->liveCursorLine.referTo (model.getValue (Id::toTag (Id::cursorLine), Id::value));
+                textEditor->liveCursorColumn.referTo (model.getValue (Id::toTag (Id::cursorColumn), Id::value));
+                textEditor->liveCursorVisible.referTo (model.getValue (Id::toTag (Id::cursorVisible), Id::value));
+                textEditor->setMode (map::EditorMode::terminal);
+            });
     };
 
     registration.styles = [] (jam::Registry& r)

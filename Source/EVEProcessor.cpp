@@ -14,7 +14,7 @@ EVEProcessor::EVEProcessor()
 #endif// !JucePlugin_PreferredChannelConfigurations
 {
     layout.populateTree (model, layout.getOrCreateSettings());
-    terminalProcessor.setWinsize (getWinsize());
+    terminalProcessor.setWinsize();
 }
 
 const juce::String EVEProcessor::getName() const { return JucePlugin_Name; }
@@ -152,7 +152,7 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
     if (auto state { juce::ValueTree::readFromData (data, sizeInBytes) }; state.isValid())
     {
         model.setState (state);
-        terminalProcessor.setWinsize (getWinsize());
+        terminalProcessor.setWinsize();
     }
 }
 
@@ -161,14 +161,14 @@ EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept
     return terminalProcessor;
 }
 
-jam::TerminalWinsize EVEProcessor::getWinsize() const
+void EVEProcessor::setWinsize()
 {
-    return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getValue (Id::toTag (Id::winsize), Id::value).getValue()));
+    terminalProcessor.setWinsize();
 }
 
-void EVEProcessor::setWinsize (jam::TerminalWinsize newWinsize)
+juce::AudioProcessorParameter* EVEProcessor::getBypassParameter() const
 {
-    terminalProcessor.setWinsize (newWinsize);
+    return model.getParameter (Id::toTag (Id::bypass));
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new EVEProcessor(); }

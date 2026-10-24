@@ -32,7 +32,7 @@ extern const juce::Identifier colorMode;
 extern const juce::Identifier down;
 extern const juce::Identifier historyCapacity;
 extern const juce::Identifier selector;
-extern const juce::Identifier terminal;
+extern const juce::Identifier terminalInput;
 extern const juce::Identifier textEditor;
 extern const juce::Identifier up;
 extern const juce::Identifier winsize;

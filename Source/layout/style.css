@@ -874,7 +874,7 @@
 @font-face {
     font-family: mono;
     src: url(fonts/DisplayMonoBook.ttf);
-    --height: 11;
+    --height: 12;
     --kerning: 0;
 }
 

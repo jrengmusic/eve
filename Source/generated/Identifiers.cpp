@@ -28,7 +28,7 @@ namespace Id
     const juce::Identifier down            { juce::String::fromUTF8 ("down") };
     const juce::Identifier historyCapacity { juce::String::fromUTF8 ("historyCapacity") };
     const juce::Identifier selector        { juce::String::fromUTF8 ("selector") };
-    const juce::Identifier terminal        { juce::String::fromUTF8 ("terminal") };
+    const juce::Identifier terminalInput   { juce::String::fromUTF8 ("terminalInput") };
     const juce::Identifier textEditor      { juce::String::fromUTF8 ("textEditor") };
     const juce::Identifier up              { juce::String::fromUTF8 ("up") };
     const juce::Identifier winsize         { juce::String::fromUTF8 ("winsize") };

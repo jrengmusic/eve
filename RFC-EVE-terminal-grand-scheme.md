@@ -387,6 +387,14 @@ metric source differ, and in cells every quantity is integral.
 > build stays on the history lane, on the message side. The live grid then has
 > one writer, the decoder, in place of the harness paint. The capacity bound
 > becomes the max window size (`RFC:47`).
+>
+> **Superseded (PLAN-tty.md, R1 and R2).** The TTY has no thread. ARCHITECT:
+> *"why cant we use AUDIO thread as the READER thread?"*. `processBlock` reads the
+> PTY with a non-blocking poll, writes the queued input (`TerminalFIFO::pull
+> (TerminalTTY&)`), and decodes in `jam::TerminalProcessor::process`. The
+> decoder writes the engine rows through the `AttributedString` API. The View writes
+> the input lane through `chainEvents[Id::terminalInput]`. Every "reader thread" and
+> "CellFifo" row of this RFC describes the superseded design.
 
 ### 3.7 Resize — the property, proven by construction
 
@@ -515,6 +523,30 @@ getState/setState info with END as host"*.
 > - A resize replaces only the live document. The history survives SIGWINCH.
 > - The getter gives the `HISTORY_CAPACITY` value to the TextEditor at each
 >   pull, and the TextEditor sets the swap capacity from it.
+>
+> **[AMENDED 2026-10-25 — the record outlives the view]** ARCHITECT: *"GUI is
+> ephemeral … all state machine, swap, history etc could always outlives GUI.
+> gui only materialisation, on demand"*; *"TextEditor INDEED hold the history
+> but already materialised on demand. that's exactly the design. but the
+> document SSOT outlives the widget."*; *"follow JUCE pattern, API verbatim?
+> within the adherence into our CONTRACT?"*. This amendment replaces the
+> 2026-10-24 ownership above:
+> - `jam::TerminalProcessor` owns the live document and the history record
+>   `jam::SwapDocument` (`jam_terminal`). `Document::Swap` and its `Codec` are
+>   deleted from `jam_core`.
+> - Writer side, after JUCE `AudioFormatWriter::ThreadedWriter`: the history
+>   FIFO carries the rows, `pull()` drains it on the message thread, and
+>   `SwapDocument::write` appends each block to its file. The bytes are the
+>   encoding, so nothing is re-encoded.
+> - Reader side, after JUCE `BufferingAudioReader`: a block holds at least
+>   `bytesPerBlock` bytes and ends at a line end. `getOrCreateBlock` parses one
+>   block from the file. `setNextReadPosition` keeps at most `numBlocks` blocks
+>   and the open block.
+> - Receiver, after JUCE `AudioThumbnail`: the TextEditor lays out the blocks
+>   that the view needs and keeps the line count and pixel height of every
+>   block. A width change lays out every block again (SPEC Feature 2.1).
+> - The history is read-only (R7). The TextEditor edit machinery and insert
+>   mode are deleted. `HISTORY_CAPACITY` sizes the history FIFO.
 
 ### 3.10 One raster code, two lanes [ADDED 2026-10-20]
 

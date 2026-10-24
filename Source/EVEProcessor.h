@@ -44,14 +44,17 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    /** @brief Returns the terminal processor of the plugin. */
     EVETerminalProcessor& getTerminalProcessor() noexcept;
 
-    void setWinsize (jam::TerminalWinsize newWinsize);
+    /** @brief Tells the terminal processor to prepare again from the model winsize. It suspends processing while it prepares. */
+    void setWinsize();
+
+    /** @brief Returns the bypass parameter of the model, for the host. */
+    juce::AudioProcessorParameter* getBypassParameter() const override;
 
 private:
     juce::AudioProcessorEditor* createEditor() override;
-
-    jam::TerminalWinsize getWinsize() const;
 
 #if JUCE_DEBUG
     jam::debug::Log::Scope logScope { jam::File::getDebugLog() };
@@ -64,7 +67,7 @@ private:
 
     jam::AudioModel model { parameterManager, *this, jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
 
-    EVETerminalProcessor terminalProcessor { model };
+    EVETerminalProcessor terminalProcessor { *this, model };
 
     juce::dsp::ProcessSpec spec;
 

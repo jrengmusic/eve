@@ -34,16 +34,15 @@
 
 | Path | Role |
 |------|------|
-| `Source/EVEProcessor.h/.cpp` | Plugin entry, state serialisation |
-| `Source/EVETerminalProcessor.h/.cpp` | Terminal chain: engine ring, history and live lanes |
+| `Source/EVEProcessor.h/.cpp` | Plugin entry, state serialisation, MASTER BYPASS parameter |
+| `Source/EVETerminalProcessor.h/.cpp` | Terminal chain on the audio thread: TTY (`$SHELL`), input lane, decoder (`jam::TerminalProcessor`), engine ring, history and live lanes, terminal-mode parameters |
 | `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction |
 | `Source/EVEViewRegistration.cpp` | Button registration and dialog config |
-| `Source/EVEViewComponents.cpp` | View component configs; the TextEditor config loads the harness as an editable file buffer |
+| `Source/EVEViewComponents.cpp` | View component configs; the TextEditor event binding: key and mouse encoding to the input lane, live caret values, TERMINAL mode at start |
 | `Source/EVEViewPanelCallbacks.cpp` | UI scale and winsize callbacks |
 | `Source/generated/` | CAST output: `Identifiers.*`, `Files.*` (build-time, do not edit) |
 | `Source/layout/` | Layout and style documents: `ViewLayout.md`, `component.md`, `parameters.md`, `style.css`, `SettingsLayout.html` |
 | `Source/buttons/`, `Source/icons/` | Button SVGs, app icon |
-| `markdown/` | Harness file (`markdown/markdown.md`), edited as source text in the TextEditor |
 
 ---
 
