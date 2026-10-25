@@ -1,5 +1,5 @@
 ---
-version: 0.0.5
+version: 0.0.1
 ---
 
 # EVE
@@ -137,7 +137,19 @@ Key bindings of the text editor in visual mode. A chord is matched by text chara
 +-----------------+--------+--------+---------+--------------------------+
 | halfPageDown    | string | ctrl+d |         | Half page down           |
 +-----------------+--------+--------+---------+--------------------------+
-| leaveMode       | string | escape |         | Leave mode               |
+| terminal        | string | escape |         | Return to terminal       |
++-----------------+--------+--------+---------+--------------------------+
+| terminal        | string | i      |         | Return to terminal       |
++-----------------+--------+--------+---------+--------------------------+
+| terminal        | string | I      |         | Return to terminal       |
++-----------------+--------+--------+---------+--------------------------+
+| terminal        | string | a      |         | Return to terminal       |
++-----------------+--------+--------+---------+--------------------------+
+| terminal        | string | A      |         | Return to terminal       |
++-----------------+--------+--------+---------+--------------------------+
+| terminal        | string | o      |         | Return to terminal       |
++-----------------+--------+--------+---------+--------------------------+
+| terminal        | string | O      |         | Return to terminal       |
 +-----------------+--------+--------+---------+--------------------------+
 | visualCharacter | string | v      |         | Enter visual (character) |
 +-----------------+--------+--------+---------+--------------------------+
@@ -176,7 +188,9 @@ this table on first launch; the host state overrides it after restore.
 +------------------+--------+----------+--------------------------------------------------------------------------------+
 | CONTRAST         | float  | 0.0      | Coverage contrast of rasterized glyphs.                                        |
 +------------------+--------+----------+--------------------------------------------------------------------------------+
-| EMBOLDEN         | string | true     | Synthetic embolden of rasterized glyphs: true or false.                        |
+| EMBOLDEN         | string | false    | Synthetic embolden of rasterized glyphs: true or false.                        |
++------------------+--------+----------+--------------------------------------------------------------------------------+
+| HISTORY_CAPACITY | int    | 10000    | Lines of terminal history that the record keeps.                               |
 +------------------+--------+----------+--------------------------------------------------------------------------------+
 | WINSIZE          | int    | 0        | Terminal size of the instance, packed jam::TerminalWinsize; EVEView writes it. |
 +------------------+--------+----------+--------------------------------------------------------------------------------+

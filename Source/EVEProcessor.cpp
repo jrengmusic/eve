@@ -1,6 +1,9 @@
 #include "EVEView.h"
 #include "EVEProcessor.h"
 
+static constexpr double virtualSampleRate { 48000.0 };
+static constexpr int virtualBlockSize { 4 };
+
 EVEProcessor::EVEProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
     : AudioProcessor (BusesProperties()
@@ -15,6 +18,29 @@ EVEProcessor::EVEProcessor()
 {
     layout.populateTree (model, layout.getOrCreateSettings());
     terminalProcessor.setWinsize();
+
+#if JucePlugin_Build_Standalone
+    if (wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+    {
+        terminalProcessor.onProcessRequest = [this] { device.requestProcess(); };
+
+        juce::MessageManager::callAsync ([this]
+                                         {
+                                             auto* holder { juce::StandalonePluginHolder::getInstance() };
+                                             jassert (holder != nullptr);
+
+                                             holder->deviceManager.closeAudioDevice();
+                                             device.open ({}, {}, virtualSampleRate, virtualBlockSize);
+                                             device.start (&holder->player);
+                                             device.requestProcess();
+                                         });
+    }
+#endif
+}
+
+EVEProcessor::~EVEProcessor()
+{
+    device.stop();
 }
 
 const juce::String EVEProcessor::getName() const { return JucePlugin_Name; }

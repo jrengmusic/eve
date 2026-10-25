@@ -18,7 +18,8 @@
  * it calls `prepare()` between `suspendProcessing (true)` and `suspendProcessing (false)`, so `process()` does not run during the change.
  * `prepare()` runs on the message thread.
  */
-class EVETerminalProcessor : public juce::AudioProcessorValueTreeState::Listener
+class EVETerminalProcessor : public juce::AudioProcessorValueTreeState::Listener,
+                             private jam::AsyncUpdater
 {
 public:
     /**
@@ -27,6 +28,8 @@ public:
      * @param modelToUse      Model that holds the winsize and the parameters. It must outlive this object.
      */
     EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse);
+
+    ~EVETerminalProcessor() override;
 
     /**
      * @brief Prepares the engine and the terminal processor from a process spec and the model winsize, and sizes or opens the TTY.
@@ -51,6 +54,10 @@ public:
     /** @brief Prepares again from the model winsize, under `suspendProcessing`. `prepare()` changes the engine only when the cell grid differs. */
     void setWinsize();
 
+    int writeSwap();
+
+    std::function<void()> onProcessRequest;
+
     /**
      * @brief Stores the bypass state when the bypass parameter changes.
      * @param parameterID  ID of the parameter that changed; only the bypass parameter has a setter.
@@ -62,6 +69,8 @@ public:
     jam::ViewManager::Events chainEvents;               ///< Events of the chain. The constructor adds the `terminalInput` event. It appends its bytes to the pending input, then writes the bytes that the input lane has room for.
 
 private:
+    void handleAsyncUpdate() override;
+
     /** @brief Adds the bypass setter to the parameter setters. */
     void registerParameterSetters();
 
@@ -84,6 +93,8 @@ private:
     /** @brief Writes the bytes of `pendingInput` that the input lane has room for, publishes the lane, and removes the written bytes from `pendingInput`. */
     void writePendingInput();
 
+    int getHistoryCapacity() const;
+
     /** @brief Returns the winsize that the model holds. */
     jam::TerminalWinsize getWinsize() const;
 
@@ -103,6 +114,7 @@ private:
     static constexpr bool shouldUseInlineImages { true };   ///< Whether the engine presents image placements as inline images.
 
     jam::TerminalGraphicsEngine engine { shouldUseInlineImages };     ///< Row grid that `process()` presents.
+    jam::TerminalSwap swap;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVETerminalProcessor)
 };

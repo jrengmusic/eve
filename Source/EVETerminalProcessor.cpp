@@ -15,7 +15,13 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
     registerEvents();
     registerUserInterfaceGetters();
     registerChainEvents();
+    tty->onBytesReady = [this] { if (onProcessRequest != nullptr) onProcessRequest(); };
     model.addListener (*this);
+}
+
+EVETerminalProcessor::~EVETerminalProcessor()
+{
+    cancelPendingUpdate();
 }
 
 std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY()
@@ -43,15 +49,15 @@ void EVETerminalProcessor::registerEvents()
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
 {
-    userInterfaceGetters[Id::textEditor].add<const jam::TerminalProcessor::Visit&> (
-        Id::toType (Id::winsize),
-        [this] (const jam::TerminalProcessor::Visit& visit)
-        {
-            writePendingInput();
+    userInterfaceGetters[Id::textEditor].add<const jam::TerminalSwap::Visit&> (Id::toType (Id::winsize), [this] (const jam::TerminalSwap::Visit& visit)
+                                                                                                          {
+                                                                                                              writePendingInput();
 
-            const auto isLiveReplaced { terminalProcessor.pull() };
-            visit (terminalProcessor.getHistoryDocument(), terminalProcessor.getLiveDocument(), isLiveReplaced);
-        });
+                                                                                                              if (processor.wrapperType != juce::AudioProcessor::wrapperType_Standalone)
+                                                                                                                  juce::ignoreUnused (writeSwap());
+
+                                                                                                              visit (swap);
+                                                                                                          });
 }
 
 void EVETerminalProcessor::registerChainEvents()
@@ -69,6 +75,9 @@ void EVETerminalProcessor::writePendingInput()
 
     input.write (pendingInput.getData(), static_cast<size_t> (written));
     input.flush();
+
+    if (written > 0 and onProcessRequest != nullptr)
+        onProcessRequest();
     pendingInput.removeSection (0, static_cast<size_t> (written));
 }
 
@@ -89,24 +98,43 @@ void EVETerminalProcessor::parameterChanged (const juce::String& parameterID, fl
         parameters.get (parameterID, static_cast<double> (newValue));
 }
 
+int EVETerminalProcessor::writeSwap()
+{
+    const auto numRetired { swap.addRetiredLines (engine) };
+    swap.setLiveLines (engine);
+    return numRetired;
+}
+
+void EVETerminalProcessor::handleAsyncUpdate()
+{
+    if (writeSwap() > 0 and onProcessRequest != nullptr)
+        onProcessRequest();
+}
+
+int EVETerminalProcessor::getHistoryCapacity() const
+{
+    return static_cast<int> (jam::Model::getChildWithID (model.state, Id::toTag (Id::historyCapacity)).getProperty (Id::value));
+}
+
 jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
 {
     return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getValue (Id::toTag (Id::winsize), Id::value).getValue()));
 }
 
-void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec)
+void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec&)
 {
     const auto winsize { getWinsize() };
     const auto bounds { engine.getBounds() };
-    const auto sampleRate { spec.sampleRate > 0.0 ? spec.sampleRate : processor.getSampleRate() };
-    const auto blockSize { spec.maximumBlockSize > 0 ? static_cast<int> (spec.maximumBlockSize) : processor.getBlockSize() };
-    const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (sampleRate / juce::jmax (1, blockSize) / jam::VulkanEngine::getRefreshRateHz()))) };
 
     if (winsize.isValid() and (winsize.cols != bounds.width or winsize.rows != bounds.height))
     {
-        engine.prepare (winsize.cols, winsize.rows);
-        terminalProcessor.prepare (blocksPerVblank, engine);
+        const auto historyCapacity { getHistoryCapacity() };
+
+        cancelPendingUpdate();
+        swap.addRetiredLines (engine);
+        engine.prepare (winsize.cols, winsize.rows, historyCapacity);
         terminalProcessor.reset (engine);
+        swap.setCapacity (historyCapacity);
 
         if (tty->isRunning())
         {
@@ -118,11 +146,6 @@ void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec)
             jassert (isOpen);
         }
     }
-    else
-    {
-        if (spec.sampleRate > 0.0 and bounds.width > 0 and bounds.height > 0)
-            terminalProcessor.prepare (blocksPerVblank, engine);
-    }
 }
 
 void EVETerminalProcessor::process() noexcept
@@ -130,7 +153,16 @@ void EVETerminalProcessor::process() noexcept
     if (not isBypassed.load())
     {
         input.pull (*tty);
-        terminalProcessor.process (*tty, engine, events);
+
+        const auto isReading { terminalProcessor.process (*tty, engine, events) };
+
+        if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+        {
+            triggerAsyncUpdate();
+
+            if (isReading and onProcessRequest != nullptr)
+                onProcessRequest();
+        }
     }
 }
 

@@ -178,7 +178,7 @@ the status area.
 
 - Markdown tables + CSS, CAST conventions (colour + appearance custom properties;
   data tables for keymaps, open-with rules, shell, fonts; `EMBOLDEN` is on by
-  default; EVE bundles Display Mono and the Nerd Font symbol face, so icons
+  default; `HISTORY_CAPACITY` is 10000 (lines of terminal history that the record keeps); EVE bundles Display Mono and the Nerd Font symbol face, so icons
   render with no system font. ARCHITECT: *"eve should bundle nerd font, just
   like endless with display mono. it should work OOTB"*)
 - Parse error at launch: EVE starts with defaults and shows

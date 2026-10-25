@@ -227,6 +227,7 @@ endif()
 # ==============================================================================
 
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_core")             # JAM Core
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_audio_devices")    # JAM Audio Device Abstractions
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_debug")            # Debug instruments — console, log, model monitor
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_data_structures")  # ValueTree management and data model utilities — model, parameters, JSON conversion
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_dsp")              # DSP processors — filters, waveshaping, hysteresis modelling, transient control, oversampling, FIR, noise generation, spectrum analysis
@@ -358,6 +359,7 @@ target_link_libraries(${PROJECT_NAME}
         juce_audio_devices
         juce_dsp
         jam_core
+        jam_audio_devices
         jam_debug
         jam_data_structures
         jam_dsp
@@ -520,7 +522,7 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
 file(GLOB CAST_BINARY_FILES CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/markdown.css
     ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/mermaid.css
-    ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/terminal.css
+    ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/textEditor.css
 )
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData

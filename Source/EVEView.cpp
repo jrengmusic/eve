@@ -54,7 +54,7 @@ void EVEView::resized()
     jam::PluginEditor::resized();
 
     const auto area { jam::ViewManager::getComponentBounds (*view).toFloat() };
-    const auto metrics { theme->getOrCreateMonoMetrics() };
+    const auto metrics { theme->getMonoMetrics() };
     const auto cells { jam::Cell::Rectangle::fromPixel (area.withZeroOrigin(), metrics.cellWidth, metrics.cellHeight) };
     const auto* display { juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()) };
 

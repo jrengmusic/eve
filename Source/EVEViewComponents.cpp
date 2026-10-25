@@ -78,7 +78,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
     registration.styles = [] (jam::Registry& r)
     {
-        r.registerStyle<jam::StyleCustom> (Id::terminal);
+        r.registerStyle<jam::StyleCustom> (Id::textEditor);
     };
 
     registration.makeContent = [] (jam::Registry& r)

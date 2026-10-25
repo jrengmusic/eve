@@ -9,7 +9,7 @@ class EVEProcessor
 {
 public:
     EVEProcessor();
-    ~EVEProcessor() override = default;
+    ~EVEProcessor() override;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -66,6 +66,8 @@ private:
     jam::ParameterManager parameterManager { files::markdownSettingsDirectory, files::markdownSettingsFileName, &jam::SettingsDocument<jam::ConfigDocument>::getSettingsValue, &jam::SettingsDocument<jam::ConfigDocument>::setSettingsValue };
 
     jam::AudioModel model { parameterManager, *this, jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
+
+    jam::VirtualDevice device { jam::VirtualDeviceType::virtualDeviceTypeName, jam::VirtualDeviceType::virtualDeviceTypeName };
 
     EVETerminalProcessor terminalProcessor { *this, model };
 
