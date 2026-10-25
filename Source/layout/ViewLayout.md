@@ -1,5 +1,5 @@
 ---
-version: 0.0.4
+version: 0.0.5
 ---
 
 # EVE
@@ -176,9 +176,7 @@ this table on first launch; the host state overrides it after restore.
 +------------------+--------+----------+--------------------------------------------------------------------------------+
 | CONTRAST         | float  | 0.0      | Coverage contrast of rasterized glyphs.                                        |
 +------------------+--------+----------+--------------------------------------------------------------------------------+
-| EMBOLDEN         | string | false    | Synthetic embolden of rasterized glyphs: true or false.                        |
-+------------------+--------+----------+--------------------------------------------------------------------------------+
-| HISTORY_CAPACITY | int    | 10000    | History FIFO size in rows.                                                     |
+| EMBOLDEN         | string | true     | Synthetic embolden of rasterized glyphs: true or false.                        |
 +------------------+--------+----------+--------------------------------------------------------------------------------+
 | WINSIZE          | int    | 0        | Terminal size of the instance, packed jam::TerminalWinsize; EVEView writes it. |
 +------------------+--------+----------+--------------------------------------------------------------------------------+

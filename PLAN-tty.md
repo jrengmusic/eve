@@ -404,3 +404,230 @@ COUNSELOR validates each step before the next one, against MANIFESTO, NAMES, COD
 - Step 12 build: EXIT=0, 0 errors (`scratchpad/build-r2b.log`). Ninja found no work: ARCHITECT's concurrent `cast` build had compiled the final tree, so its warning count is not in this log.
 - Step 13: `/log` written (jam `carol/SPRINT-LOG.md`, Sprint 172). ARCHITECT's runtime check and the KANJUT sync (R12) come next.
 - Step 1 (edit machinery, R7): the deleted actions take insert mode with them. `insert` was reachable only through `enterInsert`. So `map::EditorMode::insert`, the `insert` key input, caret and key-sheet rows, EVE's `## insert` sheet and the 15 `map::CommandId` rows of the deleted actions are deleted. `ViewLayout.md` version moves to `0.0.4`, so user copies are replaced (`jam_PluginEditorLayout.cpp:27-33`).
+
+---
+
+# Round 3 — full throttle, O(visible) view, fonts out of the box
+
+**Date:** 2026-10-25. Approved by ARCHITECT (ExitPlanMode). It follows ARCHITECT's runtime test of Round 2 (Sprint 172).
+
+## Problems (ARCHITECT's runtime test) and causes (reads)
+
+| Problem | Cause |
+|---|---|
+| `seq 100000` takes 14.7 s at 0% CPU. endless finishes it at 97% CPU. | The decoder reads the PTY only when the live FIFO is empty (`jam_TerminalProcessor.cpp:38`). It reads once per block (`:40`). Only the view's 60 Hz timer empties the live FIFO (`jam_TextEditor.cpp:86`, `jam_ComponentUtils.h:17`). So there is at most one PTY read per GUI frame. endless drains to EAGAIN (`endless/…/TTY.cpp:58-66`). |
+| Closing after `seq 100000` hangs for seconds. | `PluginEditor::~PluginEditor` calls `setLookAndFeel (nullptr)` (`jam_PluginEditor.cpp:40`). That calls `lookAndFeelChanged` on the TextEditor, then `terminalSource (true, …)`, then `reset`, which parses and lays out every history block (`jam_TextEditor.cpp:769-785`). A width change pays the same cost. |
+| Text and box-drawing lines are thin. | `EMBOLDEN` defaults to `false` (`ViewLayout.md:176`). END and endless default to `true`. Embolden doubles the procedural line thickness (`jam_TerminalGlyph.h:317-327`). |
+| Nerd icons are missing or scaled wrong. | The fallback asks only the OS (`jam_Typeface.cpp:409-438`). EVE bundles no symbol face. endless bundles `SymbolsNerdFont-Regular.ttf` (`endless/Source/MainComponent.cpp:107-111`). The cell-fit table is Nerd Fonts v3.4.0 (`jam_GlyphConstraintTable.cpp:1-8`). |
+| 12 pt looks smaller than endless. | Not found by reading. `setPointHeight` sets "the size of the font's em-square in logical pixels" (`juce_Font.h:276-282`). Every Display Mono file has the same advance of 0.6132 em (fontTools). A runtime measurement is needed. |
+
+## Rulings (ARCHITECT, verbatim)
+
+- *"eve should bundle nerd font, just like endless with display mono. it should work OOTB"*
+- Pull clock: **`juce::VBlankAttachment`**.
+- *"can we make it always O(1)?"*; *"how can we make the traffic without gate? always FULL THROTTLE?"*
+- *"the events chain should not be manually managed, lock free, wait free, yield free, always full throttle"*
+- *"why producer cant just always send everything? Message thread could queue if genuinely needed, but full throttle means the plumbing should leave no possiblity of data loss … audio never drop anything, not even a single sample"*; *"why now we need BufferSPSC again? TerminalFIFO is not the buffer?"*
+- Amplified excess (one LF retires a whole row, `jam_TerminalGraphicsEngine.cpp:479-486`): **"PTY holds the input"**.
+- Wheel in the line model: **"Eased, by rows"**.
+- *"we need the font to be embolden, user configurable default settings should be true"*
+- *"ask the right questions no read can't answer. obey the protocol"*
+
+## Design
+
+### A. Full throttle: event-driven, no gate, no loss
+
+1. **Producer clock = `processBlock`.** Each block reads the PTY until `read` returns 0 or the read buffer is full. The gate is deleted, so the decoder never waits for the view.
+2. **Lanes are sized from the clocks at `prepare`.**
+   - The per-block output bound is screenBytes + rowBytes × `readChunkSize` / width (the `hasHeadroom` expression, `:118-125`).
+   - `blocksPerVblank` = ⌈sampleRate / maximumBlockSize / refreshRateHz⌉. The refresh rate comes from the primary display's `verticalFrequencyHz`, read as `VulkanEngine::getFrameBudget` reads it (`jam_VulkanEngine.cpp:218-221`). The fallback is `VulkanEngine::indeterminateRefreshRateHz`, which becomes public.
+   - History capacity = the per-block bound × `blocksPerVblank`.
+   - `HISTORY_CAPACITY` and `getHistoryCapacity` are deleted.
+3. **The producer sends everything.** History rows retire every block. The only limit is the ruled one: a token whose output does not fit stays in the read buffer, and the PTY holds what follows.
+4. **Live lane = the newest frame.**
+   - The engine grid is the live-screen source of truth.
+   - A block publishes a frame when the live lane is empty. Otherwise the grid keeps the state for the next block.
+   - The engine's `process` splits into `process (history, newLiveRows)` and `appendFrame (live)`.
+5. **Consumer clock = vblank.**
+   - The TextEditor pulls on `juce::VBlankAttachment` (`juce_VBlankAttachment.h:60`).
+   - `juce::Timer` and `juce::AsyncUpdater` are deleted.
+   - Each vblank drains every lane into the record, the message-thread queue.
+
+### B. O(visible) view: scroll by lines, eased by rows
+
+1. **Scroll state** lives on the TextEditor node:
+   - `scrollOffset` is lines from the tail; 0 is the tail (the documented binding of `jam::Scrollbar`, `jam_Scrollbar.h:58`).
+   - `scrollRow` is the rows of the bottom visible line that lie below the view.
+   - New output with `scrollOffset > 0` adds the appended line count, so the view stays still.
+2. **No pixel content.**
+   - `jam::Viewport`, the full-height `Content`, `setContentSize`, `blockPixelEnds`, `getBlockTop`, `getBlockNumberAt`, `getNumHistoryPixels` and `reset` are deleted.
+   - `Content` covers the view and paints bottom-up from line `getNumLines() - 1 - scrollOffset`.
+   - The block summary is `blockLineEnds` only.
+3. **Scroll bar.** The existing, unused `jam::Scrollbar` (`jam_Scrollbar.h:27-60`), with `setRange (lines, visibleLines)` and its value `referTo` the node's `scrollOffset`.
+4. **Wheel eased by rows.**
+   - `juce::Animator` over `juce::VBlankAnimatorUpdater` (the `jam::Viewport` form, `jam_Viewport.h:86-89`, `.cpp:109-124`), with the same display settings.
+   - `jam::Viewport::getDurationMs` and `getEasing` become public static, so there is one copy.
+   - Trackpad deltas move rows directly.
+5. **O(visible) layout.**
+   - Each vblank makes resident only the blocks of the visible lines.
+   - A width or LookAndFeel change lays out the resident lanes again.
+   - Any other block is laid out at the current width when it becomes resident.
+6. **Geometry.**
+   - `getVisibleLines()` returns the visible line range, and `getLineTop (int)` returns a line's top.
+   - These feed `getCellBounds`, `getOrCreateCell`, `keepCursorVisible` and `moveHalfPage`.
+
+### C. Fonts out of the box
+
+1. `EMBOLDEN` defaults to `true`, and the layout version goes to `0.0.5`.
+2. **Bundle the symbols face.**
+   - `SymbolsNerdFont-Regular.ttf` (Nerd Fonts 3.4.0) goes in `eve/Source/fonts/`.
+   - A `symbols` row in the `project-info.md` layout table.
+   - A `style.css` `@font-face` `symbols`, which `StyleManager` registers even when no rule uses it (`jam_StyleManager.cpp:48-54`, `:77`, `:99-101`).
+3. **Bundled first.** `Typeface::getOrCreateFallback` searches the bundled entries (not `isSystemTypeface`) in registration order, and asks the OS only after that.
+4. **Font size.**
+   - Measure with a whatdbg `trace` in `GlyphRasterizer::calcMetrics` (`fontHeightJuce`, `pixelsPerEm`, the cell).
+   - The target is a 12 logical px em, the endless value (`778c32168:jam_typeface.mm:225-228`).
+   - On a mismatch, fix the conversion at its owner, never in CSS.
+
+## New names (families)
+
+- `blocksPerVblank`
+- `appendFrame` (`append*`)
+- `scrollOffset` (`jam::Scrollbar`)
+- `scrollRow` (`scroll*` Ids)
+- `getVisibleLines`, `getLineTop`
+- `vBlankAttachment`
+- `symbols` (font alias, project-info row)
+
+## Steps
+
+0. Plan of record (this section).
+1. **Delete first:**
+   - the gate and the single read
+   - `HISTORY_CAPACITY` and `getHistoryCapacity`
+   - the TextEditor pixel model
+   - `juce::Timer` and `juce::AsyncUpdater`
+2. **Lanes from the clocks:**
+   - `TerminalProcessor::prepare (int blocksPerVblank, TerminalGraphicsEngine&)`
+   - EVE computes `blocksPerVblank`
+   - `indeterminateRefreshRateHz` becomes public
+3. **Full-throttle block:** read until 0 or the buffer is full, retire history every block, `appendFrame` when the live lane is empty, split the engine `process`.
+4. **Vblank pull.**
+5. **Line scroll:**
+   - the Ids and node properties
+   - `jam::Scrollbar`
+   - bottom-up paint
+   - `getVisibleLines`/`getLineTop`
+   - residency
+   - cursor, half page, mouse, carets, selection
+6. **Eased rows.**
+7. **O(visible) reflow.**
+8. **Embolden default and layout version.**
+9. **Symbols bundle.**
+10. **Bundled-first fallback.**
+11. **Build** (cast, 10 min).
+12. **Font size trace,** then fix or report, then build.
+13. **Documents:** SPEC, RFC, `ViewLayout.md`.
+14. **Audit,** then doxygen, then build.
+15. **`/log`** and commit messages. ARCHITECT's runtime test and the KANJUT sync (R12) follow.
+
+## Verification (ARCHITECT, runtime)
+
+- `seq 100000` is well under a second with the CPU busy.
+- Closing is instant.
+- A resize or font change is instant at any history length.
+- Nerd icons render and fit.
+- Text is bold by default.
+- The wheel is eased.
+- The scroll bar drags.
+- A scrolled view stays still on new output.
+- The view follows the tail at offset 0.
+- Modes, motions and selection work over history and live.
+
+## Execution State (Round 3)
+
+- Step 0: done.
+- Steps 1–3, plus the Step 8 data (batch P): done, validated by reads.
+  - The engine `process (history, newLiveRows)` retires rows and flushes history. `appendFrame (live)` writes the newest frame (`jam_TerminalGraphicsEngine.cpp:636-673`).
+  - `TerminalProcessor::prepare (int blocksPerVblank, …)` sizes history at `blocksPerVblank × (liveCapacity + rowCapacity × readChunkSize / width)` (`jam_TerminalProcessor.cpp:16-34`).
+  - `process` drains the PTY until 0 or the buffer is full, keeps the ruled fit rule (`hasHeadroom`), and publishes when the live lane is empty, with no gate.
+  - EVE computes `blocksPerVblank` from `processor.getSampleRate()`/`getBlockSize()` and the display refresh rate (`EVETerminalProcessor.cpp:98-102`). `VulkanEngine::indeterminateRefreshRateHz` is public.
+  - `HISTORY_CAPACITY`, `getHistoryCapacity` and the EVE `historyCapacity` Id are deleted. `EMBOLDEN` is `true`, and the layout version is `0.0.5`.
+  - Known limit: the lanes are sized at a grid change from the processor's rate and block size. A rate change without a grid change keeps the old size, and the fit rule keeps it lossless. Superseded by F5, F9: `prepare` sizes the lanes from each `ProcessSpec` (`EVETerminalProcessor.cpp:121-125`).
+  - Superseded by F27: the engine `process()` only advances the frame, and `appendFrame` publishes it (`jam_TerminalProcessor.cpp` `process`).
+  - Live publish: every block whose live lane is empty republishes the grid. When idle, that is one frame per vblank pull.
+- Steps 9–10 (batch F): done, validated.
+  - `eve/Source/fonts/SymbolsNerdFont-Regular.ttf` (sha1 `df7b1b7e…`).
+  - The `project-info.md` `symbols` row.
+  - The `style.css` `@font-face symbols`.
+  - `findBundledFallback` before the OS search in `getOrCreateFallback` (`jam_Typeface.cpp:409-457`). COUNSELOR corrected it to brace initialisation.
+- Steps 1 and 4–7 (batch V): done, validated by reads.
+  - Line scroll on `scrollOffset`/`scrollRow` (cast Ids, node properties), with `jam::Scrollbar` bound by `referTo`.
+  - `getVisibleLines`/`getLineTop`/`getLineHeight`/`getScrollPosition`/`setScroll`, all O(visible).
+  - Residency for the visible lines only (`addVisibleBlocks`). A width or LookAndFeel change lays out the resident lanes only (`setLanes`).
+  - `juce::VBlankAttachment` pull. `juce::Timer` and `juce::AsyncUpdater` are deleted.
+  - The eased row animation reuses the `jam::Viewport` public statics (`notchUnit`, `smoothUnit`, `getDurationMs`, `getEasing`).
+  - Step Gate corrections, from the contract with no ARCHITECT round trip:
+    - wheel sign (`jam_Viewport.cpp:88`)
+    - `getLineHeight` (DRY)
+    - `setScroll` limited to the scroll bar range
+    - a notch during an animation first finishes the running one (`scrollTarget`, the `jam::Viewport` form)
+    - a smooth event resets the animator
+  - COUNSELOR rounds a smooth delta away from zero, so a slow trackpad gesture still scrolls (`jam_TextEditor.cpp` `Content::mouseWheelMove`).
+  - Added name from a family: `getLineHeight` (`get*`). Scroll property listeners add the visible runs before a repaint.
+- Step 11: build EXIT=0, 0 errors, 0 warnings (`scratchpad/build-r3.log`). `CMakeLists.txt:517` globs `Source/fonts/*.ttf`.
+- Step 12: whatdbg `trace` (spec `scratchpad/trace-fontsize.json`).
+  - `calcMetrics` for the mono face: `fontHeightJuce = 12`, `pixelsPerEm = 12`, `x_ppem = 12`, `metrics.height = 960` (15 px).
+  - The rasterizer key: `fontHeight = 12`, `composedScale = 2`, `key.fontSize = 24`.
+  - The em is 12 logical px, the same as endless (`778c32168:jam_typeface.mm:225-228`). Per the plan the size stays. The thin look came from embolden being off, which is now on by default.
+- Step 13: SPEC (Feature 2.3, Feature 6, State Model Record/Pull/Geometry/Scroll) and the RFC amendment of 2026-10-25 (full throttle, O(visible)) are written.
+- Step 14 audit: NEEDS_WORK, 47 findings. COUNSELOR read each one (Design by Contract Filter).
+  - Resolved, processor side:
+    - **F1, F2:** 64-bit capacity, sized as one screen plus one row per block.
+    - **F5, F9:** `prepare` sizes the lanes from the `ProcessSpec` (the processor rate is the fallback). `reset` holds the terminal state. This is the juce::dsp form.
+    - **F6:** history is staged with `write` and published by `flush` only together with `appendFrame`. The view reads history, then live, so it never sees history ahead of its frame.
+    - **F8:** `appendFrame` writes only when `frameId` changed (`publishedFrameId`).
+    - **F27:** the dead retire read goes. `process()` advances the frame.
+    - **F34:** `VulkanEngine::getRefreshRateHz`.
+    - **F36:** one read expression, which never reads 0 bytes.
+    - **F4:** input that does not fit the lane queues on the message thread (`pendingInput`, `writePendingInput`) and drains on each pull (*"Message thread could queue if genuinely needed"*).
+    - **F12:** `SwapDocument::getNumLines` counts the newlines it writes, so the summary needs no layout.
+  - Resolved, view side:
+    - **F16:** history wraps at the content width after a relayout.
+    - **F32, F45:** `isResident`, `getLane`, `getLaneLine`.
+    - **F17, F18, F24:** `pendingRows`. The eased steps are relative, a new notch adds to the remaining rows, and a smooth delta accumulates.
+    - **F29:** `setScrollPosition`.
+    - **F19, F20:** the position is normalized.
+    - **F21, F37:** the scroll is reset at bind.
+    - **F26:** the scroll bar strip is reserved only while the scroll bar shows.
+    - **F41:** relayout only on a width change.
+    - **F13:** one walk for a cell.
+    - **F44:** `addLaneRuns` is a member.
+    - **F38:** the timestamp form of `VBlankAttachment`.
+    - **F33:** the modifier-key filter of `jam::Viewport`.
+    - **F40:** the guard becomes an assert (COUNSELOR).
+    - **F43:** `setLanes` loses its layout loop.
+    - Engineer issues, ruled by COUNSELOR from the reads:
+      - `isResident` is per line. A history line is resident when its block lane exists and has laid out that line (`jam_TextEditor.cpp:872-879`). The visit runs `setLanes`, then `apply`, then `addVisibleContent` (`:68-70`). So the open block can have lines that are counted but not laid out between the pull and the residency step (F14, F43).
+      - `getOrCreateCell` walks once (F13). A line that is not resident uses the one-row estimate until the next residency step. This is the same transient.
+      - A scroll bar visibility change calls `resized`, and a width change pulls inside the running visit. This is the path that `perform` and the mode handler already use.
+    - Processor side validated by reads: `EVETerminalProcessor.cpp:44-126`, `jam_TerminalGraphicsEngine` `publishedFrameId` is `uint64_t` (COUNSELOR).
+  - Rejected, with the read that refutes each:
+    - **F3:** Out (`:214`).
+    - **F7, F11:** "PTY holds the input". With no view, nothing pulls, so the record does not grow.
+    - **F10:** one view per processor.
+    - **F14:** residency on vblank (design B.5).
+    - **F15, F25:** no clause.
+    - **F30, F31:** family names and the one-copy rule.
+    - **F35:** the two formulas differ.
+    - **F39:** the `jam::Viewport::scrollTarget` precedent.
+    - **F42:** the record is read only inside the visit (Round 2).
+    - **F46:** ruled.
+    - **F47:** recorded.
+  - Known limits:
+    - **F22:** `keepCursorVisible` and the half page count lines, so they are approximate on wrapped history lines.
+    - **F23:** the half-page line and row units match only for one-row lines.
+    - **F26 (status row part):** the status row covers the bottom row in normal and visual mode, by design.
+- Step 14 doxygen: the Round 3 headers in jam (`jam_TextEditor.h`, `jam_TerminalProcessor.h`, `jam_TerminalGraphicsEngine.h`, `jam_SwapDocument.h`, `jam_VulkanEngine.h`, `jam_Viewport.h`, the `jam_Typeface.h` `getOrCreateFallback` doc) and `EVETerminalProcessor.h`. Regenerated with the `build-doxygen.sh` lib and project steps: JAM 0 warnings, EVE 0 warnings (`scratchpad/doxygen-jam.log`, `doxygen-eve.log`).
+- Step 14 build: jam cast EXIT=0; EVE cast `--debug` EXIT=0, 0 errors, 0 warnings (`scratchpad/cast-jam-r3final.log`, `build-r3final.log`).
+- Step 15: `/log` as Sprint 173 in `jam/carol/SPRINT-LOG.md`. Next: ARCHITECT's runtime test (Verification above), then the KANJUT sync (R12).

@@ -6,10 +6,11 @@
  * @class EVETerminalProcessor
  * @brief Terminal chain of the plugin. It presents the rows of the engine ring to the `jam::TerminalProcessor`, which owns the live document and the history record.
  *
- * `process()` makes the engine write the
- * rows to the history FIFO and the live FIFO of the terminal processor. The terminal processor owns the history `jam::SwapDocument`.
+ * `process()` runs the terminal processor. The engine writes the rows that leave the live area to the history FIFO,
+ * and it writes a changed live area to the live FIFO. The terminal processor owns the history `jam::SwapDocument`.
  * The view pulls through the getter in `userInterfaceGetters`: the history bytes append to the history
  * record, and the view reads the record and the live document inside the call and stores neither.
+ * The view sends input bytes through the `terminalInput` event. The bytes wait in `pendingInput` until the input lane has room.
  *
  * @par Thread contract
  * `process()` runs on the audio thread. It writes the input lane to the TTY, then decodes the TTY output.
@@ -21,27 +22,30 @@ class EVETerminalProcessor : public juce::AudioProcessorValueTreeState::Listener
 {
 public:
     /**
-     * @brief Registers the parameter setters, the events, the user interface getters and the chain events, then listens to the model.
+     * @brief Sizes the input lane, registers the parameter setters, the events, the user interface getters and the chain events, then listens to the model.
      * @param processorToUse  Processor that owns this object. The object suspends it while `setWinsize()` prepares.
-     * @param modelToUse      Model that holds the history capacity setting. It must outlive this object.
-     *                        The setting sizes the history FIFO.
+     * @param modelToUse      Model that holds the winsize and the parameters. It must outlive this object.
      */
     EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse);
 
     /**
-     * @brief Prepares the engine, sizes both FIFOs of the terminal processor and sizes or opens the TTY.
+     * @brief Prepares the engine and the terminal processor from a process spec and the model winsize, and sizes or opens the TTY.
      *
-     * The function does nothing unless the model winsize is valid and its cell grid differs from the grid of the engine.
-     * The terminal processor first drains the history FIFO into the history record.
+     * The unnamed parameter is the process spec. A sample rate or a maximum block size of zero falls back to the value of the processor.
+     * The terminal processor gets the number of blocks of one vblank. That number is the sample rate divided by the block size
+     * and by `jam::VulkanEngine::getRefreshRateHz()`, rounded up, and at least 1.
+     *
+     * When the model winsize is valid and its cell grid differs from the grid of the engine, the function prepares the engine
+     * and then the terminal processor, and it resets the screen. The terminal processor first drains the history FIFO into the history record.
      * The TTY takes the new size when it runs. Otherwise the function opens it with the shell of the `SHELL` variable.
-     * The live FIFO holds the bytes of one frame of the current window size. The history FIFO holds
-     * the live bytes, the bytes of the rows that the engine holds now, and the bytes of a grid as wide as the
-     * current window and as tall as the history capacity of the model (jassert > 0).
-     * The history capacity sizes only the history FIFO. It does not limit the history record.
+     * The history FIFO size does not limit the history record.
+     *
+     * When the grid is the same, the function prepares only the terminal processor. It does so only when the sample rate is above zero
+     * and the grid of the engine is not empty.
      */
     void prepare (const juce::dsp::ProcessSpec&);
 
-    /** @brief Audio thread. Unless bypassed, it writes the input lane to the TTY, then decodes the TTY output and makes the engine write its ready rows to the FIFOs. The live area has the row count of the current window size. */
+    /** @brief Audio thread. Unless bypassed, it writes the input lane to the TTY, then the terminal processor reads and decodes the TTY output and publishes the frame. The live area has the row count of the current window size. */
     void process() noexcept;
 
     /** @brief Prepares again from the model winsize, under `suspendProcessing`. `prepare()` changes the engine only when the cell grid differs. */
@@ -54,8 +58,8 @@ public:
      */
     void parameterChanged (const juce::String& parameterID, float newValue) override;
 
-    jam::ViewManager::Getters userInterfaceGetters;     ///< Getters for the view. The constructor adds the text editor getter. It pulls the terminal processor, then gives the history record, the live document, and whether the pull replaced the live document to a `jam::TerminalProcessor::Visit`.
-    jam::ViewManager::Events chainEvents;               ///< Events of the chain. The constructor adds the `terminalInput` event. It writes its bytes to the input lane when the lane has room for them.
+    jam::ViewManager::Getters userInterfaceGetters;     ///< Getters for the view. The constructor adds the text editor getter. It writes the pending input, pulls the terminal processor, then gives the history record, the live document, and whether the pull replaced the live document to a `jam::TerminalProcessor::Visit`.
+    jam::ViewManager::Events chainEvents;               ///< Events of the chain. The constructor adds the `terminalInput` event. It appends its bytes to the pending input, then writes the bytes that the input lane has room for.
 
 private:
     /** @brief Adds the bypass setter to the parameter setters. */
@@ -64,10 +68,10 @@ private:
     /** @brief Adds the event setters that copy the terminal state to the model parameters. */
     void registerEvents();
 
-    /** @brief Adds the text editor getter keyed by the winsize type. It pulls the terminal processor, then calls the visitor with the history record, the live document, and whether the pull replaced the live document. */
+    /** @brief Adds the text editor getter keyed by the winsize type. It writes the pending input, pulls the terminal processor, then calls the visitor with the history record, the live document, and whether the pull replaced the live document. */
     void registerUserInterfaceGetters();
 
-    /** @brief Adds the `terminalInput` event to the chain events. It writes bytes to the input lane and flushes the lane when the lane has room for them. */
+    /** @brief Adds the `terminalInput` event to the chain events. It appends its bytes to `pendingInput`, then calls `writePendingInput()`. */
     void registerChainEvents();
 
     /**
@@ -77,8 +81,8 @@ private:
      */
     void setParameterValue (juce::StringRef parameterID, float value);
 
-    /** @brief Returns the history capacity setting from the current state tree. `prepare()` uses it to size the history FIFO. */
-    int getHistoryCapacity() const;
+    /** @brief Writes the bytes of `pendingInput` that the input lane has room for, publishes the lane, and removes the written bytes from `pendingInput`. */
+    void writePendingInput();
 
     /** @brief Returns the winsize that the model holds. */
     jam::TerminalWinsize getWinsize() const;
@@ -87,11 +91,12 @@ private:
     static std::unique_ptr<jam::TerminalTTY> createTTY();
 
     juce::AudioProcessor& processor;                  ///< Processor that `setWinsize()` suspends.
-    jam::AudioModel& model;                           ///< Model that holds the history capacity setting.
+    jam::AudioModel& model;                           ///< Model that holds the winsize and the parameters.
     std::atomic<bool> isBypassed { false };           ///< Bypass state. `parameterChanged()` writes it, and `process()` reads it.
     jam::Function::Map<juce::String, void> parameters;   ///< Parameter setters, keyed by parameter ID.
     jam::Function::Map<juce::Identifier, void> events;   ///< Event setters that copy the terminal state to the model parameters, keyed by event ID.
     jam::TerminalFIFO input;                          ///< Input lane from the view to the TTY.
+    juce::MemoryBlock pendingInput;                   ///< Input bytes that the input lane had no room for yet, in order.
     std::unique_ptr<jam::TerminalTTY> tty { createTTY() };   ///< Pseudo terminal of the shell.
     jam::TerminalProcessor terminalProcessor;           ///< History FIFO, live FIFO, the live document and the history record.
 

@@ -47,6 +47,8 @@ void EVETerminalProcessor::registerUserInterfaceGetters()
         Id::toType (Id::winsize),
         [this] (const jam::TerminalProcessor::Visit& visit)
         {
+            writePendingInput();
+
             const auto isLiveReplaced { terminalProcessor.pull() };
             visit (terminalProcessor.getHistoryDocument(), terminalProcessor.getLiveDocument(), isLiveReplaced);
         });
@@ -56,12 +58,18 @@ void EVETerminalProcessor::registerChainEvents()
 {
     chainEvents[Id::terminalInput].add<const char*, int> ([this] (const char* bytes, int size)
                                                           {
-                                                              if (input.getFreeSpace() >= size)
-                                                              {
-                                                                  input.write (bytes, static_cast<size_t> (size));
-                                                                  input.flush();
-                                                              }
+                                                              pendingInput.append (bytes, static_cast<size_t> (size));
+                                                              writePendingInput();
                                                           });
+}
+
+void EVETerminalProcessor::writePendingInput()
+{
+    const auto written { juce::jmin (static_cast<int> (pendingInput.getSize()), input.getFreeSpace()) };
+
+    input.write (pendingInput.getData(), static_cast<size_t> (written));
+    input.flush();
+    pendingInput.removeSection (0, static_cast<size_t> (written));
 }
 
 void EVETerminalProcessor::setParameterValue (juce::StringRef parameterID, float value)
@@ -81,25 +89,24 @@ void EVETerminalProcessor::parameterChanged (const juce::String& parameterID, fl
         parameters.get (parameterID, static_cast<double> (newValue));
 }
 
-int EVETerminalProcessor::getHistoryCapacity() const
-{
-    return static_cast<int> (jam::Model::getChildWithID (model.state, Id::toTag (Id::historyCapacity)).getProperty (Id::value));
-}
-
 jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
 {
     return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getValue (Id::toTag (Id::winsize), Id::value).getValue()));
 }
 
-void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec&)
+void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec)
 {
     const auto winsize { getWinsize() };
     const auto bounds { engine.getBounds() };
+    const auto sampleRate { spec.sampleRate > 0.0 ? spec.sampleRate : processor.getSampleRate() };
+    const auto blockSize { spec.maximumBlockSize > 0 ? static_cast<int> (spec.maximumBlockSize) : processor.getBlockSize() };
+    const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (sampleRate / juce::jmax (1, blockSize) / jam::VulkanEngine::getRefreshRateHz()))) };
 
     if (winsize.isValid() and (winsize.cols != bounds.width or winsize.rows != bounds.height))
     {
         engine.prepare (winsize.cols, winsize.rows);
-        terminalProcessor.prepare (getHistoryCapacity(), engine);
+        terminalProcessor.prepare (blocksPerVblank, engine);
+        terminalProcessor.reset (engine);
 
         if (tty->isRunning())
         {
@@ -110,6 +117,11 @@ void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec&)
             [[maybe_unused]] const auto isOpen { tty->open (winsize.toCellRect(), juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() })) };
             jassert (isOpen);
         }
+    }
+    else
+    {
+        if (spec.sampleRate > 0.0 and bounds.width > 0 and bounds.height > 0)
+            terminalProcessor.prepare (blocksPerVblank, engine);
     }
 }
 

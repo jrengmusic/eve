@@ -879,6 +879,13 @@
 }
 
 @font-face {
+    font-family: symbols;
+    src: url(fonts/SymbolsNerdFont-Regular.ttf);
+    --height: 12;
+    --kerning: 0;
+}
+
+@font-face {
     font-family: "--text";
     --typefaceName: Display;
     --typefaceStyle: Book;

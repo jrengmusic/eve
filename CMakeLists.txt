@@ -514,6 +514,7 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/buttons/*.svg" # Product SVG button states — normal, over, down
     "${CAST_USER_MODULE_PATH}/resources/svg/*.svg"     # Shared JAM SVG icons
     "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf"   # Shared JAM Display and DisplayMono TrueType fonts
+    "${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf"   # Bundled Nerd Font symbol face
 )
 
 file(GLOB CAST_BINARY_FILES CONFIGURE_DEPENDS

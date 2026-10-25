@@ -547,6 +547,25 @@ getState/setState info with END as host"*.
 >   block. A width change lays out every block again (SPEC Feature 2.1).
 > - The history is read-only (R7). The TextEditor edit machinery and insert
 >   mode are deleted. `HISTORY_CAPACITY` sizes the history FIFO.
+>
+> **[AMENDED 2026-10-25 — full throttle, O(visible)]** ARCHITECT: *"the events
+> chain should not be manually managed, lock free, wait free, yield free,
+> always full throttle"*; *"audio never drop anything, not even a single
+> sample"*; *"can we make it always O(1)?"*. This amendment replaces the residency,
+> pull and sizing text above:
+> - Each `processBlock` reads the PTY until it is empty. The decoder never
+>   waits for the view. It publishes the newest frame when the live lane is
+>   empty, and the engine grid holds the live screen.
+> - The clocks size the history FIFO at `prepare`: one block's output bound
+>   times the blocks per vblank. `HISTORY_CAPACITY` is deleted. Input whose
+>   output does not fit stays in the PTY (*"PTY holds the input"*).
+> - The view pulls on `juce::VBlankAttachment`.
+> - The view scrolls by lines from the tail (`scrollOffset`, `scrollRow`, with
+>   the existing `jam::Scrollbar`), eased by rows. It lays out only the visible
+>   lines, so a resize, a font change and the editor teardown cost the
+>   visible lines, not the history.
+> - Bundled fonts come before the OS in the fallback search. EVE bundles the
+>   Nerd Font symbol face.
 
 ### 3.10 One raster code, two lanes [ADDED 2026-10-20]
 

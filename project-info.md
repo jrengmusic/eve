@@ -413,3 +413,5 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +----------+----------------------------------------------------+---------------------------------------------------+
 | fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`   | Shared JAM Display and DisplayMono TrueType fonts |
 +----------+----------------------------------------------------+---------------------------------------------------+
+| symbols  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf`   | Bundled Nerd Font symbol face                     |
++----------+----------------------------------------------------+---------------------------------------------------+

@@ -101,10 +101,17 @@ layout event only).
      The history FIFO carries the rows. The message-thread pull drains them.
      The record appends each drained block to its file one time.
    - A block holds at least `SwapDocument::bytesPerBlock` bytes and ends at a
-     line end. Memory holds at most `SwapDocument::numBlocks` blocks and the
-     open block.
-   - The TextEditor is the receiver. It lays out the blocks that the view needs.
-     It keeps the line count and the pixel height of every block.
+     line end. Memory holds the open block and the blocks of the visible lines.
+   - The TextEditor is the receiver. It lays out only the lines that the view
+     shows, and it keeps the line count of every block. A resize or a font
+     change lays out the visible lines again. ARCHITECT: *"can we make it
+     always O(1)?"*
+   - Full throttle. ARCHITECT: *"the events chain should not be manually
+     managed, lock free, wait free, yield free, always full throttle"*. Each
+     `processBlock` reads the PTY until it is empty. The history FIFO holds
+     one vblank of blocks; the clocks size it at `prepare`. The view drains it
+     on each vblank. Input whose output does not fit stays in the PTY.
+     ARCHITECT: *"PTY holds the input"*.
    - No line is ever lost. The file keeps every byte for the session.
    - History is append-only. ARCHITECT: *"history is append-only, clear with
      "clear" command."*
@@ -170,8 +177,10 @@ the status area.
 ### Feature 6: Configuration
 
 - Markdown tables + CSS, CAST conventions (colour + appearance custom properties;
-  data tables for keymaps, open-with rules, shell, fonts; the history FIFO size
-  is the `HISTORY_CAPACITY` settings row)
+  data tables for keymaps, open-with rules, shell, fonts; `EMBOLDEN` is on by
+  default; EVE bundles Display Mono and the Nerd Font symbol face, so icons
+  render with no system font. ARCHITECT: *"eve should bundle nerd font, just
+  like endless with display mono. it should work OOTB"*)
 - Parse error at launch: EVE starts with defaults and shows
   `config error: <file>:<line> — <message>` in the status area; never fails to launch
 
@@ -185,19 +194,22 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   gui only materialisation, on demand"*.
 - **Record:** `SwapDocument` appends each drained block to its file and keeps
   the byte range of every block. It parses a block into an `AnsiDocument` when
-  the view asks for it. It keeps at most `numBlocks` blocks and the open block
-  in memory.
-- **Pull:** the TextEditor calls the view getter. The processor drains its
-  FIFOs. It then gives the history record, the live document and whether the
+  the view asks for it. It keeps the open block and the blocks that the view
+  holds in memory.
+- **Pull:** on each vblank of its display (`juce::VBlankAttachment`), the
+  TextEditor calls the view getter. The processor drains its FIFOs. It then gives the history record, the live document and whether the
   live document changed to the TextEditor's visitor for the duration of the
   call. The TextEditor reads the record only inside that call.
 - **Layout state** (advances, rows, row heights) lives on each line as value
   data.
 - **Geometry:** the TextEditor keeps one `Document::Index` for each resident
   history block and one for the live document, with their glyph runs and
-  decoded images. It also keeps the line count and the pixel height of every
-  history block. One cursor line space covers the history lines, then the live
-  lines.
+  decoded images. It also keeps the line count of every history block. One
+  cursor line space covers the history lines, then the live lines.
+- **Scroll:** the node holds `scrollOffset` (lines from the tail) and
+  `scrollRow` (rows of the bottom line below the view). The view paints up
+  from the bottom line. At offset 0 it follows the tail; at any other offset
+  new output does not move it. The wheel scrolls eased, by rows.
 - **Read only:** the history is not editable. ARCHITECT: *"return to terminal,
   history should not be editable. read only, copy only"*.
 

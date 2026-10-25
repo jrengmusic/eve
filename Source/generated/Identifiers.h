@@ -30,7 +30,6 @@ namespace Id
 extern const juce::Identifier button;
 extern const juce::Identifier colorMode;
 extern const juce::Identifier down;
-extern const juce::Identifier historyCapacity;
 extern const juce::Identifier selector;
 extern const juce::Identifier terminalInput;
 extern const juce::Identifier textEditor;
