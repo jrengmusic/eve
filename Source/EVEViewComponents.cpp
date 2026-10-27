@@ -48,7 +48,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                 textEditor->onMouse = [&callbacks,
                                        mouseTracking = model.getValue (Id::toTag (Id::mouseTracking), Id::value),
                                        mouseSgr = model.getValue (Id::toTag (Id::mouseSgr), Id::value)] (jam::TerminalMouse::Type type,
-                                                                                                         jam::TerminalMouse::Button button,
+                                                                                                         int button,
                                                                                                          jam::Cell::Point cell,
                                                                                                          const juce::ModifierKeys& mods)
                 {
@@ -72,6 +72,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                 textEditor->liveCursorLine.referTo (model.getValue (Id::toTag (Id::cursorLine), Id::value));
                 textEditor->liveCursorColumn.referTo (model.getValue (Id::toTag (Id::cursorColumn), Id::value));
                 textEditor->liveCursorVisible.referTo (model.getValue (Id::toTag (Id::cursorVisible), Id::value));
+                textEditor->liveIsRecording.referTo (model.getValue (Id::toTag (Id::isRecording), Id::value));
                 textEditor->setMode (map::EditorMode::terminal);
             });
     };

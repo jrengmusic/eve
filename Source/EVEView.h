@@ -9,7 +9,6 @@ public:
              jam::PluginEditorLayout& newLayout,
              juce::AudioProcessor& processorToConnectTo);
 
-    void resized() override;
     void paintOverChildren (juce::Graphics& g) override;
 
 private:
@@ -25,6 +24,9 @@ private:
     void attachPanelCallbacks() override;
 
     void setWinsize();
+    void clear();
+    void setHistoryCapacity();
 
+    //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEView)
 };

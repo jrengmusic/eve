@@ -49,6 +49,8 @@ public:
 
     /** @brief Tells the terminal processor to prepare again from the model winsize. It suspends processing while it prepares. */
     void setWinsize();
+    void clear();
+    void setHistoryCapacity();
 
     /** @brief Returns the bypass parameter of the model, for the host. */
     juce::AudioProcessorParameter* getBypassParameter() const override;

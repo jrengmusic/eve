@@ -8,3 +8,11 @@
 
 ---
 
+## DEBT-20261025T214955
+
+**Observation:** EVE terminal protocol: a custom OSC code carries a CommandId name.
+**Divergence:** No OSC code reaches the commands. User shell scripts cannot invoke them.
+**Expectation:** The processor sends the CommandId name up through events, and the editor calls CommandManager::invokeDirectly. User shell scripts reach the commands through it.
+
+---
+

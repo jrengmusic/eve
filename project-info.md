@@ -2,27 +2,21 @@
 
 ## index
 
-+-------------------+-------------------------------------------------------------+
-| alias             | symbol                                                      |
-+===================+=============================================================+
-| @char             | const char* const                                           |
-+-------------------+-------------------------------------------------------------+
-| @productName      | EVE                                                         |
-+-------------------+-------------------------------------------------------------+
-| @companyName      | JRENG                                                       |
-+-------------------+-------------------------------------------------------------+
-| @legalCompanyName | Jubilant Research of Eclectic Novelty Generation            |
-+-------------------+-------------------------------------------------------------+
-| @bundleIdentifier | com.jreng.EVE                                               |
-+-------------------+-------------------------------------------------------------+
-| @user-module      | ${CMAKE_CURRENT_SOURCE_DIR}/../jam                          |
-+-------------------+-------------------------------------------------------------+
-| @markdown-style   | ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/markdown.css   |
-+-------------------+-------------------------------------------------------------+
-| @mermaid-style    | ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/mermaid.css    |
-+-------------------+-------------------------------------------------------------+
-| @terminal-style   | ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/textEditor.css |
-+-------------------+-------------------------------------------------------------+
++-------------------+--------------------------------------------------+
+| alias             | symbol                                           |
++===================+==================================================+
+| @char             | const char* const                                |
++-------------------+--------------------------------------------------+
+| @productName      | EVE                                              |
++-------------------+--------------------------------------------------+
+| @companyName      | JRENG                                            |
++-------------------+--------------------------------------------------+
+| @legalCompanyName | Jubilant Research of Eclectic Novelty Generation |
++-------------------+--------------------------------------------------+
+| @bundleIdentifier | com.jreng.EVE                                    |
++-------------------+--------------------------------------------------+
+| @user-module      | ${CMAKE_CURRENT_SOURCE_DIR}/../jam               |
++-------------------+--------------------------------------------------+
 
 ## project info
 
@@ -313,6 +307,10 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
 | viewPanelCallbacks      | Source/EVEViewPanelCallbacks.cpp | Plugin editor UI scale and winsize callbacks                                |
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| standaloneAppHeader     | Source/EVEStandaloneApp.h        | Standalone app class declaration, jam::AudioStandaloneApp                   |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
+| standaloneAppSource     | Source/EVEStandaloneApp.cpp      | Standalone app: plugin state file in the user settings directory            |
++-------------------------+----------------------------------+-----------------------------------------------------------------------------+
 | identifiersSource       | Source/generated/Identifiers.cpp | Product identifier vocabulary definitions                                   |
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
 | filesSource             | Source/generated/Files.cpp       | Product asset file name definitions                                         |
@@ -332,6 +330,8 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | jamVulkanRuntimeShaderCompiler            | JAM_VULKAN_RUNTIME_SHADER_COMPILER=0                           | JAM runtime SPIR-V shader compilation          |
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
 | juceUseCustomPluginStandaloneApp          | JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1                        | Custom standalone app entry point              |
++-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
+| jamUseCustomStandaloneApp                 | JAM_USE_CUSTOM_STANDALONE_APP=1                                | Custom JAM standalone app entry point          |
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
 | juceVst3CanReplaceVst2                    | JUCE_VST3_CAN_REPLACE_VST2=0                                   | VST3 loads VST2-compatible state               |
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
@@ -384,15 +384,11 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 
 ## binary
 
-+--------------------+-----------------+---------------------------------------------+
-| name               | value           | description                                 |
-+====================+=================+=============================================+
-| markdownStyleSheet | @markdown-style | Markdown stylesheet, embedded as BinaryData |
-+--------------------+-----------------+---------------------------------------------+
-| mermaidStyleSheet  | @mermaid-style  | Mermaid stylesheet, embedded as BinaryData  |
-+--------------------+-----------------+---------------------------------------------+
-| terminalStyleSheet | @terminal-style | Terminal stylesheet, embedded as BinaryData |
-+--------------------+-----------------+---------------------------------------------+
++--------------------+-----------------------+---------------------------------------------+
+| name               | value                 | description                                 |
++====================+=======================+=============================================+
+| terminalStyleSheet | Source/textEditor.css | Terminal stylesheet, embedded as BinaryData |
++--------------------+-----------------------+---------------------------------------------+
 
 ## layout glob
 
@@ -416,4 +412,6 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`   | Shared JAM Display and DisplayMono TrueType fonts |
 +----------+----------------------------------------------------+---------------------------------------------------+
 | symbols  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf`   | Bundled Nerd Font symbol face                     |
++----------+----------------------------------------------------+---------------------------------------------------+
+| shell    | `${CMAKE_CURRENT_SOURCE_DIR}/Source/shell/*`       | Shell integration hook scripts                    |
 +----------+----------------------------------------------------+---------------------------------------------------+

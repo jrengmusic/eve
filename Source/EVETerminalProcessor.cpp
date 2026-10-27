@@ -6,11 +6,15 @@ static constexpr std::string_view defaultShell { "powershell.exe" };
 #else
 static constexpr std::string_view defaultShell { "/bin/zsh" };
 #endif
+static constexpr std::string_view zshDirectory { "zsh" };
+static constexpr std::string_view zshIntegrationFile { "eve-integration" };
+static constexpr std::string_view zshEnvironmentFile { ".zshenv" };
+static constexpr std::string_view bashIntegrationFile { "bash_integration.bash" };
+static constexpr std::string_view powershellIntegrationFile { "powershell_integration.ps1" };
 
 EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse)
     : processor (processorToUse), model (modelToUse)
 {
-    input.prepare (static_cast<int> (jam::TerminalTTY::readChunkSize));
     registerParameterSetters();
     registerEvents();
     registerUserInterfaceGetters();
@@ -40,24 +44,35 @@ void EVETerminalProcessor::registerParameterSetters()
 
 void EVETerminalProcessor::registerEvents()
 {
-    for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen })
-        events.add<bool> (id, [this, parameterID = Id::toTag (id)] (bool value) { setParameterValue (parameterID, static_cast<float> (value)); });
+    for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording })
+    {
+        jassert (model.getParameter (Id::toTag (id)) != nullptr);
+        events.add<bool> (id, [this, parameter = model.getParameter (Id::toTag (id))] (bool value) { setParameterValue (*parameter, static_cast<float> (value)); });
+    }
 
     for (const auto& id : { Id::mouseTracking, Id::cursorLine, Id::cursorColumn })
-        events.add<int> (id, [this, parameterID = Id::toTag (id)] (int value) { setParameterValue (parameterID, static_cast<float> (value)); });
+    {
+        jassert (model.getParameter (Id::toTag (id)) != nullptr);
+        events.add<int> (id, [this, parameter = model.getParameter (Id::toTag (id))] (int value) { setParameterValue (*parameter, static_cast<float> (value)); });
+    }
 }
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
 {
-    userInterfaceGetters[Id::textEditor].add<const jam::TerminalSwap::Visit&> (Id::toType (Id::winsize), [this] (const jam::TerminalSwap::Visit& visit)
-                                                                                                          {
-                                                                                                              writePendingInput();
+    userInterfaceGetters[Id::textEditor].add<const jam::TerminalSwap*&> (Id::toType (Id::winsize), [this] (const jam::TerminalSwap*& output)
+                                                                                                    {
+                                                                                                        writePendingInput();
 
-                                                                                                              if (processor.wrapperType != juce::AudioProcessor::wrapperType_Standalone)
-                                                                                                                  juce::ignoreUnused (writeSwap());
+                                                                                                        if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+                                                                                                            triggerAsyncUpdate();
+                                                                                                        else
+                                                                                                            juce::ignoreUnused (writePendingData());
 
-                                                                                                              visit (swap);
-                                                                                                          });
+                                                                                                        output = &swap;
+
+                                                                                                        if (onProcessRequest != nullptr)
+                                                                                                            onProcessRequest();
+                                                                                                    });
 }
 
 void EVETerminalProcessor::registerChainEvents()
@@ -81,15 +96,12 @@ void EVETerminalProcessor::writePendingInput()
     pendingInput.removeSection (0, static_cast<size_t> (written));
 }
 
-void EVETerminalProcessor::setParameterValue (juce::StringRef parameterID, float value)
+void EVETerminalProcessor::setParameterValue (juce::RangedAudioParameter& parameter, float value)
 {
-    auto* parameter { model.getParameter (parameterID) };
-    jassert (parameter != nullptr);
+    const auto normalisedValue { parameter.convertTo0to1 (value) };
 
-    const auto normalisedValue { parameter->convertTo0to1 (value) };
-
-    if (not juce::exactlyEqual (parameter->getValue(), normalisedValue))
-        parameter->setValueNotifyingHost (normalisedValue);
+    if (not juce::exactlyEqual (parameter.getValue(), normalisedValue))
+        parameter.setValueNotifyingHost (normalisedValue);
 }
 
 void EVETerminalProcessor::parameterChanged (const juce::String& parameterID, float newValue)
@@ -98,16 +110,14 @@ void EVETerminalProcessor::parameterChanged (const juce::String& parameterID, fl
         parameters.get (parameterID, static_cast<double> (newValue));
 }
 
-int EVETerminalProcessor::writeSwap()
+bool EVETerminalProcessor::writePendingData()
 {
-    const auto numRetired { swap.addRetiredLines (engine) };
-    swap.setLiveLines (engine);
-    return numRetired;
+    return swap.writeFromTerminalBuffer (terminalBuffer) > 0;
 }
 
 void EVETerminalProcessor::handleAsyncUpdate()
 {
-    if (writeSwap() > 0 and onProcessRequest != nullptr)
+    if (writePendingData() and onProcessRequest != nullptr)
         onProcessRequest();
 }
 
@@ -116,24 +126,122 @@ int EVETerminalProcessor::getHistoryCapacity() const
     return static_cast<int> (jam::Model::getChildWithID (model.state, Id::toTag (Id::historyCapacity)).getProperty (Id::value));
 }
 
-jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
+bool EVETerminalProcessor::isShellIntegrated() const
 {
-    return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getValue (Id::toTag (Id::winsize), Id::value).getValue()));
+    const auto text { jam::ParameterManager::getInstance()->getDefaultValueForSettings (Id::toTag (Id::shellIntegration), Id::tokenTrue.toString()) };
+
+    return juce::Identifier { text } == Id::tokenTrue;
 }
 
-void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec&)
+juce::File EVETerminalProcessor::getStartDirectory() const
 {
-    const auto winsize { getWinsize() };
-    const auto bounds { engine.getBounds() };
+    return juce::File { jam::ParameterManager::getInstance()->getDefaultValueForSettings (Id::toTag (Id::startDirectory), "~") };
+}
 
-    if (winsize.isValid() and (winsize.cols != bounds.width or winsize.rows != bounds.height))
+void EVETerminalProcessor::addShellScripts (const juce::File& directory)
+{
+    const auto zshFolder { directory.getChildFile (juce::String { zshDirectory.data() }) };
+    const BinaryData::Raw zshEnvironment { files::zshEnvironment };
+    const BinaryData::Raw zshIntegration { files::zshIntegration };
+    const BinaryData::Raw bashIntegration { files::bashIntegration };
+    const BinaryData::Raw powershellIntegration { files::powershellIntegration };
+
+    directory.createDirectory();
+    zshFolder.createDirectory();
+    zshFolder.getChildFile (juce::String { zshEnvironmentFile.data() }).replaceWithData (zshEnvironment.data, static_cast<size_t> (zshEnvironment.size));
+    zshFolder.getChildFile (juce::String { zshIntegrationFile.data() }).replaceWithData (zshIntegration.data, static_cast<size_t> (zshIntegration.size));
+    directory.getChildFile (juce::String { bashIntegrationFile.data() }).replaceWithData (bashIntegration.data, static_cast<size_t> (bashIntegration.size));
+    directory.getChildFile (juce::String { powershellIntegrationFile.data() }).replaceWithData (powershellIntegration.data, static_cast<size_t> (powershellIntegration.size));
+}
+
+juce::StringPairArray EVETerminalProcessor::getShellEnvironment (const juce::String& shell, const juce::File& directory)
+{
+    static const jam::Function::Map<juce::String, juce::StringPairArray> shellEnvironments { [] {
+        jam::Function::Map<juce::String, juce::StringPairArray> table;
+
+        table.add<const juce::File&> ("zsh",
+            [] (const juce::File& directory)
+            {
+                juce::StringPairArray environment;
+                const auto parentZdotdir { juce::SystemStats::getEnvironmentVariable ("ZDOTDIR", {}) };
+
+                if (parentZdotdir.isNotEmpty())
+                    environment.set ("EVE_ORIG_ZDOTDIR", parentZdotdir);
+
+                environment.set ("ZDOTDIR", directory.getChildFile (juce::String { zshDirectory.data() }).getFullPathName());
+                return environment;
+            });
+        table.add<const juce::File&> ("bash",
+            [] (const juce::File& directory)
+            {
+                juce::StringPairArray environment;
+
+                environment.set ("ENV", directory.getChildFile (juce::String { bashIntegrationFile.data() }).getFullPathName());
+                environment.set ("EVE_BASH_INJECT", "1");
+                environment.set ("EVE_BASH_UNEXPORT_HISTFILE", "1");
+                return environment;
+            });
+        return table;
+    }() };
+
+    const auto key { juce::File (shell).getFileNameWithoutExtension() };
+
+    auto environment { shellEnvironments.contains (key) ? shellEnvironments.get (key, directory) : juce::StringPairArray {} };
+
+    environment.set ("CHERE_INVOKING", "1");
+    return environment;
+}
+
+juce::String EVETerminalProcessor::getShellArguments (const juce::String& shell, const juce::File& directory)
+{
+    static const jam::Function::Map<juce::String, juce::String> shellArguments { [] {
+        jam::Function::Map<juce::String, juce::String> table;
+        const auto getPowershellArguments { [] (const juce::File& directory)
+                                         {
+                                             return "-NoLogo -NoProfile -NoExit -Command \". '" + directory.getChildFile (juce::String { powershellIntegrationFile.data() }).getFullPathName() + "'\"";
+                                         } };
+
+        table.add<const juce::File&> ("bash", [] (const juce::File&) { return juce::String { "--posix" }; });
+        table.add<const juce::File&> ("powershell", getPowershellArguments);
+        table.add<const juce::File&> ("pwsh", getPowershellArguments);
+        return table;
+    }() };
+
+    const auto key { juce::File (shell).getFileNameWithoutExtension() };
+
+    if (shellArguments.contains (key)) return shellArguments.get (key, directory);
+
+    return {};
+}
+
+jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
+{
+    return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getOrCreateComponentProperty (Id::toTag (Id::winsize), Id::value).getValue()));
+}
+
+void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec)
+{
+    jassert (spec.maximumBlockSize > 0);
+
+    input.prepare (static_cast<int> (spec.maximumBlockSize));
+    terminalProcessor.prepare (static_cast<int> (spec.maximumBlockSize));
+
+    if (const auto winsize { getWinsize() }; winsize.isValid())
+        prepare (winsize, getHistoryCapacity());
+}
+
+void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCapacity)
+{
+    if (processor.getBlockSize() > 0)
     {
-        const auto historyCapacity { getHistoryCapacity() };
+        triggerAsyncUpdate();
+        handleUpdateNowIfNeeded();
 
-        cancelPendingUpdate();
-        swap.addRetiredLines (engine);
-        engine.prepare (winsize.cols, winsize.rows, historyCapacity);
-        terminalProcessor.reset (engine);
+        const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (processor.getSampleRate() / processor.getBlockSize() / jam::VulkanEngine::getRefreshRateHz()))) };
+
+        terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * processor.getBlockSize());
+        swap.prepare (winsize);
+        terminalProcessor.reset (terminalBuffer);
         swap.setCapacity (historyCapacity);
 
         if (tty->isRunning())
@@ -142,7 +250,14 @@ void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec&)
         }
         else
         {
-            [[maybe_unused]] const auto isOpen { tty->open (winsize.toCellRect(), juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() })) };
+            const auto shell { juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() }) };
+            const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
+            const auto isIntegrated { isShellIntegrated() };
+
+            if (isIntegrated)
+                addShellScripts (directory);
+
+            [[maybe_unused]] const auto isOpen { tty->open (processor.getBlockSize(), winsize.toCellRect(), shell, isIntegrated ? getShellArguments (shell, directory) : juce::String {}, getStartDirectory().getFullPathName(), isIntegrated ? getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
             jassert (isOpen);
         }
     }
@@ -152,23 +267,49 @@ void EVETerminalProcessor::process() noexcept
 {
     if (not isBypassed.load())
     {
-        input.pull (*tty);
+        input.writePendingData (*tty);
 
-        const auto isReading { terminalProcessor.process (*tty, engine, events) };
+        bool isReading { false };
 
-        if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+        do
         {
-            triggerAsyncUpdate();
-
-            if (isReading and onProcessRequest != nullptr)
-                onProcessRequest();
+            isReading = terminalProcessor.process (*tty, terminalBuffer, swap, events);
         }
+        while (isReading);
     }
 }
 
 void EVETerminalProcessor::setWinsize()
 {
     processor.suspendProcessing (true);
-    prepare ({});
+
+    const auto winsize { getWinsize() };
+    const auto bounds { terminalBuffer.getBounds() };
+
+    if (winsize.isValid() and (winsize.cols != bounds.width or winsize.rows != bounds.height))
+        prepare (winsize, getHistoryCapacity());
+
+    processor.suspendProcessing (false);
+}
+
+void EVETerminalProcessor::clear()
+{
+    processor.suspendProcessing (true);
+    triggerAsyncUpdate();
+    handleUpdateNowIfNeeded();
+    terminalProcessor.clear (terminalBuffer);
+    processor.suspendProcessing (false);
+
+    if (onProcessRequest != nullptr)
+        onProcessRequest();
+}
+
+void EVETerminalProcessor::setHistoryCapacity()
+{
+    processor.suspendProcessing (true);
+
+    if (const auto winsize { getWinsize() }; winsize.isValid())
+        prepare (winsize, getHistoryCapacity());
+
     processor.suspendProcessing (false);
 }

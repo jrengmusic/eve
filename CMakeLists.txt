@@ -289,6 +289,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     Source/EVEViewRegistration.cpp   # Plugin editor button registration and dialog config
     Source/EVEViewComponents.cpp     # Plugin editor view component configs
     Source/EVEViewPanelCallbacks.cpp # Plugin editor UI scale and winsize callbacks
+    Source/EVEStandaloneApp.h        # Standalone app class declaration, jam::AudioStandaloneApp
+    Source/EVEStandaloneApp.cpp      # Standalone app: plugin state file in the user settings directory
     Source/generated/Identifiers.cpp # Product identifier vocabulary definitions
     Source/generated/Files.cpp       # Product asset file name definitions
 )
@@ -314,6 +316,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
     JAM_USING_MULTI_ORIENTATION=0                                        # JAM portrait/landscape orientation
     JAM_VULKAN_RUNTIME_SHADER_COMPILER=0                                 # JAM runtime SPIR-V shader compilation
     JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1                              # Custom standalone app entry point
+    JAM_USE_CUSTOM_STANDALONE_APP=1                                      # Custom JAM standalone app entry point
     JUCE_VST3_CAN_REPLACE_VST2=0                                         # VST3 loads VST2-compatible state
     JucePlugin_AAXDisableDefaultSettingsChunks=1                         # AAX default settings chunks disabled
     JUCE_STRICT_REFCOUNTEDPOINTER=1                                      # Strict ReferenceCountedObjectPtr casting
@@ -517,12 +520,11 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CAST_USER_MODULE_PATH}/resources/svg/*.svg"     # Shared JAM SVG icons
     "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf"   # Shared JAM Display and DisplayMono TrueType fonts
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf"   # Bundled Nerd Font symbol face
+    "${CMAKE_CURRENT_SOURCE_DIR}/Source/shell/*"       # Shell integration hook scripts
 )
 
 file(GLOB CAST_BINARY_FILES CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/markdown.css
-    ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/mermaid.css
-    ${CMAKE_CURRENT_SOURCE_DIR}/../jam/resources/textEditor.css
+    Source/textEditor.css
 )
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData

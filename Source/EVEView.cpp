@@ -49,25 +49,25 @@ void EVEView::initialiseView()
 
 void EVEView::paintOverChildren (juce::Graphics& g) { transition.paint (g, getLocalBounds()); }
 
-void EVEView::resized()
-{
-    jam::PluginEditor::resized();
-
-    const auto area { jam::ViewManager::getComponentBounds (*view).toFloat() };
-    const auto metrics { theme->getMonoMetrics() };
-    const auto cells { jam::Cell::Rectangle::fromPixel (area.withZeroOrigin(), metrics.cellWidth, metrics.cellHeight) };
-    const auto* display { juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()) };
-
-    jassert (display != nullptr);
-
-    const auto pixels { (area * (juce::Component::getApproximateScaleFactorForComponent (view.get()) * static_cast<float> (display->scale))).getSmallestIntegerContainer() };
-
-    model.getValue (Id::toTag (Id::winsize), Id::value).setValue (juce::var { jam::TerminalWinsize { cells.width, cells.height, pixels.getWidth(), pixels.getHeight() }.pack() });
-}
-
 void EVEView::setWinsize()
 {
     auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
 
     processor.setWinsize();
+}
+
+void EVEView::clear()
+{
+    auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
+
+    processor.clear();
+}
+
+void EVEView::setHistoryCapacity()
+{
+    auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
+
+    jam::MessageBox::historyCleared (this);
+    clear();
+    processor.setHistoryCapacity();
 }

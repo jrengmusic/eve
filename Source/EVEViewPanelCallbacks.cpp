@@ -13,4 +13,16 @@ void EVEView::attachPanelCallbacks()
                                                 {
                                                     static_cast<EVEView&> (c).setWinsize();
                                                 });
+
+    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::clear),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).clear();
+                                                });
+
+    registry->callbacks.add<juce::Component&> (Id::toType (Id::historyCapacity),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).setHistoryCapacity();
+                                                });
 }

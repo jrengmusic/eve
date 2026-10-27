@@ -2,7 +2,7 @@
 #include "EVEProcessor.h"
 
 static constexpr double virtualSampleRate { 48000.0 };
-static constexpr int virtualBlockSize { 4 };
+static constexpr int virtualBlockSize { 65536 };
 
 EVEProcessor::EVEProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -190,6 +190,16 @@ EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept
 void EVEProcessor::setWinsize()
 {
     terminalProcessor.setWinsize();
+}
+
+void EVEProcessor::clear()
+{
+    terminalProcessor.clear();
+}
+
+void EVEProcessor::setHistoryCapacity()
+{
+    terminalProcessor.setHistoryCapacity();
 }
 
 juce::AudioProcessorParameter* EVEProcessor::getBypassParameter() const
