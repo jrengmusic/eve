@@ -18,30 +18,32 @@
 
 ## Current State
 
-**Last Sprint:** No Panel, Settings on cmd+, — EVE on the Optional-Panel Bootstrap and the Settings Vocabulary (2026-10-19) (`carol/SPRINT-LOG.md:39`)
+**Last Sprint:** JAM is the primary record of EVE sprints (`~/Documents/Poems/dev/jam/carol/SPRINT-LOG.md`, Sprint 176, 2026-10-27). Plan in flight: `~/Documents/Poems/dev/jam/PLAN-terminal-model-lane.md`.
 
-**Active ODE:** None found in `carol/SPRINT-LOG.md` or `DEBT.md`.
+**Active ODE:** None.
 
-**Active Debt:** DEBT-20261016T214137 — EVE Standalone launch takes 5–7 s; jfs opens almost at once (`DEBT.md:11`).
+**Active Debt:** DEBT-20261025T214955 — a custom OSC code carries a CommandId name (`DEBT.md:11-15`).
+
+**Architecture rulings:** `SPEC.md` (Core Principles 7–10, State Model, Architecture Constraints) and `RFC-EVE-terminal-grand-scheme.md` (amendments 2026-10-27 in §0, §3.9, §8). Read them before any change to state, parameters, threads or the clock.
 
 ---
 
 ## Layer Order & Key Source Dirs
 
 1. **JUCE 8.0.14 + patches.** Eight patches, applied in order at configure time to a cached copy (`CMakeLists.txt:124-133`). Source: `../../JUCE`.
-2. **JAM modules.** Eighteen modules added with `juce_add_module` (`CMakeLists.txt:229-246`). Source: `../jam/`.
+2. **JAM modules.** Nineteen modules added with `juce_add_module` (`CMakeLists.txt`, MODULES section): core, audio_devices, debug, data_structures, dsp, gui, graphics, animation, freetype, vulkan, style, markdown, document, web, plugin_bootstrap, pdf, mermaid_diagram, markdown_graphics, terminal. Source: `../jam/`.
 3. **EVE application.**
 
 | Path | Role |
 |------|------|
-| `Source/EVEProcessor.h/.cpp` | Plugin entry, state serialisation, MASTER BYPASS parameter |
-| `Source/EVETerminalProcessor.h/.cpp` | Terminal chain on the audio thread: TTY (`$SHELL`), input lane, decoder (`jam::TerminalProcessor`), engine ring, history and live lanes, terminal-mode parameters |
+| `Source/EVEProcessor.h/.cpp` | Plugin entry, state serialisation (one APVTS tree with the terminal Model child), MASTER BYPASS parameter, the virtual device (standalone clock), `prepare()` → `prepareToPlay` |
+| `Source/EVETerminalProcessor.h/.cpp` | Terminal chain on the clock: TTY (`$SHELL`), input lane, decoder (`jam::TerminalProcessor`), row ring (`jam::TerminalBuffer`), record (`jam::TerminalSwap`), and the terminal state machine (`jam::Model`, the Model lane) |
 | `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction |
 | `Source/EVEViewRegistration.cpp` | Button registration and dialog config |
 | `Source/EVEViewComponents.cpp` | View component configs; the TextEditor event binding: key and mouse encoding to the input lane, live caret values, TERMINAL mode at start |
 | `Source/EVEViewPanelCallbacks.cpp` | UI scale and winsize callbacks |
 | `Source/generated/` | CAST output: `Identifiers.*`, `Files.*` (build-time, do not edit) |
-| `Source/layout/` | Layout and style documents: `ViewLayout.md`, `component.md`, `parameters.md`, `style.css`, `SettingsLayout.html` |
+| `Source/layout/` | Layout and style documents: `ViewLayout.md`, `component.md`, `parameters.md` (automatable host parameters only), `model.md` (the terminal state machine, the Model lane), `style.css`, `SettingsLayout.html` |
 | `Source/buttons/`, `Source/icons/` | Button SVGs, app icon |
 
 ---
@@ -54,7 +56,7 @@
 | `RFC-EVE-terminal-grand-scheme.md` | Architecture, evidence, non-negotiables | Present |
 | `ARCHITECTURE.md` | System architecture | Not present |
 | `project-info.md` | SSOT for build metadata | Present |
-| `HANDOFF.md` | Session handoff | Present |
+| `HANDOFF.md` | Session handoff: current state and the plan in flight | Present |
 | `carol/SPRINT-LOG.md` | Cross-session work log | Present |
 | `DEBT.md` | Inter-sprint debt ledger | Present |
 

@@ -37,7 +37,9 @@ among ours.
 2. **Host-plugin threads** — the audio thread reads and writes the PTY in
    `processBlock` and decodes the bytes into the engine rows; the message thread
    appends history, lays out and paints. Lock-free FIFOs (`juce::AbstractFifo`) join
-   them. No thread of EVE's own. ARCHITECT: *"why cant we use AUDIO thread as the
+   them. EVE starts no thread. The clock and the history writer run on the serial
+   event contexts of `jam::AsyncUpdater`: a serial GCD queue on macOS, a pool of
+   one thread on Windows (`jam_AsyncUpdater.cpp:11-34`). ARCHITECT: *"why cant we use AUDIO thread as the
    READER thread?"*; *"Input: READER, Audio Thread, TTY. Output: Terminal LLGC. also
    Audio thread … Renderer is Vulkan … message thread"*.
 3. **Non-destruction contract** — widget content is never destroyed by SIGWINCH or
@@ -49,6 +51,43 @@ among ours.
 5. **Finder truth is the filesystem** — sidebars and file list read the FS
    directly, keyed off OSC 7-reported cwd. Terminal output text is never parsed.
 6. **Style roles in state; colours at materialization** (RFC §8).
+7. **Two state lanes, one tree.** ARCHITECT: *"AudioModel for true audio
+   parameter lane, as automatable parameter, while Model lane for any event
+   driven state machine that is non automatable, real time safe on its own
+   thread, guaranteed thread safe on other thread, always concurrent with
+   atomic, think of it like reverse direction of APVTS."*
+   - The **AudioModel lane** (APVTS) holds only parameters that a host can
+     automate. Their rows are in `Source/layout/parameters.md`. ARCHITECT:
+     *"parameters.md always for automatable parameter, a parameter can host can
+     automate. this is plugin_bootstrap (that synced identically with KANJUT)
+     contract that JFS use."*
+   - The **Model lane** (`jam::Model`) holds the terminal state machine: the
+     DEC modes, the cursor, the OSC 133 marks and every later shell
+     integration state. Its rows are in `Source/layout/model.md`, and
+     `jam::ModelLayout` builds it. ARCHITECT: *"we only need to build
+     jam::Model as Terminal complete state machine, all terminal events
+     including OSC 133 and future shell integration is jam::Model parameter,
+     still attached to APVTS hence it's a valid stateInfo that the framework
+     guarantee for instance serialisation and state preserverance"*.
+   - The Model tree is one child of the APVTS state, so the host serialises
+     it with the plugin state. It is not a host parameter. ARCHITECT:
+     *"what i really mean with non-automatable parameter is PARAMETER tree
+     still attached to APVTS but it's not audio parameter, still could be
+     event driven with valueTreePropertyChanged."*
+   - Direction: the clock produces, the view follows. ARCHITECT: *"EVE is
+     the other way around, everything starts at Audio thread, it's processor
+     events that drives how widget rendered."*
+8. **No second copy of a truth.** ARCHITECT: *"no second copy of truth
+   allowed."* A row's atom count is its content end; no counter stands beside
+   it. The decoder's working state is calculation state; the Model value is
+   the one permitted handoff copy between threads (MANIFESTO E, permitted
+   copy 2).
+9. **One prepare path.** Init, resize and history capacity all prepare through
+   `prepareToPlay`. ARCHITECT: *"make it consistent then"*.
+10. **One serial clock context.** PTY readiness and the clock run on one
+    serial context. Each clock tick is a zero-sample block; `prepareToPlay`
+    carries the TTY chunk size as the maximum block size (ARCHITECT:
+    *"spec.maximumBlockSize == tty.readChunkSize"*).
 
 ## Components
 
@@ -91,28 +130,29 @@ layout event only).
    *view's* scrollback access but the SSOT retains the session record for the
    session lifetime. Alternate screen: app-owned, redrawn by the app per VT contract
    (RFC §1 boundary).
-3. **Scrollback:** unbounded in content, block-resident in memory. The processor
-   owns the history record, `jam::SwapDocument`, so the record outlives the
-   view. ARCHITECT: *"TextEditor INDEED hold the history but already
-   materialised on demand. that's exactly the design. but the document SSOT
-   outlives the widget."*
+3. **Scrollback:** block-resident in memory, bounded on disk by
+   `HISTORY_CAPACITY`. The processor owns the record, `jam::TerminalSwap`, so
+   the record outlives the view. ARCHITECT: *"TextEditor INDEED hold the
+   history but already materialised on demand. that's exactly the design. but
+   the document SSOT outlives the widget."*
    - The record follows the JUCE disk-streaming pipeline. ARCHITECT: *"follow
      JUCE pattern, API verbatim? within the adherence into our CONTRACT?"*
-     The history FIFO carries the rows. The message-thread pull drains them.
-     The record appends each drained block to its file one time.
-   - A block holds at least `SwapDocument::bytesPerBlock` bytes and ends at a
-     line end. Memory holds the open block and the blocks of the visible lines.
-   - The TextEditor is the receiver. It lays out only the lines that the view
-     shows, and it keeps the line count of every block. A resize or a font
-     change lays out the visible lines again. ARCHITECT: *"can we make it
-     always O(1)?"*
+     The ring of `jam::TerminalBuffer` carries the history rows. The writer
+     drains them and writes each row once to the swap's index and segment
+     files (`jam_TerminalSwap.cpp:99-158`). In the standalone the writer runs
+     on its own serial context; in a host it runs in the vblank getter
+     (`EVETerminalProcessor.cpp:73-90`).
+   - The swap keeps the last `HISTORY_CAPACITY` lines. It deletes the index
+     and segment files of older lines (`jam_TerminalSwap.cpp:139-155`).
+   - The TextEditor is the receiver. It builds only the lanes the view shows
+     (`TerminalSwap::linesPerLane` lines each) and keeps their line counts. A
+     resize or a font change lays out the resident lanes again. ARCHITECT:
+     *"can we make it always O(1)?"*
    - Full throttle. ARCHITECT: *"the events chain should not be manually
      managed, lock free, wait free, yield free, always full throttle"*. Each
-     `processBlock` reads the PTY until it is empty. The history FIFO holds
-     one vblank of blocks; the clocks size it at `prepare`. The view drains it
-     on each vblank. Input whose output does not fit stays in the PTY.
-     ARCHITECT: *"PTY holds the input"*.
-   - No line is ever lost. The file keeps every byte for the session.
+     clock tick reads the PTY until it is empty. The ring holds one vblank of
+     blocks in transit; `prepareToPlay` sizes it. Input whose output does not
+     fit stays in the PTY. ARCHITECT: *"PTY holds the input"*.
    - History is append-only. ARCHITECT: *"history is append-only, clear with
      "clear" command."*
 
@@ -188,18 +228,24 @@ the status area.
 
 The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
 `jam::Document` of `Id::line` elements, each carrying `Id::cells`.
-- **Ownership:** `jam::TerminalProcessor` owns the live document and the
-  history record `SwapDocument`. A resize replaces only the live document, so
-  SIGWINCH never destroys history content. ARCHITECT: *"GUI is ephemeral …
-  gui only materialisation, on demand"*.
-- **Record:** `SwapDocument` appends each drained block to its file and keeps
-  the byte range of every block. It parses a block into an `AnsiDocument` when
-  the view asks for it. It keeps the open block and the blocks that the view
-  holds in memory.
+- **Ownership:** `EVETerminalProcessor` owns the decoder
+  (`jam::TerminalProcessor`), the row ring (`jam::TerminalBuffer`) and the
+  record (`jam::TerminalSwap`). ARCHITECT: *"GUI is ephemeral … gui only
+  materialisation, on demand"*.
+- **Rows:** a row's atom count is its content end. A scrolled line enters the
+  ring empty; nothing clears a full row width. A prepare with an unchanged grid
+  keeps the screen rows; a grid change starts an empty screen, and the shell
+  redraws it on `SIGWINCH`.
+- **Record:** `TerminalSwap` writes each history row once to its index and
+  segment files (`jam_TerminalSwap.cpp:99-158`). It writes the live frame to a
+  two-slot live file through a FIFO (`:64-87`, `:248-277`). `prepare` starts a
+  new live file and drops a ready slot of the old one.
 - **Pull:** on each vblank of its display (`juce::VBlankAttachment`), the
-  TextEditor calls the view getter. The processor drains its FIFOs. It then gives the history record, the live document and whether the
-  live document changed to the TextEditor's visitor for the duration of the
-  call. The TextEditor reads the record only inside that call.
+  TextEditor calls the view getter. The getter flushes the terminal Model and
+  gives the swap. The TextEditor builds the history lanes it shows
+  (`TerminalSwap::linesPerLane` lines each) and the live lane, then sets the
+  content size, then scrolls to the tail in terminal mode
+  (`jam_TextEditor.cpp:803-884`).
 - **Layout state** (advances, rows, row heights) lives on each line as value
   data.
 - **Geometry:** the TextEditor keeps one `Document::Index` for each resident
@@ -233,6 +279,40 @@ The unnamed register is `juce::SystemClipboard`.
 
 `TerminalModel` no longer exists — the class is deleted. The video lane
 (`TerminalVideo`, `CellFifo`, `Row`) is deleted with it.
+
+### Terminal state machine (the Model lane)
+
+The terminal state machine is a `jam::Model`. `EVETerminalProcessor` owns it,
+in the shape of endless (`terminal::Model : jam::Model`, `endless/Source/
+terminal/Model.h:17-28`). ARCHITECT: *"you could learn how endless manage its
+terminal state machine … factually raw bytes test beats all terminal in
+comparison"*.
+
+- **Schema.** `Source/layout/model.md`, table `## model`, columns `id`, `type`,
+  `default`, `description`. `jam::ModelLayout` (jam_plugin_bootstrap) reads it,
+  the sibling of `jam::ParameterLayout` for `parameters.md`.
+- **Rows.** `applicationCursor`, `bracketedPaste`, `mouseSgr`,
+  `mouseTracking`, `cursorVisible`, `alternateScreen`, `isRecording` and
+  `cursor`. `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
+  the column change together.
+- **Producer.** The decoder (`jam::TerminalProcessor`) keeps its working state
+  and fires one event per value at the end of each drain. The owner's handlers
+  write the Model with `storeValue`: an atomic store and a dirty mark. The
+  write takes no lock, allocates nothing and posts no message.
+- **Flush.** The Model runs no timer. The vblank pull flushes it to its tree on
+  the message thread, on the same tick that reads the live frame.
+  `getStateInformation` also flushes it, under the message-manager lock, before
+  it copies the state.
+- **Consumers.** The view binds `juce::Value`s to the properties of the Model
+  tree (`getPropertyAsValue`, `referTo`). The caret and the record gate listen
+  to their Values. The key and mouse encoders read their Values when an event
+  arrives (`EVEViewComponents.cpp`).
+- **Tree.** The Model tree is the `terminal` child of the APVTS state.
+  `getStateInformation` saves it. On `setStateInformation`, EVE suspends
+  processing. The Model takes the restored values, and its tree replaces the
+  restored child in the incoming state. Then the APVTS replaces its whole tree,
+  so one tree remains. No callback takes part: `jam::PluginEditor` owns
+  `onSetState`.
 
 ### Cell-bearing element
 
@@ -296,7 +376,16 @@ An end-user can:
 - ❌ Widget-owned content; paint-path writes
 - ❌ Wrapped grid as truth; baked colours in state; ANSI beyond the two edges
 - ❌ Terminal mental model from training data — RFC §0/§1 govern
+- ❌ Terminal state as a host parameter: `parameters.md` rows are automatable only
+- ❌ `setValueNotifyingHost` or any lock on the clock. ARCHITECT: *"using
+  setValueNotifyingHost is smell"*
+- ❌ A second copy of a truth: a counter beside a row's atom count, a member
+  that mirrors a Model value, a second dirty flag
+- ❌ A second prepare path beside `prepareToPlay`
+- ❌ A second thread context between PTY readiness and the clock
 - ✅ Single-surface: one PTY, one buffer, one widget per instance; END muxes
+- ✅ Two lanes, one tree: AudioModel for automatable parameters, jam::Model for
+  the terminal state machine, its tree inside the APVTS state
 
 ---
 

@@ -26,6 +26,8 @@ resolved against the binary-data / asset search path at load time.
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+
 | @string | parameters layout             | toCamel | parameters.md              | toLiteral | Parameter descriptor tables.                        |
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+
+| @string | model layout                  | toCamel | model.md                   | toLiteral | Terminal state machine table, the Model lane.       |
++---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+
 | @string | markdown settings directory   | toCamel | .config/end                | toLiteral | User settings directory, relative to home.          |
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+
 | @string | markdown settings file name   | toCamel | eve.md                     | toLiteral | User settings file name on disk.                    |

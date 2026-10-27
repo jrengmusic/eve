@@ -13,19 +13,43 @@ static constexpr std::string_view bashIntegrationFile { "bash_integration.bash" 
 static constexpr std::string_view powershellIntegrationFile { "powershell_integration.ps1" };
 
 EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse)
-    : processor (processorToUse), model (modelToUse)
+    : processor (processorToUse),
+      model (modelToUse),
+      bypass (*model.getRawParameterValue (Id::toTag (Id::bypass))),
+      state (model.state.getOrCreateChildWithName (Id::toType (Id::terminal), nullptr))
 {
-    registerParameterSetters();
+    state.stopTimer();
+    jam::ModelLayout::addParameters (state, jam::MarkdownDocument::getOrCreate (juce::Identifier { files::modelLayout }));
     registerEvents();
     registerUserInterfaceGetters();
     registerChainEvents();
-    tty->onBytesReady = [this] { if (onProcessRequest != nullptr) onProcessRequest(); };
-    model.addListener (*this);
+    tty->onBytesReady = [this] { if (onBytesReady != nullptr) onBytesReady(); };
 }
 
 EVETerminalProcessor::~EVETerminalProcessor()
 {
     cancelPendingUpdate();
+}
+
+void EVETerminalProcessor::setState (juce::ValueTree newState)
+{
+    const auto restored { newState.getChildWithName (Id::toType (Id::terminal)) };
+
+    if (restored.isValid())
+    {
+        state.replaceState (restored);
+        newState.removeChild (restored, nullptr);
+    }
+
+    state.state.getParent().removeChild (state.state, nullptr);
+    newState.appendChild (state.state, nullptr);
+}
+
+void EVETerminalProcessor::flush()
+{
+    const juce::MessageManagerLock messageManagerLock;
+
+    state.flush();
 }
 
 std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY()
@@ -37,24 +61,13 @@ std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY()
 #endif
 }
 
-void EVETerminalProcessor::registerParameterSetters()
-{
-    parameters.add<double> (Id::toTag (Id::bypass), [this] (double newValue) { isBypassed = not juce::exactlyEqual (newValue, 0.0); });
-}
-
 void EVETerminalProcessor::registerEvents()
 {
     for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording })
-    {
-        jassert (model.getParameter (Id::toTag (id)) != nullptr);
-        events.add<bool> (id, [this, parameter = model.getParameter (Id::toTag (id))] (bool value) { setParameterValue (*parameter, static_cast<float> (value)); });
-    }
+        events.add<bool> (id, [this, id, tag = Id::toType (Id::terminal)] (bool value) { state.storeValue (tag, id, static_cast<int> (value)); });
 
-    for (const auto& id : { Id::mouseTracking, Id::cursorLine, Id::cursorColumn })
-    {
-        jassert (model.getParameter (Id::toTag (id)) != nullptr);
-        events.add<int> (id, [this, parameter = model.getParameter (Id::toTag (id))] (int value) { setParameterValue (*parameter, static_cast<float> (value)); });
-    }
+    for (const auto& id : { Id::mouseTracking, Id::cursor })
+        events.add<int> (id, [this, id, tag = Id::toType (Id::terminal)] (int value) { state.storeValue (tag, id, value); });
 }
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
@@ -68,6 +81,7 @@ void EVETerminalProcessor::registerUserInterfaceGetters()
                                                                                                         else
                                                                                                             juce::ignoreUnused (writePendingData());
 
+                                                                                                        state.flush();
                                                                                                         output = &swap;
 
                                                                                                         if (onProcessRequest != nullptr)
@@ -94,20 +108,6 @@ void EVETerminalProcessor::writePendingInput()
     if (written > 0 and onProcessRequest != nullptr)
         onProcessRequest();
     pendingInput.removeSection (0, static_cast<size_t> (written));
-}
-
-void EVETerminalProcessor::setParameterValue (juce::RangedAudioParameter& parameter, float value)
-{
-    const auto normalisedValue { parameter.convertTo0to1 (value) };
-
-    if (not juce::exactlyEqual (parameter.getValue(), normalisedValue))
-        parameter.setValueNotifyingHost (normalisedValue);
-}
-
-void EVETerminalProcessor::parameterChanged (const juce::String& parameterID, float newValue)
-{
-    if (jam::Map::contains (parameters, parameterID))
-        parameters.get (parameterID, static_cast<double> (newValue));
 }
 
 bool EVETerminalProcessor::writePendingData()
@@ -219,7 +219,7 @@ jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
     return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getOrCreateComponentProperty (Id::toTag (Id::winsize), Id::value).getValue()));
 }
 
-void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec)
+void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::AsyncUpdater::Context context)
 {
     jassert (spec.maximumBlockSize > 0);
 
@@ -227,10 +227,10 @@ void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec)
     terminalProcessor.prepare (static_cast<int> (spec.maximumBlockSize));
 
     if (const auto winsize { getWinsize() }; winsize.isValid())
-        prepare (spec, winsize, getHistoryCapacity());
+        prepare (spec, winsize, getHistoryCapacity(), context);
 }
 
-void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::TerminalWinsize winsize, int historyCapacity)
+void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::TerminalWinsize winsize, int historyCapacity, jam::AsyncUpdater::Context context)
 {
     const auto blockSize { static_cast<int> (spec.maximumBlockSize) };
 
@@ -251,14 +251,14 @@ void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::Ter
     if (isIntegrated)
         addShellScripts (directory);
 
-    [[maybe_unused]] const auto isOpen { tty->open (blockSize, winsize.toCellRect(), shell, isIntegrated ? getShellArguments (shell, directory) : juce::String {}, getStartDirectory().getFullPathName(), isIntegrated ? getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
+    [[maybe_unused]] const auto isOpen { tty->open (context, blockSize, winsize.toCellRect(), shell, isIntegrated ? getShellArguments (shell, directory) : juce::String {}, getStartDirectory().getFullPathName(), isIntegrated ? getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
     jassert (isOpen);
     tty->setWinsize (winsize);
 }
 
 void EVETerminalProcessor::process() noexcept
 {
-    if (not isBypassed.load())
+    if (juce::exactlyEqual (bypass.load(), 0.0f))
     {
         input.writePendingData (*tty);
 

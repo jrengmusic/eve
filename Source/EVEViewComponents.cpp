@@ -33,8 +33,9 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
                 auto* textEditor { static_cast<jam::TextEditor*> (component) };
                 auto& callbacks { chainEvents->at (juce::Identifier { eventName }) };
+                const auto terminal { model.state.getChildWithName (Id::toType (Id::terminal)) };
 
-                textEditor->onKeyPress = [&callbacks, applicationCursor = model.getValue (Id::toTag (Id::applicationCursor), Id::value)] (const juce::KeyPress& key)
+                textEditor->onKeyPress = [&callbacks, applicationCursor = terminal.getPropertyAsValue (Id::applicationCursor, nullptr)] (const juce::KeyPress& key)
                 {
                     const auto bytes { jam::TerminalKeyboard::map (key, static_cast<bool> (applicationCursor.getValue())) };
                     const auto isSent { not bytes.empty() };
@@ -46,8 +47,8 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                 };
 
                 textEditor->onMouse = [&callbacks,
-                                       mouseTracking = model.getValue (Id::toTag (Id::mouseTracking), Id::value),
-                                       mouseSgr = model.getValue (Id::toTag (Id::mouseSgr), Id::value)] (jam::TerminalMouse::Type type,
+                                       mouseTracking = terminal.getPropertyAsValue (Id::mouseTracking, nullptr),
+                                       mouseSgr = terminal.getPropertyAsValue (Id::mouseSgr, nullptr)] (jam::TerminalMouse::Type type,
                                                                                                          int button,
                                                                                                          jam::Cell::Point cell,
                                                                                                          const juce::ModifierKeys& mods)
@@ -69,10 +70,9 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                     return isReported;
                 };
 
-                textEditor->liveCursorLine.referTo (model.getValue (Id::toTag (Id::cursorLine), Id::value));
-                textEditor->liveCursorColumn.referTo (model.getValue (Id::toTag (Id::cursorColumn), Id::value));
-                textEditor->liveCursorVisible.referTo (model.getValue (Id::toTag (Id::cursorVisible), Id::value));
-                textEditor->liveIsRecording.referTo (model.getValue (Id::toTag (Id::isRecording), Id::value));
+                textEditor->liveCursor.referTo (terminal.getPropertyAsValue (Id::cursor, nullptr));
+                textEditor->liveCursorVisible.referTo (terminal.getPropertyAsValue (Id::cursorVisible, nullptr));
+                textEditor->liveIsRecording.referTo (terminal.getPropertyAsValue (Id::isRecording, nullptr));
                 textEditor->setMode (map::EditorMode::terminal);
             });
     };

@@ -9,8 +9,10 @@ class EVEProcessor
 {
 public:
     EVEProcessor();
+    /** @brief Defaulted. The members release themselves in reverse order of declaration. */
     ~EVEProcessor() override;
 
+    /** @brief Suspends processing, stores the sample rate and block size in the process spec, prepares the terminal processor on the context of the virtual device, then resumes processing. */
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
@@ -41,7 +43,18 @@ public:
     const juce::String getProgramName (int index) override;
     void changeProgramName (int index, const juce::String& newName) override;
 
+    /** @brief Flushes the terminal Model to its tree, then writes a copy of the model state to @p destData. */
     void getStateInformation (juce::MemoryBlock& destData) override;
+
+    /**
+     * @brief Restores the model state from host data.
+     *
+     * When the data holds a valid tree, the call suspends processing, joins the terminal Model to the tree,
+     * sets the model state, resumes processing, and prepares again.
+     *
+     * @param data         Bytes that `getStateInformation` wrote.
+     * @param sizeInBytes  Number of bytes.
+     */
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     /** @brief Returns the terminal processor of the plugin. */

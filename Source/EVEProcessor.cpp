@@ -24,6 +24,8 @@ EVEProcessor::EVEProcessor()
     {
         terminalProcessor.onProcessRequest = [this] { device.requestProcess(); };
 
+        terminalProcessor.onBytesReady = [this] { device.clock (0); };
+
         juce::MessageManager::callAsync ([this]
                                          {
                                              auto* holder { juce::StandalonePluginHolder::getInstance() };
@@ -38,10 +40,7 @@ EVEProcessor::EVEProcessor()
 #endif
 }
 
-EVEProcessor::~EVEProcessor()
-{
-    device.stop();
-}
+EVEProcessor::~EVEProcessor() = default;
 
 const juce::String EVEProcessor::getName() const { return JucePlugin_Name; }
 
@@ -102,7 +101,7 @@ void EVEProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     spec.maximumBlockSize = static_cast<juce::uint32> (samplesPerBlock);
     spec.numChannels = static_cast<juce::uint32> (getTotalNumInputChannels());
 
-    terminalProcessor.prepare (spec);
+    terminalProcessor.prepare (spec, device.getContext());
 
     suspendProcessing (false);
 }
@@ -169,6 +168,8 @@ juce::AudioProcessorEditor* EVEProcessor::createEditor()
 
 void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    terminalProcessor.flush();
+
     juce::MemoryOutputStream stream { destData, false };
     model.copyState().writeToStream (stream);
 }
@@ -177,7 +178,10 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto state { juce::ValueTree::readFromData (data, sizeInBytes) }; state.isValid())
     {
+        suspendProcessing (true);
+        terminalProcessor.setState (state);
         model.setState (state);
+        suspendProcessing (false);
         prepare();
     }
 }

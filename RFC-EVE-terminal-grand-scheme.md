@@ -83,6 +83,52 @@ thread. The clock is controllable via a virtual audio device.
 > read or store per call, no loop, no yield (`juce_AbstractFifo.h:319`,
 > `juce_AbstractFifo.cpp:67-140`). Data waits only for two clocks: the
 > `processBlock` period and the `TextEditor` timer.
+>
+> **[AMENDED 2026-10-27 — two state lanes, one tree]** The row *"APVTS +
+> instance PARAM nodes | the terminal state machine"* above is replaced. The
+> terminal state machine was nine APVTS parameters; REAPER listed them as host
+> parameters, and the clock wrote them through `setValueNotifyingHost`, which
+> takes a lock. ARCHITECT: *"using setValueNotifyingHost is smell, this mean
+> we're still using automatable parameters … what i really mean with
+> non-automatable parameter is PARAMETER tree still attached to APVTS but it's
+> not audio parameter, still could be event driven with
+> valueTreePropertyChanged. this like panel component (ui size, oversampler,
+> etc) on JFS"*.
+>
+> | Audio plugin (JFS) | EVE today |
+> |---|---|
+> | APVTS, `parameters.md` (automatable host parameters) | the AudioModel lane: automatable parameters only (`zoom`, `bypass`) |
+> | panel and settings state in the model tree, event driven | the Model lane: `jam::Model`, rows in `model.md`, built by `jam::ModelLayout`, its tree the `terminal` child of the APVTS state |
+>
+> - ARCHITECT on the lanes: *"AudioModel for true audio parameter lane, as
+>   automatable parameter, while Model lane for any event driven state machine
+>   that is non automatable, real time safe on its own thread, guaranteed
+>   thread safe on other thread, always concurrent with atomic, think of it
+>   like reverse direction of APVTS. dont treat it like written on stone"*.
+> - ARCHITECT on the direction: *"IIUC EVE is the other way around,
+>   everything starts at Audio thread, it's processor events that drives how
+>   widget rendered."*
+> - ARCHITECT on the scope: *"we only need to build jam::Model as Terminal
+>   complete state machine, all terminal events including OSC 133 and future
+>   shell integration is jam::Model parameter, still attached to APVTS hence
+>   it's a valid stateInfo that the framework guarantee for instance
+>   serialisation and state preserverance"*.
+> - ARCHITECT on the tables: *"parameters.md always for automatable
+>   parameter, a parameter can host can automate. this is plugin_bootstrap
+>   (that synced identically with KANJUT) contract that JFS use … the most
+>   elegant way is actually BOTH, [1] is the bootstrap, then [2] only call to
+>   build"*.
+> - Precedent: endless — `terminal::Model : jam::Model`, *"reader thread
+>   writes parameters, timer flushes to ValueTree, UI reads ValueTree"*
+>   (`endless/Source/terminal/Model.h:17-28`). ARCHITECT: *"you could learn how
+>   endless manage its terminal state machine … factually raw bytes test beats
+>   all terminal in comparison"*.
+> - The producer writes with `storeValue`: an atomic store and a dirty mark,
+>   no lock, no allocation, no message. EVE flushes the Model at vblank, not on
+>   a timer.
+> - The clock: PTY readiness and the clock run on one serial context, and each
+>   tick is a zero-sample block. The transport law above holds: no lock, no
+>   wait.
 
 ---
 
@@ -566,6 +612,23 @@ getState/setState info with END as host"*.
 >   visible lines, not the history.
 > - Bundled fonts come before the OS in the fallback search. EVE bundles the
 >   Nerd Font symbol face.
+>
+> **[AMENDED 2026-10-27 — the state machine is the Model tree in stateInfo]**
+> The *"State machine → state blob"* item above is now exact: the terminal
+> state machine is a `jam::Model` whose tree is the `terminal` child of the
+> APVTS state. `getStateInformation` flushes the Model, then saves it with
+> `model.copyState()`.
+> - On `setStateInformation`, EVE suspends processing. The terminal Model takes
+>   the restored values (`jam::Model::replaceState`), and its tree replaces the
+>   restored child in the incoming state. Then the APVTS replaces its whole tree
+>   (`juce_AudioProcessorValueTreeState.cpp:396-400`), so one tree remains.
+>   `jam::PluginEditor` owns `onSetState`, so the restore uses no callback.
+> - The record is `jam::TerminalSwap` (index and segment files, a two-slot
+>   live file), not `SwapDocument`.
+> - A row's atom count is its content end. ARCHITECT: *"no second copy of
+>   truth allowed."*
+> - Init, resize and history capacity prepare through `prepareToPlay`.
+>   ARCHITECT: *"make it consistent then"*.
 
 ### 3.10 One raster code, two lanes [ADDED 2026-10-20]
 
@@ -948,6 +1011,26 @@ byte-identical to the original. No surveyed terminal passes this today (§1).
 >   extent… always UNIDIRECTIONAL"*.
 > - The reader-thread rule above now binds `processBlock`, the clock that
 >   drains the bytes.
+
+> **[AMENDED 2026-10-27 — non-negotiables, ARCHITECT verbatim]**
+>
+> - *"no second copy of truth allowed."*
+> - *"parameters.md always for automatable parameter, a parameter can host can
+>   automate."* Terminal state is never a host parameter.
+> - *"using setValueNotifyingHost is smell"* — the clock writes the Model lane
+>   with lock-free stores only.
+> - *"jam::Model … Model lane for any event driven state machine that is non
+>   automatable, real time safe on its own thread, guaranteed thread safe on
+>   other thread, always concurrent with atomic, think of it like reverse
+>   direction of APVTS."* Each parameter has one writer thread.
+> - *"all terminal events including OSC 133 and future shell integration is
+>   jam::Model parameter, still attached to APVTS"* — a new terminal state is a
+>   new `model.md` row, never a new channel.
+> - *"make it consistent then"* — one prepare path, `prepareToPlay`.
+> - One serial context for PTY readiness and the clock; zero-sample ticks;
+>   `spec.maximumBlockSize == tty.readChunkSize`.
+> - *"my rulings must be documented comprehensively, so no more violation how
+>   to design, extend, and scale the ARCHITECTURE and topology"*.
 
 ---
 
