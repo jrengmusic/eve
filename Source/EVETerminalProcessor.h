@@ -14,9 +14,7 @@
  *
  * @par Thread contract
  * `process()` runs on the audio thread. It writes the input lane to the TTY, then decodes the TTY output.
- * `setWinsize()` runs on the message thread. When the cell grid of the model winsize differs from the grid of the buffer,
- * it calls `prepare()` between `suspendProcessing (true)` and `suspendProcessing (false)`, so `process()` does not run during the change.
- * `prepare()` runs on the message thread.
+ * `prepare()` runs on the message thread. `EVEProcessor::prepareToPlay` calls it, and the processor suspends processing around the call.
  */
 class EVETerminalProcessor : public juce::AudioProcessorValueTreeState::Listener,
                              private jam::AsyncUpdater
@@ -24,7 +22,7 @@ class EVETerminalProcessor : public juce::AudioProcessorValueTreeState::Listener
 public:
     /**
      * @brief Sizes the input lane, registers the parameter setters, the events, the user interface getters and the chain events, then listens to the model.
-     * @param processorToUse  Processor that owns this object. The object suspends it while `setWinsize()` prepares.
+     * @param processorToUse  Processor that owns this object. The object reads its wrapper type, and `clear()` suspends it.
      * @param modelToUse      Model that holds the winsize and the parameters. It must outlive this object.
      */
     EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse);
@@ -35,27 +33,21 @@ public:
      * @brief Sizes the input lane and the decode buffers from a process spec, then prepares the buffer, the swap and the TTY from the model winsize.
      *
      * The unnamed parameter is the process spec. Its maximum block size (jassert > 0) sizes the input lane and the buffers of the terminal processor.
-     * The block size and the sample rate for the ring of the buffer come from the processor, not from the spec.
+     * The block size and the sample rate of the spec size the ring of the buffer.
      * The ring of the buffer holds the history rows in transit: one row for each byte of the blocks of one vblank, that is the number of blocks times the block size.
      * The number of blocks is the sample rate divided by the block size and by `jam::VulkanEngine::getRefreshRateHz()`, rounded up, and at least 1.
      *
-     * When the model winsize is valid and the block size of the processor is above zero, the function writes the pending history rows to the swap.
-     * It then prepares the buffer and the swap, resets the screen of the terminal processor, and sets the history capacity of the swap.
-     * When the TTY runs, the TTY takes the new size. Otherwise the function opens the TTY with the shell of the `SHELL` variable and the block size of the processor.
+     * When the model winsize is valid, the function writes the pending history rows to the swap.
+     * It then prepares the buffer and the swap, resets the terminal processor, and sets the history capacity of the swap.
+     * The TTY opens on the first call. Later calls only resize the TTY.
      */
     void prepare (const juce::dsp::ProcessSpec&);
 
     /** @brief Audio thread. Unless bypassed, it writes the input lane to the TTY, then the terminal processor reads and decodes the TTY output until a read returns no byte. Each call of the terminal processor writes the changed live area to the swap. The live area has the row count of the current window size. */
     void process() noexcept;
 
-    /** @brief Prepares again from the model winsize, under `suspendProcessing`. The call prepares the buffer, the swap and the TTY only when the cell grid differs. */
-    void setWinsize();
-
     /** @brief Writes the pending history rows to the swap, then blanks the screen and the saved lines under `suspendProcessing`, and asks for a process. */
     void clear();
-
-    /** @brief Prepares again from the model winsize and the model history capacity, under `suspendProcessing`. */
-    void setHistoryCapacity();
 
     /**
      * @brief Moves the history rows of the buffer into the swap.
@@ -116,12 +108,18 @@ private:
     /** @brief Returns the winsize that the model holds. */
     jam::TerminalWinsize getWinsize() const;
 
-    void prepare (jam::TerminalWinsize winsize, int historyCapacity);
+    /**
+     * @brief Prepares the buffer, the swap and the terminal processor for a winsize, then opens or resizes the TTY.
+     * @param spec             Process spec. Its block size and sample rate size the ring of the buffer.
+     * @param winsize          Grid size in cells and pixels.
+     * @param historyCapacity  Number of history lines that the swap keeps.
+     */
+    void prepare (const juce::dsp::ProcessSpec& spec, jam::TerminalWinsize winsize, int historyCapacity);
 
     /** @brief Returns the TTY of the platform. */
     static std::unique_ptr<jam::TerminalTTY> createTTY();
 
-    juce::AudioProcessor& processor;                  ///< Processor that `setWinsize()` suspends.
+    juce::AudioProcessor& processor;                  ///< Processor that owns this object. The object reads its wrapper type, and `clear()` suspends it.
     jam::AudioModel& model;                           ///< Model that holds the winsize and the parameters.
     std::atomic<bool> isBypassed { false };           ///< Bypass state. `parameterChanged()` writes it, and `process()` reads it.
     jam::Function::Map<juce::String, void> parameters;   ///< Parameter setters, keyed by parameter ID.

@@ -5,7 +5,7 @@ Raw-byte throughput of EVE against other terminals. ARCHITECT measures every run
 ## Method
 
 - Command: `seq 1 N` with N = 1 000 000, 10 000 000 and 100 000 000, timed by the zsh `time` builtin inside each terminal.
-- Build: Release. The EVE runs on 2026-10-26 use `-O3`.
+- Build: Release. The EVE runs on 2026-10-26 use `-O3`. The build of the 2026-10-27 EVE runs was not reported.
 - Runs: one run per terminal and N, consecutive.
 - Columns: `total` is wall-clock time. `cpu` is the CPU share that zsh reports. `user` and `system` are the seconds that the `seq` process uses.
 
@@ -20,7 +20,15 @@ Raw-byte throughput of EVE against other terminals. ARCHITECT measures every run
 +--------------------------+------------+--------------+-----------+---------+---------+----------+---------+----------+
 | WezTerm                  | 2026-10-25 | Sprint 174   | 0.617 s   | 99%     | 6.299 s | 99%      | 1:00.90 | 99%      |
 +--------------------------+------------+--------------+-----------+---------+---------+----------+---------+----------+
+| EVE, screen kept on      | 2026-10-27 | Sprint 176   | 0.607 s   | 98%     | 6.284 s | 98%      | 1:01.20 | 98%      |
+| re-prepare               |            |              |           |         |         |          |         |          |
++--------------------------+------------+--------------+-----------+---------+---------+----------+---------+----------+
+| EVE, one prepareToPlay   | 2026-10-27 | Sprint 176   | 0.614 s   | 99%     | 6.290 s | 98%      | 1:01.59 | 98%      |
+| path                     |            |              |           |         |         |          |         |          |
++--------------------------+------------+--------------+-----------+---------+---------+----------+---------+----------+
 | Ghostty                  | 2026-10-25 | Sprint 174   | 0.642 s   | 99%     | 6.421 s | 99%      | 1:02.08 | 99%      |
++--------------------------+------------+--------------+-----------+---------+---------+----------+---------+----------+
+| EVE, Sprint 175 code     | 2026-10-27 | Sprint 175   | 0.614 s   | 98%     | 6.335 s | 98%      | 1:02.26 | 98%      |
 +--------------------------+------------+--------------+-----------+---------+---------+----------+---------+----------+
 | EVE, no DAP, shell       | 2026-10-26 | eve-max-     | 0.652 s   | 98%     | 6.495 s | 99%      | 1:03.41 | 98%      |
 | integration active       |            | speed        |           |         |         |          |         |          |
@@ -51,7 +59,15 @@ The rows are in order of the 100M total, fastest first.
 +--------------------------------------+---------+----------+----------+--------------------+
 | WezTerm                              | 17.52 s | 43.37 s  | 1:00.90  | +1.3 s             |
 +--------------------------------------+---------+----------+----------+--------------------+
+| EVE, screen kept on re-prepare       | 18.15 s | 42.12 s  | 1:01.20  | +1.6 s             |
+| (2026-10-27)                         |         |          |          |                    |
++--------------------------------------+---------+----------+----------+--------------------+
+| EVE, one prepareToPlay path          | 18.24 s | 42.54 s  | 1:01.59  | +2.0 s             |
+| (2026-10-27)                         |         |          |          |                    |
++--------------------------------------+---------+----------+----------+--------------------+
 | Ghostty                              | 17.64 s | 44.38 s  | 1:02.08  | +2.5 s             |
++--------------------------------------+---------+----------+----------+--------------------+
+| EVE, Sprint 175 code (2026-10-27)    | 18.33 s | 42.72 s  | 1:02.26  | +2.7 s             |
 +--------------------------------------+---------+----------+----------+--------------------+
 | EVE, shell integration active        | 17.55 s | 45.10 s  | 1:03.41  | +3.8 s             |
 | (2026-10-26)                         |         |          |          |                    |
@@ -141,6 +157,30 @@ seq 1 100000000  17.55s user 45.10s system 98% cpu 1:03.41 total
 seq 1 1000000  0.21s user 0.53s system 99% cpu 0.746 total
 seq 1 10000000  2.20s user 5.22s system 99% cpu 7.422 total
 seq 1 100000000  19.57s user 51.89s system 99% cpu 1:11.49 total
+```
+
+### EVE, Sprint 175 code, 2026-10-27
+
+```
+seq 1000000  0.18s user 0.42s system 98% cpu 0.614 total
+seq 10000000  2.00s user 4.23s system 98% cpu 6.335 total
+seq 100000000  18.33s user 42.72s system 98% cpu 1:02.26 total
+```
+
+### EVE, screen kept on re-prepare, 2026-10-27
+
+```
+seq 1 100000000  18.15s user 42.12s system 98% cpu 1:01.20 total
+seq 1 10000000  2.00s user 4.18s system 98% cpu 6.284 total
+seq 1 1000000  0.18s user 0.42s system 98% cpu 0.607 total
+```
+
+### EVE, one prepareToPlay path, 2026-10-27
+
+```
+seq 1 1000000  0.19s user 0.42s system 99% cpu 0.614 total
+seq 1 10000000  1.99s user 4.20s system 98% cpu 6.290 total
+seq 1 100000000  18.24s user 42.54s system 98% cpu 1:01.59 total
 ```
 
 ## Intermediate EVE runs during eve-max-speed

@@ -227,40 +227,33 @@ void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec)
     terminalProcessor.prepare (static_cast<int> (spec.maximumBlockSize));
 
     if (const auto winsize { getWinsize() }; winsize.isValid())
-        prepare (winsize, getHistoryCapacity());
+        prepare (spec, winsize, getHistoryCapacity());
 }
 
-void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCapacity)
+void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::TerminalWinsize winsize, int historyCapacity)
 {
-    if (processor.getBlockSize() > 0)
-    {
-        triggerAsyncUpdate();
-        handleUpdateNowIfNeeded();
+    const auto blockSize { static_cast<int> (spec.maximumBlockSize) };
 
-        const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (processor.getSampleRate() / processor.getBlockSize() / jam::VulkanEngine::getRefreshRateHz()))) };
+    triggerAsyncUpdate();
+    handleUpdateNowIfNeeded();
 
-        terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * processor.getBlockSize());
-        swap.prepare (winsize);
-        terminalProcessor.reset (terminalBuffer);
-        swap.setCapacity (historyCapacity);
+    const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (spec.sampleRate / blockSize / jam::VulkanEngine::getRefreshRateHz()))) };
 
-        if (tty->isRunning())
-        {
-            tty->setWinsize (winsize);
-        }
-        else
-        {
-            const auto shell { juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() }) };
-            const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
-            const auto isIntegrated { isShellIntegrated() };
+    terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * blockSize);
+    swap.prepare (winsize);
+    terminalProcessor.reset (terminalBuffer);
+    swap.setCapacity (historyCapacity);
 
-            if (isIntegrated)
-                addShellScripts (directory);
+    const auto shell { juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() }) };
+    const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
+    const auto isIntegrated { isShellIntegrated() };
 
-            [[maybe_unused]] const auto isOpen { tty->open (processor.getBlockSize(), winsize.toCellRect(), shell, isIntegrated ? getShellArguments (shell, directory) : juce::String {}, getStartDirectory().getFullPathName(), isIntegrated ? getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
-            jassert (isOpen);
-        }
-    }
+    if (isIntegrated)
+        addShellScripts (directory);
+
+    [[maybe_unused]] const auto isOpen { tty->open (blockSize, winsize.toCellRect(), shell, isIntegrated ? getShellArguments (shell, directory) : juce::String {}, getStartDirectory().getFullPathName(), isIntegrated ? getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
+    jassert (isOpen);
+    tty->setWinsize (winsize);
 }
 
 void EVETerminalProcessor::process() noexcept
@@ -279,19 +272,6 @@ void EVETerminalProcessor::process() noexcept
     }
 }
 
-void EVETerminalProcessor::setWinsize()
-{
-    processor.suspendProcessing (true);
-
-    const auto winsize { getWinsize() };
-    const auto bounds { terminalBuffer.getBounds() };
-
-    if (winsize.isValid() and (winsize.cols != bounds.width or winsize.rows != bounds.height))
-        prepare (winsize, getHistoryCapacity());
-
-    processor.suspendProcessing (false);
-}
-
 void EVETerminalProcessor::clear()
 {
     processor.suspendProcessing (true);
@@ -302,14 +282,4 @@ void EVETerminalProcessor::clear()
 
     if (onProcessRequest != nullptr)
         onProcessRequest();
-}
-
-void EVETerminalProcessor::setHistoryCapacity()
-{
-    processor.suspendProcessing (true);
-
-    if (const auto winsize { getWinsize() }; winsize.isValid())
-        prepare (winsize, getHistoryCapacity());
-
-    processor.suspendProcessing (false);
 }

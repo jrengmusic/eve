@@ -17,7 +17,7 @@ EVEProcessor::EVEProcessor()
 #endif// !JucePlugin_PreferredChannelConfigurations
 {
     layout.populateTree (model, layout.getOrCreateSettings());
-    terminalProcessor.setWinsize();
+    prepare();
 
 #if JucePlugin_Build_Standalone
     if (wrapperType == juce::AudioProcessor::wrapperType_Standalone)
@@ -178,7 +178,7 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
     if (auto state { juce::ValueTree::readFromData (data, sizeInBytes) }; state.isValid())
     {
         model.setState (state);
-        terminalProcessor.setWinsize();
+        prepare();
     }
 }
 
@@ -187,19 +187,15 @@ EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept
     return terminalProcessor;
 }
 
-void EVEProcessor::setWinsize()
+void EVEProcessor::prepare()
 {
-    terminalProcessor.setWinsize();
+    if (getBlockSize() > 0)
+        prepareToPlay (getSampleRate(), getBlockSize());
 }
 
 void EVEProcessor::clear()
 {
     terminalProcessor.clear();
-}
-
-void EVEProcessor::setHistoryCapacity()
-{
-    terminalProcessor.setHistoryCapacity();
 }
 
 juce::AudioProcessorParameter* EVEProcessor::getBypassParameter() const
