@@ -14,7 +14,7 @@
  *
  * @par Model lane
  * The object owns a terminal `jam::Model`, `state`. Its tree is the `terminal` child of the APVTS state of the model.
- * `jam::ModelLayout` adds the parameters of the `modelLayout` table to it.
+ * `jam::ModelLayout` adds the parameters of the `model` table in `parametersLayout` to it.
  * On each clock of the terminal processor, the events call `storeValue` on `state`. They store the terminal modes and the cursor.
  * The Model does not run its own timer. The getter in `userInterfaceGetters` flushes it on each vblank, and `flush()` flushes it for the host.
  *
@@ -22,14 +22,15 @@
  * `process()` runs on the audio thread. It writes the input lane to the TTY, then decodes the TTY output.
  * `prepare()` runs on the message thread. `EVEProcessor::prepareToPlay` calls it, and the processor suspends processing around the call.
  */
-class EVETerminalProcessor : private jam::AsyncUpdater
+class EVETerminalProcessor : private jam::AsyncUpdater,
+                             private juce::ValueTree::Listener
 {
 public:
     /**
      * @brief Builds the Model lane, registers the events, the user interface getters and the chain events, then forwards the TTY readiness to `onBytesReady`.
      *
      * The constructor binds `bypass` to the atomic of the bypass parameter in the model.
-     * It builds `state` on the `terminal` child of the model state, stops the timer of `state`, and adds the parameters of the `modelLayout` table to it.
+     * It builds `state` on the `terminal` child of the model state, stops the timer of `state`, and adds the parameters of the `model` table in `parametersLayout` to it.
      *
      * @param processorToUse  Processor that owns this object. The object reads its wrapper type, and `clear()` suspends it.
      * @param modelToUse      Model that holds the winsize, the bypass parameter and the history capacity. It must outlive this object.
@@ -86,12 +87,30 @@ public:
     /** @brief Takes the message manager lock, then flushes the Model lane to its tree. */
     void flush();
 
+#if JAM_USING_PROFILER
+    /**
+     * @brief Returns the manifest file of a profile build.
+     * @return File that the first command-line argument names, resolved against the working folder.
+     */
+    static juce::File getManifestFile();
+#endif
+
     jam::ViewManager::Getters userInterfaceGetters;     ///< Getters for the view. The constructor adds the text editor getter. It writes the pending input, asks for the pending history rows, flushes the Model lane, then writes a pointer to the swap into its output argument.
     jam::ViewManager::Events chainEvents;               ///< Events of the chain. The constructor adds the `terminalInput` event. It appends its bytes to the pending input, then writes the bytes that the input lane has room for.
 
 private:
     /** @brief Writes the pending history rows to the swap, and asks for a process when it wrote a line. */
     void handleAsyncUpdate() override;
+
+    /**
+     * @brief Quits the application when the shell exits.
+     *
+     * The call quits when @p property is `shellExited` and its flushed value is true.
+     *
+     * @param tree      Tree that changed.
+     * @param property  Property that changed.
+     */
+    void valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
 
     /** @brief Adds the event setters that copy the terminal state to the Model lane. Each setter calls `storeValue` on `state`. The mode events store a bool as 0 or 1, and `mouseTracking` and `cursor` store an int. */
     void registerEvents();
@@ -107,16 +126,6 @@ private:
 
     int getHistoryCapacity() const;
 
-    bool isShellIntegrated() const;
-
-    juce::File getStartDirectory() const;
-
-    static void addShellScripts (const juce::File& directory);
-
-    static juce::StringPairArray getShellEnvironment (const juce::String& shell, const juce::File& directory);
-
-    static juce::String getShellArguments (const juce::String& shell, const juce::File& directory);
-
     /** @brief Returns the winsize that the model holds. */
     jam::TerminalWinsize getWinsize() const;
 
@@ -128,6 +137,20 @@ private:
      * @param context          Serial context that the TTY receives in `open()`.
      */
     void prepare (const juce::dsp::ProcessSpec& spec, jam::TerminalWinsize winsize, int historyCapacity, jam::AsyncUpdater::Context context);
+
+    /**
+     * @brief Opens the TTY.
+     *
+     * In a profile standalone build, the shell and its arguments come from the `profiler` table of the manifest.
+     * The manifest is the first command-line argument. The working folder is the folder of the manifest.
+     * The call also registers this object as the listener of `state`, so `valueTreePropertyChanged` sees the exit of the shell.
+     * In other builds, the shell is the user shell. With shell integration on, the call also adds the integration scripts and passes their arguments and environment.
+     *
+     * @param blockSize  Maximum block size of the TTY, in bytes.
+     * @param winsize    Initial window size.
+     * @param context    Serial context that the TTY receives in `open()`.
+     */
+    void openTTY (int blockSize, jam::TerminalWinsize winsize, jam::AsyncUpdater::Context context);
 
     /** @brief Returns the TTY of the platform. */
     static std::unique_ptr<jam::TerminalTTY> createTTY();
@@ -145,7 +168,7 @@ private:
     static constexpr bool shouldUseInlineImages { true };   ///< Whether the engine presents image placements as inline images.
 
     jam::TerminalBuffer terminalBuffer { shouldUseInlineImages };     ///< Row grid that the terminal processor writes. Its ring holds the history rows until `writePendingData()` moves them.
-    jam::TerminalSwap swap;                           ///< Store of the history lines, the live area and the true colours. The view reads it.
+    jam::TerminalSwap swap;                           ///< Store of the history lines and the live area. The view reads it.
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVETerminalProcessor)
 };

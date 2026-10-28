@@ -33,7 +33,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
                 auto* textEditor { static_cast<jam::TextEditor*> (component) };
                 auto& callbacks { chainEvents->at (juce::Identifier { eventName }) };
-                const auto terminal { model.state.getChildWithName (Id::toType (Id::terminal)) };
+                auto terminal { model.state.getChildWithName (Id::toType (Id::terminal)) };
 
                 textEditor->onKeyPress = [&callbacks, applicationCursor = terminal.getPropertyAsValue (Id::applicationCursor, nullptr)] (const juce::KeyPress& key)
                 {

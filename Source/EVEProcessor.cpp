@@ -16,7 +16,14 @@ EVEProcessor::EVEProcessor()
       )
 #endif// !JucePlugin_PreferredChannelConfigurations
 {
-    layout.populateTree (model, layout.getOrCreateSettings());
+#if JAM_USING_PROFILER
+    profiler.prepare (jam::Profiler::defaultCapacity);
+#endif
+
+    const auto settings { layout.getOrCreateSettings() };
+
+    layout.populateTree (model, settings);
+    styleManager.create (layout.fonts, settings);
     prepare();
 
 #if JucePlugin_Build_Standalone
@@ -24,7 +31,13 @@ EVEProcessor::EVEProcessor()
     {
         terminalProcessor.onProcessRequest = [this] { device.requestProcess(); };
 
-        terminalProcessor.onBytesReady = [this] { device.clock (0); };
+        terminalProcessor.onBytesReady = [this]
+                                         {
+#if JAM_USING_PROFILER
+                                             const jam::Profiler::Zone zone { Id::deviceClock };
+#endif
+                                             device.clock (0);
+                                         };
 
         juce::MessageManager::callAsync ([this]
                                          {
@@ -40,7 +53,19 @@ EVEProcessor::EVEProcessor()
 #endif
 }
 
-EVEProcessor::~EVEProcessor() = default;
+EVEProcessor::~EVEProcessor()
+{
+#if JAM_USING_PROFILER
+    if (wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+    {
+        const auto manifestFile { EVETerminalProcessor::getManifestFile() };
+
+        device.stop();
+        profiler.drain();
+        profiler.writeSamples (manifestFile, Id::toType (juce::Identifier { ProjectInfo::projectName }));
+    }
+#endif
+}
 
 const juce::String EVEProcessor::getName() const { return JucePlugin_Name; }
 

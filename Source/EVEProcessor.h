@@ -9,7 +9,13 @@ class EVEProcessor
 {
 public:
     EVEProcessor();
-    /** @brief Defaulted. The members release themselves in reverse order of declaration. */
+    /**
+     * @brief Writes the profiler samples in a profile standalone build. The members then release themselves in reverse order of declaration.
+     *
+     * In a profile standalone build, the destructor stops the virtual device and drains the profiler.
+     * It then writes the samples file that the manifest names. The manifest is the first command-line argument.
+     * In other builds, the destructor does nothing else.
+     */
     ~EVEProcessor() override;
 
     /** @brief Suspends processing, stores the sample rate and block size in the process spec, prepares the terminal processor on the context of the virtual device, then resumes processing. */
@@ -82,6 +88,12 @@ private:
     jam::ParameterManager parameterManager { files::markdownSettingsDirectory, files::markdownSettingsFileName, &jam::SettingsDocument<jam::ConfigDocument>::getSettingsValue, &jam::SettingsDocument<jam::ConfigDocument>::setSettingsValue };
 
     jam::AudioModel model { parameterManager, *this, jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
+
+    jam::SharedInstance<jam::StyleManager> styleManager;
+
+#if JAM_USING_PROFILER
+    jam::Profiler profiler;
+#endif
 
     jam::VirtualDevice device { jam::VirtualDeviceType::virtualDeviceTypeName, jam::VirtualDeviceType::virtualDeviceTypeName };
 

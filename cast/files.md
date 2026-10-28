@@ -26,7 +26,7 @@ resolved against the binary-data / asset search path at load time.
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+
 | @string | parameters layout             | toCamel | parameters.md              | toLiteral | Parameter descriptor tables.                        |
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+
-| @string | model layout                  | toCamel | model.md                   | toLiteral | Terminal state machine table, the Model lane.       |
+| @string | profile report                | toCamel | profile.md                 | toLiteral | Profile report, written on quit by a profile build. |
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+
 | @string | markdown settings directory   | toCamel | .config/end                | toLiteral | User settings directory, relative to home.          |
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+

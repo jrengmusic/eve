@@ -245,6 +245,7 @@ juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_pdf")              # Cle
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_mermaid_diagram")  # Clean-room native mermaid diagram parsing over jam::Document producing the semantic Element tree
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_markdown_graphics")# Markdown and mermaid materialisation, layout and view component
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_terminal")         # VT read-side engine, TTY, protocol
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_profiler")         # Profiler zones — per-thread rings drained to durations per zone
 
 message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 
@@ -284,6 +285,10 @@ target_sources(${PROJECT_NAME} PRIVATE
     Source/EVEProcessor.cpp          # juce::AudioProcessor plugin entry, state serialization, createPluginFilter
     Source/EVETerminalProcessor.h    # Terminal processor class declaration
     Source/EVETerminalProcessor.cpp  # Terminal processor chain: harness load, engine ring, history and live lanes
+    Source/TerminalMemoryTTY.h       # Replay TTY class declaration
+    Source/TerminalMemoryTTY.cpp     # Replay TTY: records the shell output, then replays it from memory
+    Source/ShellIntegration.h        # Shell integration class declaration
+    Source/ShellIntegration.cpp      # Shell integration: scripts, start directory, shell arguments, environment
     Source/EVEView.h                 # Plugin editor class declaration, jam::PluginEditor
     Source/EVEView.cpp               # Plugin editor — theme, component registry and view construction
     Source/EVEViewRegistration.cpp   # Plugin editor button registration and dialog config
@@ -333,6 +338,8 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
     "$<$<PLATFORM_ID:Windows>:JUCE_CORE_INCLUDE_NATIVE_HEADERS=1>"       # Native platform headers in juce_core
     "$<$<PLATFORM_ID:Windows>:JUCE_GRAPHICS_INCLUDE_DIRECT2D_HELPERS=1>" # Direct2D helper visibility, from the JAM patch
     "$<$<PLATFORM_ID:Windows>:JUCE_CORE_INCLUDE_COM_SMART_PTR=1>"        # Windows COM smart pointer helpers
+    "$<$<BOOL:${CAST_PROFILE}>:JAM_USING_PROFILER=1>"                    # Profiler zones, profile builds only
+    "$<$<BOOL:${CAST_REPLAY}>:EVE_USING_REPLAY=1>"                       # Replay TTY, replay builds only
 )
 
 # ==============================================================================
@@ -380,6 +387,7 @@ target_link_libraries(${PROJECT_NAME}
         jam_mermaid_diagram
         jam_markdown_graphics
         jam_terminal
+        jam_profiler
     PUBLIC
         juce::juce_recommended_config_flags
 )

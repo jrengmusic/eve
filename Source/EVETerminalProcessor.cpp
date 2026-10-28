@@ -1,4 +1,6 @@
 #include "EVETerminalProcessor.h"
+#include "TerminalMemoryTTY.h"
+#include "ShellIntegration.h"
 
 static constexpr std::string_view shellVariable { "SHELL" };
 #if JUCE_WINDOWS
@@ -6,11 +8,6 @@ static constexpr std::string_view defaultShell { "powershell.exe" };
 #else
 static constexpr std::string_view defaultShell { "/bin/zsh" };
 #endif
-static constexpr std::string_view zshDirectory { "zsh" };
-static constexpr std::string_view zshIntegrationFile { "eve-integration" };
-static constexpr std::string_view zshEnvironmentFile { ".zshenv" };
-static constexpr std::string_view bashIntegrationFile { "bash_integration.bash" };
-static constexpr std::string_view powershellIntegrationFile { "powershell_integration.ps1" };
 
 EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse)
     : processor (processorToUse),
@@ -19,7 +16,7 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
       state (model.state.getOrCreateChildWithName (Id::toType (Id::terminal), nullptr))
 {
     state.stopTimer();
-    jam::ModelLayout::addParameters (state, jam::MarkdownDocument::getOrCreate (juce::Identifier { files::modelLayout }));
+    jam::ModelLayout::addParameters (state, jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }));
     registerEvents();
     registerUserInterfaceGetters();
     registerChainEvents();
@@ -28,8 +25,22 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
 
 EVETerminalProcessor::~EVETerminalProcessor()
 {
+    state.removeListener (this);
     cancelPendingUpdate();
 }
+
+void EVETerminalProcessor::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
+{
+    if (property == Id::shellExited and static_cast<bool> (tree.getProperty (property)))
+        juce::JUCEApplicationBase::quit();
+}
+
+#if JAM_USING_PROFILER
+juce::File EVETerminalProcessor::getManifestFile()
+{
+    return juce::File::getCurrentWorkingDirectory().getChildFile (juce::JUCEApplicationBase::getCommandLineParameterArray().getReference (0));
+}
+#endif
 
 void EVETerminalProcessor::setState (juce::ValueTree newState)
 {
@@ -55,15 +66,21 @@ void EVETerminalProcessor::flush()
 std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY()
 {
 #if JUCE_WINDOWS
-    return std::make_unique<jam::TerminalWindowsTTY> (juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory());
+    std::unique_ptr<jam::TerminalTTY> platformTTY { std::make_unique<jam::TerminalWindowsTTY> (juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory()) };
 #else
-    return std::make_unique<jam::TerminalUnixTTY>();
+    std::unique_ptr<jam::TerminalTTY> platformTTY { std::make_unique<jam::TerminalUnixTTY>() };
+#endif
+
+#if EVE_USING_REPLAY
+    return std::make_unique<TerminalMemoryTTY> (std::move (platformTTY));
+#else
+    return platformTTY;
 #endif
 }
 
 void EVETerminalProcessor::registerEvents()
 {
-    for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording })
+    for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited })
         events.add<bool> (id, [this, id, tag = Id::toType (Id::terminal)] (bool value) { state.storeValue (tag, id, static_cast<int> (value)); });
 
     for (const auto& id : { Id::mouseTracking, Id::cursor })
@@ -82,6 +99,12 @@ void EVETerminalProcessor::registerUserInterfaceGetters()
                                                                                                             juce::ignoreUnused (writePendingData());
 
                                                                                                         state.flush();
+
+#if JAM_USING_PROFILER
+                                                                                                        if (auto* profiler { jam::Profiler::getInstance() })
+                                                                                                            profiler->drain();
+#endif
+
                                                                                                         output = &swap;
 
                                                                                                         if (onProcessRequest != nullptr)
@@ -126,94 +149,6 @@ int EVETerminalProcessor::getHistoryCapacity() const
     return static_cast<int> (jam::Model::getChildWithID (model.state, Id::toTag (Id::historyCapacity)).getProperty (Id::value));
 }
 
-bool EVETerminalProcessor::isShellIntegrated() const
-{
-    const auto text { jam::ParameterManager::getInstance()->getDefaultValueForSettings (Id::toTag (Id::shellIntegration), Id::tokenTrue.toString()) };
-
-    return juce::Identifier { text } == Id::tokenTrue;
-}
-
-juce::File EVETerminalProcessor::getStartDirectory() const
-{
-    return juce::File { jam::ParameterManager::getInstance()->getDefaultValueForSettings (Id::toTag (Id::startDirectory), "~") };
-}
-
-void EVETerminalProcessor::addShellScripts (const juce::File& directory)
-{
-    const auto zshFolder { directory.getChildFile (juce::String { zshDirectory.data() }) };
-    const BinaryData::Raw zshEnvironment { files::zshEnvironment };
-    const BinaryData::Raw zshIntegration { files::zshIntegration };
-    const BinaryData::Raw bashIntegration { files::bashIntegration };
-    const BinaryData::Raw powershellIntegration { files::powershellIntegration };
-
-    directory.createDirectory();
-    zshFolder.createDirectory();
-    zshFolder.getChildFile (juce::String { zshEnvironmentFile.data() }).replaceWithData (zshEnvironment.data, static_cast<size_t> (zshEnvironment.size));
-    zshFolder.getChildFile (juce::String { zshIntegrationFile.data() }).replaceWithData (zshIntegration.data, static_cast<size_t> (zshIntegration.size));
-    directory.getChildFile (juce::String { bashIntegrationFile.data() }).replaceWithData (bashIntegration.data, static_cast<size_t> (bashIntegration.size));
-    directory.getChildFile (juce::String { powershellIntegrationFile.data() }).replaceWithData (powershellIntegration.data, static_cast<size_t> (powershellIntegration.size));
-}
-
-juce::StringPairArray EVETerminalProcessor::getShellEnvironment (const juce::String& shell, const juce::File& directory)
-{
-    static const jam::Function::Map<juce::String, juce::StringPairArray> shellEnvironments { [] {
-        jam::Function::Map<juce::String, juce::StringPairArray> table;
-
-        table.add<const juce::File&> ("zsh",
-            [] (const juce::File& directory)
-            {
-                juce::StringPairArray environment;
-                const auto parentZdotdir { juce::SystemStats::getEnvironmentVariable ("ZDOTDIR", {}) };
-
-                if (parentZdotdir.isNotEmpty())
-                    environment.set ("EVE_ORIG_ZDOTDIR", parentZdotdir);
-
-                environment.set ("ZDOTDIR", directory.getChildFile (juce::String { zshDirectory.data() }).getFullPathName());
-                return environment;
-            });
-        table.add<const juce::File&> ("bash",
-            [] (const juce::File& directory)
-            {
-                juce::StringPairArray environment;
-
-                environment.set ("ENV", directory.getChildFile (juce::String { bashIntegrationFile.data() }).getFullPathName());
-                environment.set ("EVE_BASH_INJECT", "1");
-                environment.set ("EVE_BASH_UNEXPORT_HISTFILE", "1");
-                return environment;
-            });
-        return table;
-    }() };
-
-    const auto key { juce::File (shell).getFileNameWithoutExtension() };
-
-    auto environment { shellEnvironments.contains (key) ? shellEnvironments.get (key, directory) : juce::StringPairArray {} };
-
-    environment.set ("CHERE_INVOKING", "1");
-    return environment;
-}
-
-juce::String EVETerminalProcessor::getShellArguments (const juce::String& shell, const juce::File& directory)
-{
-    static const jam::Function::Map<juce::String, juce::String> shellArguments { [] {
-        jam::Function::Map<juce::String, juce::String> table;
-        const auto getPowershellArguments { [] (const juce::File& directory)
-                                         {
-                                             return "-NoLogo -NoProfile -NoExit -Command \". '" + directory.getChildFile (juce::String { powershellIntegrationFile.data() }).getFullPathName() + "'\"";
-                                         } };
-
-        table.add<const juce::File&> ("bash", [] (const juce::File&) { return juce::String { "--posix" }; });
-        table.add<const juce::File&> ("powershell", getPowershellArguments);
-        table.add<const juce::File&> ("pwsh", getPowershellArguments);
-        return table;
-    }() };
-
-    const auto key { juce::File (shell).getFileNameWithoutExtension() };
-
-    if (shellArguments.contains (key)) return shellArguments.get (key, directory);
-
-    return {};
-}
-
 jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
 {
     return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getOrCreateComponentProperty (Id::toTag (Id::winsize), Id::value).getValue()));
@@ -230,6 +165,34 @@ void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::Asy
         prepare (spec, winsize, getHistoryCapacity(), context);
 }
 
+void EVETerminalProcessor::openTTY (int blockSize, jam::TerminalWinsize winsize, jam::AsyncUpdater::Context context)
+{
+#if JAM_USING_PROFILER
+    if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+    {
+        const auto manifestFile { getManifestFile() };
+        const auto manifest { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest) };
+        const auto profilerTable { manifest.getChildWithName (Id::toType (Id::profiler)) };
+
+        [[maybe_unused]] const auto isOpen { tty->open (context, blockSize, winsize.toCellRect(), profilerTable[Id::shell].toString(), profilerTable[Id::args].toString(), manifestFile.getParentDirectory().getFullPathName()) };
+        jassert (isOpen);
+        state.addListener (this);
+    }
+    else
+#endif
+    {
+        const auto shell { juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() }) };
+        const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
+        const auto isIntegrated { ShellIntegration::isShellIntegrated() };
+
+        if (isIntegrated)
+            ShellIntegration::addShellScripts (directory);
+
+        [[maybe_unused]] const auto isOpen { tty->open (context, blockSize, winsize.toCellRect(), shell, isIntegrated ? ShellIntegration::getShellArguments (shell, directory) : juce::String {}, ShellIntegration::getStartDirectory().getFullPathName(), isIntegrated ? ShellIntegration::getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
+        jassert (isOpen);
+    }
+}
+
 void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::TerminalWinsize winsize, int historyCapacity, jam::AsyncUpdater::Context context)
 {
     const auto blockSize { static_cast<int> (spec.maximumBlockSize) };
@@ -244,15 +207,7 @@ void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::Ter
     terminalProcessor.reset (terminalBuffer);
     swap.setCapacity (historyCapacity);
 
-    const auto shell { juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() }) };
-    const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
-    const auto isIntegrated { isShellIntegrated() };
-
-    if (isIntegrated)
-        addShellScripts (directory);
-
-    [[maybe_unused]] const auto isOpen { tty->open (context, blockSize, winsize.toCellRect(), shell, isIntegrated ? getShellArguments (shell, directory) : juce::String {}, getStartDirectory().getFullPathName(), isIntegrated ? getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
-    jassert (isOpen);
+    openTTY (blockSize, winsize, context);
     tty->setWinsize (winsize);
 }
 
@@ -262,13 +217,7 @@ void EVETerminalProcessor::process() noexcept
     {
         input.writePendingData (*tty);
 
-        bool isReading { false };
-
-        do
-        {
-            isReading = terminalProcessor.process (*tty, terminalBuffer, swap, events);
-        }
-        while (isReading);
+        while (terminalProcessor.process (*tty, terminalBuffer, swap, *jam::Colours::getInstance(), events)) {}
     }
 }
 

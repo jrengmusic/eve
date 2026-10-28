@@ -27,11 +27,15 @@ namespace Id
 
 /** @brief Product identifier and name-string vocabulary — branding, buttons, view component types, and images — not already carried by jam. */
 
+extern const juce::Identifier args;
 extern const juce::Identifier button;
 extern const juce::Identifier colorMode;
+extern const juce::Identifier deviceClock;
 extern const juce::Identifier down;
 extern const juce::Identifier historyCapacity;
+extern const juce::Identifier profiler;
 extern const juce::Identifier selector;
+extern const juce::Identifier shell;
 extern const juce::Identifier shellIntegration;
 extern const juce::Identifier startDirectory;
 extern const juce::Identifier terminalInput;
