@@ -12,14 +12,23 @@ public:
     /**
      * @brief Writes the profiler samples in a profile standalone build. The members then release themselves in reverse order of declaration.
      *
-     * In a profile standalone build, the destructor stops the virtual device and drains the profiler.
+     * In a profile standalone build, the destructor drains the profiler.
      * It then writes the samples file that the manifest names. The manifest is the first command-line argument.
      * In other builds, the destructor does nothing else.
      */
     ~EVEProcessor() override;
 
-    /** @brief Suspends processing, stores the sample rate and block size in the process spec, prepares the terminal processor on the context of the virtual device, then resumes processing. */
+    /**
+     * @brief Tells the terminal processor to prepare, which starts its clock.
+     *
+     * The terminal chain does not use the sample rate and the block size.
+     *
+     * @param sampleRate       Sample rate of the host. The call does not use it.
+     * @param samplesPerBlock  Block size of the host. The call does not use it.
+     */
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
+
+    /** @brief Tells the terminal processor to stop its clock. */
     void releaseResources() override;
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -55,8 +64,9 @@ public:
     /**
      * @brief Restores the model state from host data.
      *
-     * When the data holds a valid tree, the call suspends processing, joins the terminal Model to the tree,
-     * sets the model state, resumes processing, and prepares again.
+     * When the data holds a valid tree, the call restores the state inside `terminalProcessor.restart`.
+     * The clock is stopped while the terminal Model and the APVTS take the restored tree.
+     * The clock then starts again when it ran before.
      *
      * @param data         Bytes that `getStateInformation` wrote.
      * @param sizeInBytes  Number of bytes.
@@ -66,8 +76,8 @@ public:
     /** @brief Returns the terminal processor of the plugin. */
     EVETerminalProcessor& getTerminalProcessor() noexcept;
 
-    /** @brief Calls `prepareToPlay` with the current sample rate and block size when a block size exists, so the terminal processor prepares again. */
-    void prepare();
+    /** @brief Tells the terminal processor to restart its clock. */
+    void restart();
 
     /** @brief Tells the terminal processor to clear. */
     void clear();
@@ -83,11 +93,24 @@ private:
 #endif
     Generated generated;
 
-    jam::PluginEditorLayout layout { jam::PluginEditorLayout::create<jam::SettingsDocument<jam::ConfigDocument>> (BinaryData::fetcher, files::viewLayout, files::viewLayout) };
+    jam::PluginEditorLayout layout {
+        jam::PluginEditorLayout::create<jam::SettingsDocument<jam::ConfigDocument>> (
+            BinaryData::fetcher,
+            files::viewLayout,
+            files::viewLayout)
+    };
 
-    jam::ParameterManager parameterManager { files::markdownSettingsDirectory, files::markdownSettingsFileName, &jam::SettingsDocument<jam::ConfigDocument>::getSettingsValue, &jam::SettingsDocument<jam::ConfigDocument>::setSettingsValue };
+    jam::ParameterManager parameterManager {
+        files::markdownSettingsDirectory,
+        files::markdownSettingsFileName,
+        &jam::SettingsDocument<jam::ConfigDocument>::getSettingsValue,
+        &jam::SettingsDocument<jam::ConfigDocument>::setSettingsValue
+    };
 
-    jam::AudioModel model { parameterManager, *this, jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
+    jam::AudioModel model { parameterManager,
+                            *this,
+                            jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (
+                                juce::Identifier { files::parametersLayout })) };
 
     jam::SharedInstance<jam::StyleManager> styleManager;
 
@@ -95,11 +118,8 @@ private:
     jam::Profiler profiler;
 #endif
 
-    jam::VirtualDevice device { jam::VirtualDeviceType::virtualDeviceTypeName, jam::VirtualDeviceType::virtualDeviceTypeName };
-
     EVETerminalProcessor terminalProcessor { *this, model };
 
-    juce::dsp::ProcessSpec spec;
-
+    //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEProcessor)
 };

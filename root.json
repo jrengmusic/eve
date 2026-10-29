@@ -1,0 +1,386 @@
+[
+  {
+    "name": ".clang-format",
+    "path": ".clang-format",
+    "sha": "07200f83cdbde9cd76a45bc5f6cac716c578ab78",
+    "size": 739,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/.clang-format?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/blob/main/.clang-format",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/blobs/07200f83cdbde9cd76a45bc5f6cac716c578ab78",
+    "download_url": "https://raw.githubusercontent.com/apple-oss-distributions/dyld/main/.clang-format",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/.clang-format?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/blobs/07200f83cdbde9cd76a45bc5f6cac716c578ab78",
+      "html": "https://github.com/apple-oss-distributions/dyld/blob/main/.clang-format"
+    }
+  },
+  {
+    "name": "APPLE_LICENSE",
+    "path": "APPLE_LICENSE",
+    "sha": "fe81a60cae982c042a69f97623b427666c455093",
+    "size": 19829,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/APPLE_LICENSE?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/blob/main/APPLE_LICENSE",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/blobs/fe81a60cae982c042a69f97623b427666c455093",
+    "download_url": "https://raw.githubusercontent.com/apple-oss-distributions/dyld/main/APPLE_LICENSE",
+    "type": "file",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/APPLE_LICENSE?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/blobs/fe81a60cae982c042a69f97623b427666c455093",
+      "html": "https://github.com/apple-oss-distributions/dyld/blob/main/APPLE_LICENSE"
+    }
+  },
+  {
+    "name": "bin",
+    "path": "bin",
+    "sha": "11296087cc15e4be515d318cf9b0aa1b937b5d8c",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/bin?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/bin",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/11296087cc15e4be515d318cf9b0aa1b937b5d8c",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/bin?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/11296087cc15e4be515d318cf9b0aa1b937b5d8c",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/bin"
+    }
+  },
+  {
+    "name": "build-scripts",
+    "path": "build-scripts",
+    "sha": "389b10af8f42de560ecad764e9d6fa09d57fe3a1",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/build-scripts?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/build-scripts",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/389b10af8f42de560ecad764e9d6fa09d57fe3a1",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/build-scripts?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/389b10af8f42de560ecad764e9d6fa09d57fe3a1",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/build-scripts"
+    }
+  },
+  {
+    "name": "cache_builder",
+    "path": "cache_builder",
+    "sha": "a9c017d2f73e2546f99bf8a8ec5936c0987670fa",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/cache_builder?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/cache_builder",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/a9c017d2f73e2546f99bf8a8ec5936c0987670fa",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/cache_builder?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/a9c017d2f73e2546f99bf8a8ec5936c0987670fa",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/cache_builder"
+    }
+  },
+  {
+    "name": "common",
+    "path": "common",
+    "sha": "bb039ee9a83d48f0da8fe6669d5904f641cb6bbf",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/common?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/common",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/bb039ee9a83d48f0da8fe6669d5904f641cb6bbf",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/common?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/bb039ee9a83d48f0da8fe6669d5904f641cb6bbf",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/common"
+    }
+  },
+  {
+    "name": "configs",
+    "path": "configs",
+    "sha": "01793730ad2ca6b19bb27202dceafd78ad8e4a46",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/configs?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/configs",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/01793730ad2ca6b19bb27202dceafd78ad8e4a46",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/configs?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/01793730ad2ca6b19bb27202dceafd78ad8e4a46",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/configs"
+    }
+  },
+  {
+    "name": "doc",
+    "path": "doc",
+    "sha": "d22320b8cd483c2cbf0cc5a14fbf09da83577e2a",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/doc?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/doc",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/d22320b8cd483c2cbf0cc5a14fbf09da83577e2a",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/doc?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/d22320b8cd483c2cbf0cc5a14fbf09da83577e2a",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/doc"
+    }
+  },
+  {
+    "name": "dyld-vfs-overlay",
+    "path": "dyld-vfs-overlay",
+    "sha": "eccac3b99d551d48ee10a6a7a50099d016dfcba9",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/dyld-vfs-overlay?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/dyld-vfs-overlay",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/eccac3b99d551d48ee10a6a7a50099d016dfcba9",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/dyld-vfs-overlay?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/eccac3b99d551d48ee10a6a7a50099d016dfcba9",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/dyld-vfs-overlay"
+    }
+  },
+  {
+    "name": "dyld.xcodeproj",
+    "path": "dyld.xcodeproj",
+    "sha": "5e68bedcf487b39c76ac421951b83a97dae65989",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/dyld.xcodeproj?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/dyld.xcodeproj",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/5e68bedcf487b39c76ac421951b83a97dae65989",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/dyld.xcodeproj?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/5e68bedcf487b39c76ac421951b83a97dae65989",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/dyld.xcodeproj"
+    }
+  },
+  {
+    "name": "dyld",
+    "path": "dyld",
+    "sha": "549134e90d45c85999be2af9b3803a5637ee2454",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/dyld?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/dyld",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/549134e90d45c85999be2af9b3803a5637ee2454",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/dyld?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/549134e90d45c85999be2af9b3803a5637ee2454",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/dyld"
+    }
+  },
+  {
+    "name": "framework",
+    "path": "framework",
+    "sha": "a1a127547e910cf239c00ceb776e876f982ed74c",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/framework?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/framework",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/a1a127547e910cf239c00ceb776e876f982ed74c",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/framework?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/a1a127547e910cf239c00ceb776e876f982ed74c",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/framework"
+    }
+  },
+  {
+    "name": "include",
+    "path": "include",
+    "sha": "3e00c905cdb6c4451da89e0e81994cf4e004ff97",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/include?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/include",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/3e00c905cdb6c4451da89e0e81994cf4e004ff97",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/include?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/3e00c905cdb6c4451da89e0e81994cf4e004ff97",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/include"
+    }
+  },
+  {
+    "name": "kernel-collection-builder",
+    "path": "kernel-collection-builder",
+    "sha": "e73f7e404ac5e3773ed715f9b7aefa69ebb27cb2",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/kernel-collection-builder?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/kernel-collection-builder",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/e73f7e404ac5e3773ed715f9b7aefa69ebb27cb2",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/kernel-collection-builder?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/e73f7e404ac5e3773ed715f9b7aefa69ebb27cb2",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/kernel-collection-builder"
+    }
+  },
+  {
+    "name": "libdyld",
+    "path": "libdyld",
+    "sha": "337af1fdee96b2818dd38964d844311d79899b89",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/libdyld?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/libdyld",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/337af1fdee96b2818dd38964d844311d79899b89",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/libdyld?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/337af1fdee96b2818dd38964d844311d79899b89",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/libdyld"
+    }
+  },
+  {
+    "name": "libdyld_introspection",
+    "path": "libdyld_introspection",
+    "sha": "d8b2b4b252249f93ec75d1d2e929f744ffa6b85a",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/libdyld_introspection?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/libdyld_introspection",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/d8b2b4b252249f93ec75d1d2e929f744ffa6b85a",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/libdyld_introspection?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/d8b2b4b252249f93ec75d1d2e929f744ffa6b85a",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/libdyld_introspection"
+    }
+  },
+  {
+    "name": "lldb",
+    "path": "lldb",
+    "sha": "2956d8e970b0cc2b14d698332a9783498dedf83e",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/lldb?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/lldb",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/2956d8e970b0cc2b14d698332a9783498dedf83e",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/lldb?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/2956d8e970b0cc2b14d698332a9783498dedf83e",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/lldb"
+    }
+  },
+  {
+    "name": "lsl",
+    "path": "lsl",
+    "sha": "c3142b540a9689c10ccdf4ba5e235270783e4e05",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/lsl?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/lsl",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/c3142b540a9689c10ccdf4ba5e235270783e4e05",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/lsl?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/c3142b540a9689c10ccdf4ba5e235270783e4e05",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/lsl"
+    }
+  },
+  {
+    "name": "mach_o",
+    "path": "mach_o",
+    "sha": "50d246683734d9ec852519d05e6c4d3383675b44",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/mach_o?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/mach_o",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/50d246683734d9ec852519d05e6c4d3383675b44",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/mach_o?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/50d246683734d9ec852519d05e6c4d3383675b44",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/mach_o"
+    }
+  },
+  {
+    "name": "mach_o_writer",
+    "path": "mach_o_writer",
+    "sha": "48b299e494070bc111427565bf16c27ad3aaa2f3",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/mach_o_writer?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/mach_o_writer",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/48b299e494070bc111427565bf16c27ad3aaa2f3",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/mach_o_writer?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/48b299e494070bc111427565bf16c27ad3aaa2f3",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/mach_o_writer"
+    }
+  },
+  {
+    "name": "other-tools",
+    "path": "other-tools",
+    "sha": "d91f4e44807eb66fa9cb126cae7c586a68a15126",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/other-tools?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/other-tools",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/d91f4e44807eb66fa9cb126cae7c586a68a15126",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/other-tools?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/d91f4e44807eb66fa9cb126cae7c586a68a15126",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/other-tools"
+    }
+  },
+  {
+    "name": "shared_cache_linker",
+    "path": "shared_cache_linker",
+    "sha": "b83825c166c2627c4e92554cd91441c5659056dc",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/shared_cache_linker?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/shared_cache_linker",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/b83825c166c2627c4e92554cd91441c5659056dc",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/shared_cache_linker?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/b83825c166c2627c4e92554cd91441c5659056dc",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/shared_cache_linker"
+    }
+  },
+  {
+    "name": "shared_cache_runtime",
+    "path": "shared_cache_runtime",
+    "sha": "cc6da3fa55ed653fea15d54625b0ce5c4eb57ab3",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/shared_cache_runtime?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/shared_cache_runtime",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/cc6da3fa55ed653fea15d54625b0ce5c4eb57ab3",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/shared_cache_runtime?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/cc6da3fa55ed653fea15d54625b0ce5c4eb57ab3",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/shared_cache_runtime"
+    }
+  },
+  {
+    "name": "tools",
+    "path": "tools",
+    "sha": "6d719ce57979879153b90dc5c0e8164726fdf3fd",
+    "size": 0,
+    "url": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/tools?ref=main",
+    "html_url": "https://github.com/apple-oss-distributions/dyld/tree/main/tools",
+    "git_url": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/6d719ce57979879153b90dc5c0e8164726fdf3fd",
+    "download_url": null,
+    "type": "dir",
+    "_links": {
+      "self": "https://api.github.com/repos/apple-oss-distributions/dyld/contents/tools?ref=main",
+      "git": "https://api.github.com/repos/apple-oss-distributions/dyld/git/trees/6d719ce57979879153b90dc5c0e8164726fdf3fd",
+      "html": "https://github.com/apple-oss-distributions/dyld/tree/main/tools"
+    }
+  }
+]

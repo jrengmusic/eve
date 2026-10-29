@@ -32,16 +32,39 @@ among ours.
 
 ## Core Principles
 
-1. **MVP** — Model holds state; Processor (audio thread, audio discipline) owns
+1. **MVP** — Model holds state; Processor (the clock's tick, audio discipline) owns
    terminal emulation; View Components are dumb, paint-only, own nothing.
-2. **Host-plugin threads** — the audio thread reads and writes the PTY in
-   `processBlock` and decodes the bytes into the engine rows; the message thread
-   appends history, lays out and paints. Lock-free FIFOs (`juce::AbstractFifo`) join
-   them. EVE starts no thread. The clock and the history writer run on the serial
-   event contexts of `jam::AsyncUpdater`: a serial GCD queue on macOS, a pool of
-   one thread on Windows (`jam_AsyncUpdater.cpp:11-34`). ARCHITECT: *"why cant we use AUDIO thread as the
+2. **Host-plugin threads** — the clock's tick reads and writes the PTY and
+   decodes the bytes into the engine rows; the message thread lays out and
+   paints. Lock-free FIFOs (`juce::AbstractFifo`) join them. EVE starts no
+   thread. The clock and the history writer run on the serial event contexts
+   of `jam::AsyncUpdater`: a serial GCD queue on macOS, a pool of one thread
+   on Windows (`jam_AsyncUpdater.cpp:11-34`). ARCHITECT: *"why cant we use AUDIO thread as the
    READER thread?"*; *"Input: READER, Audio Thread, TTY. Output: Terminal LLGC. also
    Audio thread … Renderer is Vulkan … message thread"*.
+   - **The TTY backend clocks the device in the PTY's rhythm.** Each readiness
+     event is one tick; its payload is the tick's numSamples: on macOS the bytes
+     the PTY holds, on Windows the completed read plus the bytes still queued in
+     the pipe. After the tick, `jam::TerminalClock` waits one period on the
+     clock's context; the macOS backend then re-arms readiness while the PTY is
+     connected, and the Windows backend's next overlapped read is the re-arm.
+     The period follows the measured traffic rate and never exceeds one vblank,
+     so the reader never races the writer. ARCHITECT: *"One vblank"*;
+     *"the rhythm synchronization IS THE ABSTRACTION to implement"*; *"buffer
+     size should be STILL dictated by hardware == how fast native tty can
+     deliver"*; *"why no TerminalClock? i just wanted to ensure nothing is
+     hardcoded, nothing is manual state management, fully event driven"*.
+   - **The clock is the chain's own.** `EVETerminalProcessor` owns its clock,
+     `jam::VirtualDevice`, and is the clock's `juce::AudioIODeviceCallback`.
+     The tick (`audioDeviceIOCallbackWithContext`) runs the chain. Above the
+     seam, JUCE's contract holds: the host tells `EVEProcessor::prepareToPlay`
+     and `releaseResources`, and `processBlock` carries audio only. The wiring
+     is the same in every host. ARCHITECT: *"EVETerminalProcessor should own
+     the VirtualDevice, hence prepareToPlay upstream still juce contract, we
+     only take over the control at seam we need to drive ourselves"*; *"VirtualDevice
+     exists as our clock, since the architecture must use a device"*; *"it
+     SHOULD NOT MATTER. what binary we're using as host-client. VirtualDevice
+     as full throttle clock is EVE SPEC contract"*.
 3. **Non-destruction contract** — widget content is never destroyed by SIGWINCH or
    resize. Only an explicit `clear` (ED 2 / ED 3 semantics, below) wipes the
    *screen* — and history scrollback is still retained (tmux-like).
@@ -82,12 +105,24 @@ among ours.
    it. The decoder's working state is calculation state; the Model value is
    the one permitted handoff copy between threads (MANIFESTO E, permitted
    copy 2).
-9. **One prepare path.** Init, resize and history capacity all prepare through
-   `prepareToPlay`. ARCHITECT: *"make it consistent then"*.
+9. **One prepare path.** The chain prepares in one place: the clock's start
+   (`audioDeviceAboutToStart`). Only the host pair starts and stops the clock:
+   `prepareToPlay` starts it, `releaseResources` stops it. Resize, history
+   capacity, clear and state restore restart it (stop → change → start), and
+   only while it runs. ARCHITECT: *"make it consistent then"*; *"prepareToPlay
+   upstream still juce contract"*; the restart rule approved with `/go`
+   (2026-10-29, `PLAN-terminal-clock.md` Amendment A).
 10. **One serial clock context.** PTY readiness and the clock run on one
-    serial context. Each clock tick is a zero-sample block; `prepareToPlay`
-    carries the TTY chunk size as the maximum block size (ARCHITECT:
-    *"spec.maximumBlockSize == tty.readChunkSize"*).
+    serial context. A readiness tick is a block of the bytes the readiness
+    event reports; a requested tick is a zero-sample block. The spec has three
+    values, set per OS where the OS differs: the device's buffer size is the
+    PTY's capacity (macOS 1024, the kernel output queue; Windows one overlapped
+    read); the processor's block size is the TTY read chunk, which also sizes
+    the ring (ARCHITECT: *"spec.maximumBlockSize == tty.readChunkSize"*); the
+    sample rate is the measured traffic rate, and its spec value sizes the
+    ring only. ARCHITECT: *"why not using AudioProcessor spec as the SSOT? the
+    number could be setup differently according to OS"*; *"spec has buffer
+    size, block size, sample rate"*.
 
 ## Components
 
@@ -99,7 +134,7 @@ among ours.
 | **Preview** | right dock, show/hide | v1: images (SKiT decoder formats) + read-only text/code |
 
 All Components are peers in the app layout. Docks toggle without any effect on the
-terminal Component's content or the audio-thread decoder (a dock toggle is a message-thread
+terminal Component's content or the decoder on the clock (a dock toggle is a message-thread
 layout event only).
 
 ## Features
@@ -108,7 +143,7 @@ layout event only).
 
 **Happy path:**
 1. EVE launches → spawns `$SHELL` (fallback `/bin/zsh` macOS, PowerShell Windows) in a PTY at the terminal Component's cell size
-2. Bytes flow: PTY → `processBlock` (audio thread) → decoder → engine rows → history and live FIFOs → TextEditor (message thread) → layout → paint
+2. Bytes flow: PTY → the clock's tick (`EVETerminalProcessor`'s `jam::VirtualDevice`) → decoder → engine rows → history and live FIFOs → TextEditor (message thread) → layout → paint
 3. Keyboard/mouse → TerminalKeyboard/TerminalMouse encoders → PTY write
 4. Shell exits → terminal Component shows: `[process exited — <code>]` on the line after last output; input disabled; history remains browsable
 
@@ -139,9 +174,10 @@ layout event only).
      JUCE pattern, API verbatim? within the adherence into our CONTRACT?"*
      The ring of `jam::TerminalBuffer` carries the history rows. The writer
      drains them and writes each row once to the swap's index and segment
-     files (`jam_TerminalSwap.cpp:99-158`). In the standalone the writer runs
-     on its own serial context; in a host it runs in the vblank getter
-     (`EVETerminalProcessor.cpp:73-90`).
+     files (`jam_TerminalSwap.cpp:99-158`). The vblank getter posts the
+     writer to the processor's own serial context, in every host. ARCHITECT:
+     *"why vblank must be branched? vblank at all build contract are exactly
+     the same"*.
    - The swap keeps the last `HISTORY_CAPACITY` lines. It deletes the index
      and segment files of older lines (`jam_TerminalSwap.cpp:139-155`).
    - The TextEditor is the receiver. It builds only the lanes the view shows
@@ -150,7 +186,12 @@ layout event only).
      *"can we make it always O(1)?"*
    - Full throttle. ARCHITECT: *"the events chain should not be manually
      managed, lock free, wait free, yield free, always full throttle"*. Each
-     clock tick reads the PTY until it is empty. The ring holds one vblank of
+     clock tick reads the PTY until it is empty: a read that returns less than
+     it asked for has emptied the PTY (`tty_dev.c:699-705`), so the tick ends
+     there. ARCHITECT: *"why failed? what failed? why leave it failed?"*.
+     Between ticks the driver waits
+     one period; the wait is the driver's, never the tick's. ARCHITECT: *"the
+     full throttle only when it RUNS"*. The ring holds one vblank of
      blocks in transit; `prepareToPlay` sizes it. Input whose output does not
      fit stays in the PTY. ARCHITECT: *"PTY holds the input"*.
    - History is append-only. ARCHITECT: *"history is append-only, clear with
@@ -298,7 +339,10 @@ comparison"*.
 - **Producer.** The decoder (`jam::TerminalProcessor`) keeps its working state
   and fires one event per value at the end of each drain. The owner's handlers
   write the Model with `storeValue`: an atomic store and a dirty mark. The
-  write takes no lock, allocates nothing and posts no message.
+  write takes no lock, allocates nothing and posts no message. A one-time
+  binding of each parameter measured 3.3 s slower on the 100M run
+  (2026-10-29: 1:07.39 against 1:04.18), so the handlers keep `storeValue`.
+  ARCHITECT: *"regression is FACTS"*.
 - **Flush.** The Model runs no timer. The vblank pull flushes it to its tree on
   the message thread, on the same tick that reads the live frame.
   `getStateInformation` also flushes it, under the message-manager lock, before
@@ -372,7 +416,9 @@ An end-user can:
 
 ## Architecture Constraints (binding, from RFC §8)
 
-- ❌ Reader thread: ValueTree, Document, mutex, allocation, block, yield, sleep
+- ❌ The tick: ValueTree, Document, mutex, allocation, block, yield, sleep. The
+  wait between ticks belongs to the driver. ARCHITECT: *"audio thread STILL
+  LOCK FREE, processBlock never blocked as PROCESSOR"*
 - ❌ Widget-owned content; paint-path writes
 - ❌ Wrapped grid as truth; baked colours in state; ANSI beyond the two edges
 - ❌ Terminal mental model from training data — RFC §0/§1 govern
@@ -381,11 +427,15 @@ An end-user can:
   setValueNotifyingHost is smell"*
 - ❌ A second copy of a truth: a counter beside a row's atom count, a member
   that mirrors a Model value, a second dirty flag
-- ❌ A second prepare path beside `prepareToPlay`
+- ❌ A second prepare path beside the clock's start; a clock start outside the
+  host's `prepareToPlay` / `releaseResources` pair
 - ❌ A second thread context between PTY readiness and the clock
 - ✅ Single-surface: one PTY, one buffer, one widget per instance; END muxes
 - ✅ Two lanes, one tree: AudioModel for automatable parameters, jam::Model for
   the terminal state machine, its tree inside the APVTS state
+- ✅ `EVETerminalProcessor` owns its clock in every host; above the seam,
+  JUCE's contract. ARCHITECT: *"we only take over the control at seam we need
+  to drive ourselves"*
 
 ---
 

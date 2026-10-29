@@ -1032,6 +1032,25 @@ byte-identical to the original. No surveyed terminal passes this today (§1).
 > - *"my rulings must be documented comprehensively, so no more violation how
 >   to design, extend, and scale the ARCHITECTURE and topology"*.
 
+> **[AMENDED 2026-10-29 — the clock is the chain's own, ARCHITECT verbatim]**
+>
+> - *"EVETerminalProcessor should own the VirtualDevice, hence prepareToPlay
+>   upstream still juce contract, we only take over the control at seam we need
+>   to drive ourselves"*. `EVETerminalProcessor` owns `jam::VirtualDevice` and is
+>   its `juce::AudioIODeviceCallback`; the host's `processBlock` carries audio
+>   only.
+> - *"dont conflate VirtualDevice == actual analog drivers. it's not.
+>   VirtualDevice exists as our clock, since the architecture must use a
+>   device."*
+> - *"it SHOULD NOT MATTER. what binary we're using as host-client. VirtualDevice
+>   as full throttle clock is EVE SPEC contract"*. One wiring in every host.
+> - *"writing bytes is processBlock"* and *"the clock that drains the bytes"*
+>   above now name the clock's tick, `audioDeviceIOCallbackWithContext` of
+>   `EVETerminalProcessor`.
+> - *"why vblank must be branched? vblank at all build contract are exactly the
+>   same"* — the vblank getter posts the history writer to the processor's
+>   serial context in every host.
+
 ---
 
 ## 9. Source Citations Index

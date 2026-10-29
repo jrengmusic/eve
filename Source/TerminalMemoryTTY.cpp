@@ -5,7 +5,7 @@ TerminalMemoryTTY::TerminalMemoryTTY (std::unique_ptr<jam::TerminalTTY> platform
 {
 }
 
-bool TerminalMemoryTTY::open (jam::AsyncUpdater::Context context, int maximumBlockSize, jam::Cell::Rectangle dims, const juce::String& shell,
+bool TerminalMemoryTTY::open (jam::AsyncUpdater::Context context, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
                               const juce::String& args, const juce::String& workingDirectory,
                               const juce::StringPairArray& environment)
 {
@@ -13,10 +13,10 @@ bool TerminalMemoryTTY::open (jam::AsyncUpdater::Context context, int maximumBlo
 
     if (stream != nullptr) return true;
 
-    chunk.setSize (static_cast<size_t> (maximumBlockSize));
-    tty->onBytesReady = [this] { triggerAsyncUpdate(); };
+    chunk.setSize (static_cast<size_t> (bufferSize));
+    tty->onBytesReady = [this] (int) { triggerAsyncUpdate(); };
 
-    const auto isOpen { tty->open (getContext(), maximumBlockSize, dims, shell, args, workingDirectory, environment) };
+    const auto isOpen { tty->open (getContext(), bufferSize, maximumPeriodMilliseconds, dims, shell, args, workingDirectory, environment) };
     jassert (isOpen);
 
     const auto isRecorded { isOpen and recorded.wait (recordTimeoutMs) };
@@ -35,7 +35,7 @@ bool TerminalMemoryTTY::open (jam::AsyncUpdater::Context context, int maximumBlo
 #endif
 
 #if JUCE_MAC
-        dispatch_async_f (context, this, [] (void* memoryTTY) { static_cast<TerminalMemoryTTY*> (memoryTTY)->onBytesReady(); });
+        dispatch_async_f (context, this, [] (void* memoryTTY) { static_cast<TerminalMemoryTTY*> (memoryTTY)->onBytesReady (0); });
 #endif
     }
 

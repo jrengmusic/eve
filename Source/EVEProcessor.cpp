@@ -1,9 +1,6 @@
 #include "EVEView.h"
 #include "EVEProcessor.h"
 
-static constexpr double virtualSampleRate { 48000.0 };
-static constexpr int virtualBlockSize { 65536 };
-
 EVEProcessor::EVEProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
     : AudioProcessor (BusesProperties()
@@ -24,33 +21,6 @@ EVEProcessor::EVEProcessor()
 
     layout.populateTree (model, settings);
     styleManager.create (layout.fonts, settings);
-    prepare();
-
-#if JucePlugin_Build_Standalone
-    if (wrapperType == juce::AudioProcessor::wrapperType_Standalone)
-    {
-        terminalProcessor.onProcessRequest = [this] { device.requestProcess(); };
-
-        terminalProcessor.onBytesReady = [this]
-                                         {
-#if JAM_USING_PROFILER
-                                             const jam::Profiler::Zone zone { Id::deviceClock };
-#endif
-                                             device.clock (0);
-                                         };
-
-        juce::MessageManager::callAsync ([this]
-                                         {
-                                             auto* holder { juce::StandalonePluginHolder::getInstance() };
-                                             jassert (holder != nullptr);
-
-                                             holder->deviceManager.closeAudioDevice();
-                                             device.open ({}, {}, virtualSampleRate, virtualBlockSize);
-                                             device.start (&holder->player);
-                                             device.requestProcess();
-                                         });
-    }
-#endif
 }
 
 EVEProcessor::~EVEProcessor()
@@ -60,9 +30,9 @@ EVEProcessor::~EVEProcessor()
     {
         const auto manifestFile { EVETerminalProcessor::getManifestFile() };
 
-        device.stop();
         profiler.drain();
-        profiler.writeSamples (manifestFile, Id::toType (juce::Identifier { ProjectInfo::projectName }));
+        profiler.writeSamples (
+            manifestFile, Id::toType (juce::Identifier { ProjectInfo::projectName }));
     }
 #endif
 }
@@ -98,10 +68,7 @@ bool EVEProcessor::isMidiEffect() const
 
 double EVEProcessor::getTailLengthSeconds() const { return 0.0; }
 
-int EVEProcessor::getNumPrograms()
-{
-    return 1;
-}
+int EVEProcessor::getNumPrograms() { return 1; }
 
 int EVEProcessor::getCurrentProgram() { return 0; }
 
@@ -120,18 +87,14 @@ void EVEProcessor::changeProgramName (int index, const juce::String& newName)
 
 void EVEProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    suspendProcessing (true);
-
-    spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = static_cast<juce::uint32> (samplesPerBlock);
-    spec.numChannels = static_cast<juce::uint32> (getTotalNumInputChannels());
-
-    terminalProcessor.prepare (spec, device.getContext());
-
-    suspendProcessing (false);
+    juce::ignoreUnused (sampleRate, samplesPerBlock);
+    terminalProcessor.prepare();
 }
 
-void EVEProcessor::releaseResources() {}
+void EVEProcessor::releaseResources()
+{
+    terminalProcessor.releaseResources();
+}
 
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool EVEProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -165,8 +128,6 @@ void EVEProcessor::process (juce::AudioBuffer<SampleType>& buffer)
 
     for (auto i { nInput }; i < nOutput; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
-
-    terminalProcessor.process();
 }
 
 void EVEProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -181,10 +142,7 @@ void EVEProcessor::processBlock (juce::AudioBuffer<double>& buffer, juce::MidiBu
     process (buffer);
 }
 
-bool EVEProcessor::hasEditor() const
-{
-    return true;
-}
+bool EVEProcessor::hasEditor() const { return true; }
 
 juce::AudioProcessorEditor* EVEProcessor::createEditor()
 {
@@ -204,28 +162,23 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
     if (auto state { juce::ValueTree::readFromData (data, sizeInBytes) }; state.isValid())
     {
         suspendProcessing (true);
-        terminalProcessor.setState (state);
-        model.setState (state);
+        terminalProcessor.restart ([this, &state]
+                                   {
+                                       terminalProcessor.setState (state);
+                                       model.setState (state);
+                                   });
         suspendProcessing (false);
-        prepare();
     }
 }
 
-EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept
+EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept { return terminalProcessor; }
+
+void EVEProcessor::restart()
 {
-    return terminalProcessor;
+    terminalProcessor.restart();
 }
 
-void EVEProcessor::prepare()
-{
-    if (getBlockSize() > 0)
-        prepareToPlay (getSampleRate(), getBlockSize());
-}
-
-void EVEProcessor::clear()
-{
-    terminalProcessor.clear();
-}
+void EVEProcessor::clear() { terminalProcessor.clear(); }
 
 juce::AudioProcessorParameter* EVEProcessor::getBypassParameter() const
 {

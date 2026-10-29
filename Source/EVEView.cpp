@@ -53,7 +53,7 @@ void EVEView::setWinsize()
 {
     auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
 
-    processor.prepare();
+    processor.restart();
 }
 
 void EVEView::clear()
@@ -69,5 +69,5 @@ void EVEView::setHistoryCapacity()
 
     jam::MessageBox::historyCleared (this);
     clear();
-    processor.prepare();
+    processor.restart();
 }

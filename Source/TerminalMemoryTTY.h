@@ -6,6 +6,7 @@
  *
  * `open()` starts the shell on the platform TTY and waits until the shell closes its output.
  * The TTY appends each block that the platform TTY delivers to the record.
+ * The `onBytesReady` of the platform TTY ignores its `numSamples` and starts its own update.
  * After the record is complete, `read()` serves it from memory in blocks. `read()` returns -1 at the end.
  * The TTY ignores input and window size changes.
  */
@@ -25,11 +26,12 @@ public:
      *
      * The call blocks until the platform TTY reports the end of the shell output, for at most `recordTimeoutMs`.
      * It then makes the stream of the record. With the profiler enabled, it drains and clears the profiler,
-     * so the profile holds the replay only. On macOS it then calls `onBytesReady` on @p context.
+     * so the profile holds the replay only. On macOS it then calls `onBytesReady (0)` on @p context.
      * `onBytesReady` must be set (jassert). When the stream exists, the call changes nothing and returns `true`.
      *
      * @param context           Serial context for the readiness source of the platform TTY and for the first `onBytesReady` of the replay (macOS).
-     * @param maximumBlockSize  Size, in bytes, of the block that records the platform output.
+     * @param bufferSize        Device buffer size. It sizes the block that records the platform output. The call passes it to the platform TTY.
+     * @param maximumPeriodMilliseconds  Longest wait between two readiness ticks, in milliseconds. The call passes it to the platform TTY.
      * @param dims              Initial terminal dimensions.
      * @param shell             Shell program name or absolute path.
      * @param args              Space-separated arguments for the shell.
@@ -37,7 +39,7 @@ public:
      * @param environment       Variables that the shell receives in addition to the environment of the parent.
      * @return                  `true` when the record is complete. `false` when the platform TTY fails to open or the record times out.
      */
-    bool open (jam::AsyncUpdater::Context context, int maximumBlockSize, jam::Cell::Rectangle dims, const juce::String& shell,
+    bool open (jam::AsyncUpdater::Context context, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
                const juce::String& args, const juce::String& workingDirectory,
                const juce::StringPairArray& environment) override;
 

@@ -8,6 +8,7 @@ static constexpr std::string_view defaultShell { "powershell.exe" };
 #else
 static constexpr std::string_view defaultShell { "/bin/zsh" };
 #endif
+static constexpr int virtualBlockSize { 65536 };
 
 EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse)
     : processor (processorToUse),
@@ -20,11 +21,19 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
     registerEvents();
     registerUserInterfaceGetters();
     registerChainEvents();
-    tty->onBytesReady = [this] { if (onBytesReady != nullptr) onBytesReady(); };
+    tty->onBytesReady = [this] (int numSamples)
+    {
+#if JAM_USING_PROFILER
+        const jam::Profiler::Zone zone { Id::deviceClock };
+#endif
+        device.clock (numSamples);
+    };
 }
 
 EVETerminalProcessor::~EVETerminalProcessor()
 {
+    jassert (not device.isPlaying());
+
     state.removeListener (this);
     cancelPendingUpdate();
 }
@@ -89,14 +98,9 @@ void EVETerminalProcessor::registerEvents()
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
 {
-    userInterfaceGetters[Id::textEditor].add<const jam::TerminalSwap*&> (Id::toType (Id::winsize), [this] (const jam::TerminalSwap*& output)
+    userInterfaceGetters[Id::textEditor].add<jam::TerminalSwap*&> (Id::toType (Id::winsize), [this] (jam::TerminalSwap*& output)
                                                                                                     {
-                                                                                                        writePendingInput();
-
-                                                                                                        if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
-                                                                                                            triggerAsyncUpdate();
-                                                                                                        else
-                                                                                                            juce::ignoreUnused (writePendingData());
+                                                                                                        triggerAsyncUpdate();
 
                                                                                                         state.flush();
 
@@ -107,8 +111,7 @@ void EVETerminalProcessor::registerUserInterfaceGetters()
 
                                                                                                         output = &swap;
 
-                                                                                                        if (onProcessRequest != nullptr)
-                                                                                                            onProcessRequest();
+                                                                                                        device.requestProcess();
                                                                                                     });
 }
 
@@ -116,21 +119,15 @@ void EVETerminalProcessor::registerChainEvents()
 {
     chainEvents[Id::terminalInput].add<const char*, int> ([this] (const char* bytes, int size)
                                                           {
-                                                              pendingInput.append (bytes, static_cast<size_t> (size));
-                                                              writePendingInput();
+                                                              jassert (size <= input.getFreeSpace());
+
+                                                              if (size <= input.getFreeSpace())
+                                                              {
+                                                                  input.write (bytes, static_cast<size_t> (size));
+                                                                  input.flush();
+                                                                  device.requestProcess();
+                                                              }
                                                           });
-}
-
-void EVETerminalProcessor::writePendingInput()
-{
-    const auto written { juce::jmin (static_cast<int> (pendingInput.getSize()), input.getFreeSpace()) };
-
-    input.write (pendingInput.getData(), static_cast<size_t> (written));
-    input.flush();
-
-    if (written > 0 and onProcessRequest != nullptr)
-        onProcessRequest();
-    pendingInput.removeSection (0, static_cast<size_t> (written));
 }
 
 bool EVETerminalProcessor::writePendingData()
@@ -140,8 +137,8 @@ bool EVETerminalProcessor::writePendingData()
 
 void EVETerminalProcessor::handleAsyncUpdate()
 {
-    if (writePendingData() and onProcessRequest != nullptr)
-        onProcessRequest();
+    if (writePendingData())
+        device.requestProcess();
 }
 
 int EVETerminalProcessor::getHistoryCapacity() const
@@ -154,18 +151,48 @@ jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
     return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getOrCreateComponentProperty (Id::toTag (Id::winsize), Id::value).getValue()));
 }
 
-void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::AsyncUpdater::Context context)
+void EVETerminalProcessor::prepare()
 {
-    jassert (spec.maximumBlockSize > 0);
+    static constexpr double virtualSampleRate { 48000.0 };
+#if JUCE_WINDOWS
+    static constexpr int virtualBufferSize { virtualBlockSize };
+#else
+    static constexpr int virtualBufferSize { 1024 };
+#endif
 
-    input.prepare (static_cast<int> (spec.maximumBlockSize));
-    terminalProcessor.prepare (static_cast<int> (spec.maximumBlockSize));
-
-    if (const auto winsize { getWinsize() }; winsize.isValid())
-        prepare (spec, winsize, getHistoryCapacity(), context);
+    device.stop();
+    device.open ({}, {}, virtualSampleRate, virtualBufferSize);
+    device.start (this);
+    device.requestProcess();
 }
 
-void EVETerminalProcessor::openTTY (int blockSize, jam::TerminalWinsize winsize, jam::AsyncUpdater::Context context)
+void EVETerminalProcessor::releaseResources()
+{
+    device.stop();
+}
+
+void EVETerminalProcessor::audioDeviceIOCallbackWithContext (const float* const*, int, float* const*, int, int, const juce::AudioIODeviceCallbackContext&)
+{
+    process();
+}
+
+void EVETerminalProcessor::restart()
+{
+    restart ([] {});
+}
+
+void EVETerminalProcessor::audioDeviceAboutToStart (juce::AudioIODevice*)
+{
+    input.prepare (virtualBlockSize);
+    terminalProcessor.prepare (virtualBlockSize);
+
+    if (const auto winsize { getWinsize() }; winsize.isValid())
+        prepare (winsize, getHistoryCapacity());
+}
+
+void EVETerminalProcessor::audioDeviceStopped() {}
+
+void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMilliseconds, jam::TerminalWinsize winsize)
 {
 #if JAM_USING_PROFILER
     if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
@@ -174,7 +201,7 @@ void EVETerminalProcessor::openTTY (int blockSize, jam::TerminalWinsize winsize,
         const auto manifest { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest) };
         const auto profilerTable { manifest.getChildWithName (Id::toType (Id::profiler)) };
 
-        [[maybe_unused]] const auto isOpen { tty->open (context, blockSize, winsize.toCellRect(), profilerTable[Id::shell].toString(), profilerTable[Id::args].toString(), manifestFile.getParentDirectory().getFullPathName()) };
+        [[maybe_unused]] const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), profilerTable[Id::shell].toString(), profilerTable[Id::args].toString(), manifestFile.getParentDirectory().getFullPathName()) };
         jassert (isOpen);
         state.addListener (this);
     }
@@ -188,26 +215,25 @@ void EVETerminalProcessor::openTTY (int blockSize, jam::TerminalWinsize winsize,
         if (isIntegrated)
             ShellIntegration::addShellScripts (directory);
 
-        [[maybe_unused]] const auto isOpen { tty->open (context, blockSize, winsize.toCellRect(), shell, isIntegrated ? ShellIntegration::getShellArguments (shell, directory) : juce::String {}, ShellIntegration::getStartDirectory().getFullPathName(), isIntegrated ? ShellIntegration::getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
+        [[maybe_unused]] const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), shell, isIntegrated ? ShellIntegration::getShellArguments (shell, directory) : juce::String {}, ShellIntegration::getStartDirectory().getFullPathName(), isIntegrated ? ShellIntegration::getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
         jassert (isOpen);
     }
 }
 
-void EVETerminalProcessor::prepare (const juce::dsp::ProcessSpec& spec, jam::TerminalWinsize winsize, int historyCapacity, jam::AsyncUpdater::Context context)
+void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCapacity)
 {
-    const auto blockSize { static_cast<int> (spec.maximumBlockSize) };
-
     triggerAsyncUpdate();
     handleUpdateNowIfNeeded();
 
-    const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (spec.sampleRate / blockSize / jam::VulkanEngine::getRefreshRateHz()))) };
+    const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (device.getCurrentSampleRate() / virtualBlockSize / jam::VulkanEngine::getRefreshRateHz()))) };
 
-    terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * blockSize);
+    terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * virtualBlockSize + winsize.rows);
     swap.prepare (winsize);
     terminalProcessor.reset (terminalBuffer);
     swap.setCapacity (historyCapacity);
 
-    openTTY (blockSize, winsize, context);
+    const auto vblankMilliseconds { static_cast<double> (juce::RelativeTime::seconds (1.0 / jam::VulkanEngine::getRefreshRateHz()).inMilliseconds()) };
+    openTTY (device.getCurrentBufferSizeSamples(), vblankMilliseconds, winsize);
     tty->setWinsize (winsize);
 }
 
@@ -223,12 +249,10 @@ void EVETerminalProcessor::process() noexcept
 
 void EVETerminalProcessor::clear()
 {
-    processor.suspendProcessing (true);
-    triggerAsyncUpdate();
-    handleUpdateNowIfNeeded();
-    terminalProcessor.clear (terminalBuffer);
-    processor.suspendProcessing (false);
-
-    if (onProcessRequest != nullptr)
-        onProcessRequest();
+    restart ([this]
+             {
+                 triggerAsyncUpdate();
+                 handleUpdateNowIfNeeded();
+                 terminalProcessor.clear (terminalBuffer);
+             });
 }
