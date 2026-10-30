@@ -70,7 +70,9 @@ among ours.
    *screen* — and history scrollback is still retained (tmux-like).
 4. **Terminal conformance at processor level** — VT100 spec correctness as the
    foundation, plus the xterm/modern extensions jam_terminal already encodes
-   (SGR truecolor, bracketed paste, progressive keyboard, mouse SGR, OSC 7/8/133).
+   (SGR truecolor, bracketed paste, progressive keyboard, mouse SGR, OSC 7/8/133),
+   and the image envelopes EVE takes over: OSC 1337 (iTerm2 `File=` and EVE's own
+   envelope), DCS (Sixel) and APC (Kitty graphics).
 5. **Finder truth is the filesystem** — sidebars and file list read the FS
    directly, keyed off OSC 7-reported cwd. Terminal output text is never parsed.
 6. **Style roles in state; colours at materialization** (RFC §8).
@@ -86,7 +88,8 @@ among ours.
      contract that JFS use."*
    - The **Model lane** (`jam::Model`) holds the terminal state machine: the
      DEC modes, the cursor, the OSC 133 marks and every later shell
-     integration state. Its rows are in `Source/layout/model.md`, and
+     integration state. Its rows are the `## model` table of
+     `Source/layout/parameters.md`, and
      `jam::ModelLayout` builds it. ARCHITECT: *"we only need to build
      jam::Model as Terminal complete state machine, all terminal events
      including OSC 133 and future shell integration is jam::Model parameter,
@@ -123,6 +126,50 @@ among ours.
     ring only. ARCHITECT: *"why not using AudioProcessor spec as the SSOT? the
     number could be setup differently according to OS"*; *"spec has buffer
     size, block size, sample rate"*.
+11. **One envelope, one path.** ARCHITECT: *"this is our open seam to transport,
+    communicate, open API via shell scripting hence, any CLI … can use the exact
+    consistent ONE path protocol"*. The envelope is
+    `ESC ] 1337 ; EVE ; <operation> ; <key=value;…> [ : <base64> ] BEL|ST`,
+    beside iTerm2's `ESC ] 1337 ; File=<args> : <base64> BEL`. ARCHITECT:
+    *"change the marker "END" to "EVE""*.
+    - Operations: `command` (`name=` a `map::CommandId` name), `preview`
+      (`path=` an absolute path; an empty path hides the preview), `image`
+      (base64 bytes). The shell integration's `eve` function emits them.
+    - State and commands. ARCHITECT: *"all state machine that drives/driven by
+      terminal "command" should be registered as non-automatable parameter to
+      Model"*; *"all operations/methods from/to terminal registered to
+      CommandManager as SSOT callback"*; *"CommandManager functions could be
+      triggered by events from Parameter, assigned keyboard shortcut,
+      anything"*. A command goes through the `commands` lane and the
+      `commandCount` Model row to `CommandManager::invokeDirectly` on the
+      message thread. The `preview` path is a Model row.
+    - The EVE `image` operation: ARCHITECT *"keep for now, but NOT for native
+      Preview (Component)."*
+    - Readback. ARCHITECT: *"not for everything … still under UNIDIRECTIONAL
+      contract. for example File Tree widget, might need to send set cwd command
+      to terminal."* The GUI writes to the terminal through the input lane only.
+12. **Rendering is GUI side.** ARCHITECT: *"the actual "RENDERING" never ever touch
+    the terminal itself, but an actual juce::Component widget, always GUI
+    side"*; *"image streamed as bytes carried from terminal to widget (message
+    thread) is inevitable, but always unidirectional to message thread"*;
+    *"decode only carry metadata, and materialisation always at message
+    thread"*.
+    - The tick reads only an image's metadata: its pixel size and its cell box.
+      The grid holds the placement `{cell box, image number}`. The bytes go
+      through the `images` lane into the record, with the image's encoding
+      (format, pixel size, compression).
+    - Lanes (each `jam::TerminalFIFO`, one writer, one reader): `input`
+      (message thread → tick), `images` (tick → the record writer), `commands`
+      (tick → message thread).
+    - Third-party images: ARCHITECT *"if any application use Sixel, Kitty,
+      iTerm2 image protocol EVE will take over"*; *"we dont reinvent new
+      protocol, we only take over terminal bytes and render them on actual GUI
+      widget, at message thread, with currently exist widely adopted terminal
+      image protocol, our default is iTerm2."*
+13. **Reflow is the view's.** ARCHITECT: *"winsize dicated by Viewport available
+    space … REFLOW, wrapping or unwrapping are NEVER ever affected by SIGWINCH nor
+    winsize. it's always GUI exclusive getLocalBounds() only. winsize is TERMINAL
+    DOMAIN."*
 
 ## Components
 
@@ -248,12 +295,33 @@ the status area.
 - Binary/undecodable: `no preview — <size>, <kind>`
 - Markdown: rendered as plain text in v1 (Whelmed later)
 
+**Preview is one component** [2026-10-30]. ARCHITECT: *"Preview need component,
+not inlined. Because we also want gif to be animated, that's need timer."*;
+*"the component could be SSOT, exactly ONE path, on API, only differs what
+dictate the layout, and what command tell them to be visible."*
+- `jam::Preview` materialises one image source on the message thread: a file
+  path (the native column) or a record image (a takeover). It plays and loops a
+  GIF with its own timer, fits its bounds with the aspect ratio kept, and calls
+  native JUCE API only.
+- Takeover overlay: ARCHITECT *"Siblings via owner"*. The TextEditor reserves
+  the cells (*"TextEditor only "reserve the space", to reflow, wrap, unwrap,
+  etc."*) and tells EVEView the visible image boxes; EVEView lays one Preview on
+  each box. A cell write over an image removes it.
+- Markdown: ARCHITECT *"opening md from ls is telling View to load md and render
+  Markdown like current whelmed render the harness, it's always read-only
+  anyway"* — `jam::MarkdownComponent` as a full-view sibling of the TextEditor
+  (grand scheme §3.11; not built yet).
+
 ### Feature 5: Docking
 
 - `Ctrl+Shift+E` toggle Tree, `Ctrl+Shift+P` toggle Preview
 - Toggling is a layout event only — reader thread untouched; terminal reflows per
   Feature 2 rules (nothing destroyed)
 - Dock visibility + widths persist in config state
+- [2026-10-30] ARCHITECT *"EVEView, like overlays"*: EVEView owns the Preview
+  column and splits its bounds in `resized`. The `preview` keys row toggles the
+  persisted component state `PREVIEW`; its width is the display row
+  `previewWidth`, a fraction of the window width.
 
 ### Feature 6: Configuration
 

@@ -30,3 +30,24 @@ if (Get-Module PSReadLine -ErrorAction SilentlyContinue) {
         [Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()
     }
 }
+
+function _eve_encode {
+    param($Text)
+    [regex]::Replace($Text, '[%;\x00-\x1F\x7F]', { param($match) '%{0:X2}' -f [int][char]$match.Value })
+}
+
+function eve {
+    param($Subcommand, $Argument)
+    switch ($Subcommand) {
+        'command' { $Host.UI.Write("`e]1337;EVE;command;name=$(_eve_encode $Argument)`a") }
+        'preview' {
+            $path = if ($Argument) { $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Argument) } else { '' }
+            $Host.UI.Write("`e]1337;EVE;preview;path=$(_eve_encode $path)`a")
+        }
+        'image' {
+            $path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Argument)
+            $Host.UI.Write("`e]1337;EVE;image;:$([Convert]::ToBase64String([IO.File]::ReadAllBytes($path)))`a")
+        }
+        default { [Console]::Error.WriteLine("eve: unknown command '$Subcommand'; use command, preview or image"); $global:LASTEXITCODE = 1 }
+    }
+}

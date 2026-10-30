@@ -680,6 +680,112 @@ its message thread contract, while Terminal could be used in any context"*.
   10000 rows) sizes the history lane; the live lane is sized by the winsize alone
   (`EVETerminalProcessor.cpp:20-31`, `jam_TerminalProcessor.cpp:5-9`).
 
+### 3.11 File browser and Preview [ADDED 2026-10-30]
+
+ARCHITECT's vision, verbatim. Each line is a ruling.
+
+- **Goal.** *"running "ls" command turn EVE into FULL FEATURE parity with
+  Finder/Explorer"*:
+  - *"list of files could be clicked, navigate with keyboard shortcut (jump
+    flash, this actually already implemented on endless)"*;
+  - *"an optional (user-config-driven), left side panel file tree, and right side
+    preview column content (images, text content, etc)"*.
+- **Scope over time.** *"i dont think this could be implemented on single sprint.
+  BUT since you have started the state, let's make THE FOUNDATION correct, and
+  document the vision into grand-scheme"*. The foundation sprint is
+  `PLAN-eve-terminal-protocol.md` (Steps 12a-12g).
+
+**Preview — one component.**
+- *"Preview need component, not inlined. Because we also want gif to be animated,
+  that's need timer."*
+- *"the component could be SSOT, exactly ONE path, on API, only differs what
+  dictate the layout, and what command tell them to be visible."*
+- Two layouts of the one component:
+  1. Overlay on a third-party CLI's cell box. Owner: ARCHITECT *"Siblings via
+     owner"* — siblings above the TextEditor, laid out by the view's owner.
+  2. The native right-side column, toggled by a command. Owner: ARCHITECT
+     *"EVEView, like overlays"* — EVEView splits its bounds.
+- *"render on eve native Preview widget that have IDENTICAL UX to Finder/Explorer
+  right side "Preview/Gallery column""*.
+- The native Preview takes a file path (the `preview` Model row). The EVE `image`
+  operation stays: *"keep for now, but NOT for native Preview (Component)."*
+
+**Third-party takeover (SKiT).**
+- *"we dont reinvent new protocol, we only take over terminal bytes and render them
+  on actual GUI widget, at message thread, with currently exist widely adopted
+  terminal image protocol, our default is iTerm2."*
+- *"if any application use Sixel, Kitty, iTerm2 image protocol EVE will take over"*.
+  *"shell integration for SkiT protocol meaning we must also ready for CLI that uses
+  kitty image protocol"*.
+- *"we capture the fzf state, listen (fully event driven) to whatever terminal
+  command it communicate with tty, get the layout, and politely "hijack" the
+  rendering. we render into our own "Preview" overlay component layout exactly on
+  that box"*; *"it's layout in cell, perfectly scaled always fit into whatever fzf
+  set the layout, maintaing its aspec ratio"*.
+- The field, read 2026-10-30. fzf draws no image. It passes the Kitty APC
+  `\x1b_G`, Sixel DCS `\x1bP…q` and iTerm2 `\x1b]1337;` bytes of its preview
+  command through (fzf `src/terminal.go:87-99`, `:5132`). Its script runs
+  `kitten icat --unicode-placeholder`, `chafa` or `imgcat`
+  (`bin/fzf-preview.sh:61-81`). It exports the box as `FZF_PREVIEW_COLUMNS`,
+  `FZF_PREVIEW_LINES`, `FZF_PREVIEW_TOP` and `FZF_PREVIEW_LEFT` (man page
+  `:887-894`). ARCHITECT: *"the round trip could be REALLY slow … sometimes the gif
+  run, sometimes it just stall and could choke the terminal"*.
+
+**Threads and encapsulation.**
+- *"when we render on actual Component (message thread), we now have FULL CONTROL,
+  we never choke terminal as lock free hot path. Message thread free to spawn
+  parallel job, pipe to Vulkan immediately one shot to memoized (ephemerally, when
+  the "widget") exists, but still respecting the encapsulation. meaning
+  juce::Component contract still exactly native juce API calls, never poke, never
+  acknowledge Vulkan or any rendering enginer downstream."*
+- The tick carries metadata only (pixel size, cell box). The bytes go through the
+  `images` lane into the record. The decode to pixels is the Preview's.
+
+**TextEditor.**
+- *"TextEditor inline image are for Rich Text rendering such as Markdown or inline
+  mermaid. different contract, does not overlap."*
+- For terminal images, the TextEditor *"only "reserve the space", to reflow, wrap,
+  unwrap, etc."* The grid placement `{cell box, image number}` is the reserved space
+  (`jam_TerminalBuffer.cpp:172-193`). The TextEditor raises its rows to the box
+  (`jam_TextEditor.cpp:1145-1173`).
+
+**`ls` navigation — rewritten, never ported.**
+- ARCHITECT: *"endless LinkManager should not be ported. it should be rewritten from
+  scratch. although it works (the open file, the scan link, the jump with keyboard
+  label etc) it's not the best example architecturally with current topology"*.
+  endless `LinkManager` (`endless/Source/terminal/LinkManager.h:5-121`) is a
+  behaviour reference only: scan, open, labels `a`-`z` in pages of 26.
+- ARCHITECT: *"the way we handle tty command to determine terminal state machine
+  (including scan link) are vastly different"*. Cited:
+  - endless underlines a link by writing the `UNDERLINE` stamp into the cell pen
+    while it processes the TTY (`endless/Source/terminal/Video.cpp:490`).
+  - jam keeps underline as the SGR attribute of the cell only, a 3-bit field of
+    `AttributedChar` (`jam_AttributedChar.h:28`, `:206-207`), set by SGR 4, 21 and
+    24 (`jam_AnsiDocument.cpp:519-528`, `:626-628`). The paint draws it from the
+    font's underline metric (`jam_GlyphArrangement.cpp:502-514`).
+  - An OSC 8 link is data apart from style: `pen.link` holds `{uri, id}`
+    (`jam_AnsiDocument.cpp:377-389`).
+  - EVE's tick tells events, and lock-free stores make them Model rows
+    (`EVETerminalProcessor.cpp:90-113`).
+
+**Markdown — a read-only view panel, not a plugin.**
+- ARCHITECT: *"dev/whelmed/ VASTLY superior than endless whelmed. current whelmed
+  has rendering parity with Obsidian, even the mermaid rendering support is
+  AHEAD"*.
+- *"i don't think we would ever need Rich Text Editor, directly editing markdown
+  renderer."*
+- *"its MarkdownComponent serves as ephemeral EVE childern like Preview/File Tree
+  side panels, but as full View sized "panel" as sibling of TextEditor. so opening
+  md from ls is telling View to load md and render Markdown like current whelmed
+  render the harness, it's always read-only anyway. we could always edit the text
+  in terminal with vim. The UX identical to endless, but the mechanics
+  SIGNIFICANTLY different."*; *"MarkdownComponent basically done, tested, so we
+  only need to wire the event driven mechanics"*.
+- Cited: `jam::MarkdownComponent` is a message-thread `Viewport` with no editing API
+  (`jam_MarkdownComponent.h:11-80`). It builds each mermaid diagram once
+  (`:21-23`). EVE already builds `jam_markdown_graphics` and `jam_mermaid_diagram`
+  (EVE `CLAUDE.md`, the module list).
+
 ## 4. Ecosystem — EVE and END
 
 ### 4.1 Roles
@@ -913,6 +1019,11 @@ terminal**. Subsystem completeness ≠ architecture proven. The assembly is EVE.
    > OSC 1337 (TerminalITerm2Encoder, decoder round-trip proven) + half-block
    > fallback.
 
+   > **[AMENDED 2026-10-30]** Kitty returns as a read lane. ARCHITECT: *"restore
+   > kitty back from past commit, we still need to provide the lane to support
+   > natively third party CLI."* Third-party images are taken over and shown by the
+   > Preview component; the terminal never renders them (§3.11).
+
    > **[AMENDED 2026-09-13]** Gap 3 is executed this sprint — all placeholders
    > resolved under the cell law, proven by the llgc_parity harness. Gap 4
    > (Vulkan cell-grid adapter) remains open — viewer text currently routes
@@ -922,6 +1033,17 @@ terminal**. Subsystem completeness ≠ architecture proven. The assembly is EVE.
 5. **Markdown as projection into the buffer** — Whelmed's producer: Document parse →
    attributed logical lines with style *roles* (never resolved colours), same buffer,
    same widget.
+6. **[ADDED 2026-10-30] Preview component** — §3.11. One `juce::Component`, two
+   layouts (overlay on a cell box, native column), still images and looping GIFs.
+   Foundation: `PLAN-eve-terminal-protocol.md` Step 12e-12g.
+7. **[ADDED 2026-10-30] SKiT lanes** — DCS (Sixel) and APC (Kitty) envelopes beside
+   OSC 1337 (iTerm2); each decoder metadata-only on the tick. Foundation: Steps
+   12b-12d.
+8. **[ADDED 2026-10-30] File Tree** — the optional left panel (§3.11).
+9. **[ADDED 2026-10-30] `ls` navigation** — click and labelled jump over the file
+   list, rewritten from scratch over `pen.link` and the cell attributes (§3.11).
+10. **[ADDED 2026-10-30] Markdown panel** — `jam::MarkdownComponent` as a full-view,
+    read-only sibling of the TextEditor, loaded by an event from `ls` (§3.11).
 
 Related defect, already root-caused this session (fix rides the rewrite): cast
 `--help` breaks because MarkdownComponent bakes colours pre-`setLookAndFeel`
@@ -948,6 +1070,12 @@ Two jaws of the vise; both converge on the backend-swap proof:
    and pilots the lua→markdown config pattern for END.
 4. **CLAP / END hosting** — last, after the foundation is proven; unblocks on the
    jam clap hardening track.
+
+5. **[ADDED 2026-10-30] Finder/Explorer parity** — fzf with `bin/fzf-preview.sh`
+   (`imgcat`, `kitten icat`, `chafa`): the selected PNG and GIF fill the preview box
+   with their aspect ratio, the GIF loops, the terminal never stalls. `ls`: entries
+   click and jump; the File Tree, the Preview column and the Markdown panel follow
+   the selection (§3.11).
 
 Acceptance test for the core property, stated now: fill a session with known
 content; resize narrow, then back; the SSOT and the re-derived layout are
@@ -977,6 +1105,12 @@ byte-identical to the original. No surveyed terminal passes this today (§1).
    > (config-overridable via `terminal / scrollbackBudgetMb`); eviction by
    > watermark (high = budget, low = 7/8 budget); rehydrate ~100 µs per 50-line
    > page. Daemon persistence remains END-era.
+5. **[ADDED 2026-10-30] Preview over TextEditor inline images** — ARCHITECT: *"Or
+   Preview as an Overlay could possibly, entirely replace TextEditor inline
+   image."* Open: whether the Preview also takes the Markdown and mermaid inline
+   images.
+6. **[ADDED 2026-10-30] whelmed as a plugin** — ARCHITECT: *"whelmed as plugin
+   potentially deleted."* Open.
 
 ---
 

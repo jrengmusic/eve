@@ -94,7 +94,41 @@ void EVETerminalProcessor::registerEvents()
 
     for (const auto& id : { Id::mouseTracking, Id::cursor })
         events.add<int> (id, [this, id, tag = Id::toType (Id::terminal)] (int value) { state.storeValue (tag, id, value); });
+
+    events.add<const char*, int> (Id::command, [this] (const char* name, int size) { addCommand (name, size); });
+
+    events.add<const char*, int> (Id::preview, [this, tag = Id::toType (Id::terminal)] (const char* path, int size) { state.storeValue (tag, Id::preview, path, size); });
+
+    events.add<juce::int64> (Id::previewImage, [this, tag = Id::toType (Id::terminal)] (juce::int64 image)
+                             {
+                                 const auto previous { state.getParameter<jam::Parameter<int64_t>> (tag, Id::previewImage)->getValue() };
+
+                                 if (previous >= 0)
+                                     terminalBuffer.addReleasedImage (previous);
+
+                                 state.storeValue (tag, Id::previewImage, static_cast<int64_t> (image));
+                             });
 }
+
+void EVETerminalProcessor::addCommand (const char* name, int size)
+{
+    const auto tag { Id::toType (Id::terminal) };
+    const auto numBytes { size + static_cast<int> (sizeof (char)) };
+
+    jassert (numBytes <= commands.getFreeSpace());
+
+    if (size > 0 and numBytes <= commands.getFreeSpace())
+    {
+        commands.write (name, static_cast<size_t> (size));
+        commands.writeByte ('\0');
+        commands.flush();
+        state.storeValue (tag, Id::commandCount, state.getParameter<jam::Parameter<int>> (tag, Id::commandCount)->getValue() + 1);
+    }
+}
+
+jam::TerminalFIFO& EVETerminalProcessor::getCommands() noexcept { return commands; }
+
+jam::TerminalSwap& EVETerminalProcessor::getSwap() noexcept { return swap; }
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
 {
@@ -132,7 +166,10 @@ void EVETerminalProcessor::registerChainEvents()
 
 bool EVETerminalProcessor::writePendingData()
 {
-    return swap.writeFromTerminalBuffer (terminalBuffer) > 0;
+    auto& images { terminalProcessor.getImages() };
+    const auto hasImages { images.getNumReady() > 0 };
+
+    return swap.writeFromTerminalBuffer (terminalBuffer, images) > 0 or hasImages;
 }
 
 void EVETerminalProcessor::handleAsyncUpdate()
@@ -184,6 +221,7 @@ void EVETerminalProcessor::restart()
 void EVETerminalProcessor::audioDeviceAboutToStart (juce::AudioIODevice*)
 {
     input.prepare (virtualBlockSize);
+    commands.prepare (virtualBlockSize);
     terminalProcessor.prepare (virtualBlockSize);
 
     if (const auto winsize { getWinsize() }; winsize.isValid())
@@ -229,7 +267,7 @@ void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCap
 
     terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * virtualBlockSize + winsize.rows);
     swap.prepare (winsize);
-    terminalProcessor.reset (terminalBuffer);
+    terminalProcessor.reset (terminalBuffer, winsize);
     swap.setCapacity (historyCapacity);
 
     const auto vblankMilliseconds { static_cast<double> (juce::RelativeTime::seconds (1.0 / jam::VulkanEngine::getRefreshRateHz()).inMilliseconds()) };

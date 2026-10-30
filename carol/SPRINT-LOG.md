@@ -1,6 +1,6 @@
 # SPRINT-LOG.md
 
-**Project:** EVE — Ephemeral Nexus Display
+**Project:** EVE — Embeddable Viewport Endpoint
 **Repository:** /Users/jreng/Documents/Poems/dev/eve
 **Started:** 2026-08-30
 
@@ -35,6 +35,116 @@
 <!-- Keep last 5 sprints, rotate older to git history -->
 
 ## SPRINT HISTORY
+
+## Handoff to COUNSELOR: EVE terminal protocol — one envelope, one path; measure and decode; Preview foundation
+
+**From:** COUNSELOR
+**Date:** 2026-10-30
+**Status:** In Progress. Every PLAN step through Step 17 is done except Step 14, which is ARCHITECT's runtime test. The sprint is not logged.
+
+### Read First
+1. `PLAN-eve-terminal-protocol.md`. This is the locked plan, approved with `/go`. It holds the Preview fold (Steps 12a–12g, `:226-275`) and the Step 17 audit resolution (`:309-343`).
+2. `PLAN-Grand-Scheme.md` §3.11 "File browser and Preview". This is the vision recorded in Step 12a.
+3. `SPEC.md`. It holds the protocol, the lanes, the dock and the mental model (Step 15).
+4. `DEBT.md:11-15` — `DEBT-20261025T214955`. The sprint pays it. It stays in the ledger until the log (PLAN `:298`).
+
+### Context
+- ARCHITECT's prompt: *"next sprint is 2-5"* (`jam/carol/SPRINT-LOG.md:62-66`).
+- Items 2, 3 and 4 measure and decode. Item 5 pays `DEBT-20261025T214955` as the foundation of EVE's own terminal protocol, with scope *"+ preview + image"* (PLAN `:11-15`).
+- On 2026-10-30, ARCHITECT folded the Preview foundation into the sprint (PLAN `:5`, `:28-36`).
+- Since then, COUNSELOR has resolved the Step 17 audit batches, run the final validation build and run the doxygen pass.
+
+### Completed
+- **Steps 0–13, 15–17.** The PLAN steps are done. The Step 4 criterion is missed (see Open Questions).
+- **Step 17 audit.** The Auditor reported 104 findings. Each one is resolved or rejected per DCF. The batches A1, B2a–B9 are listed at PLAN `:315-329`. The rejected findings, each with its read, are at PLAN `:331-343`.
+- **Dispositions written after PLAN `:343`:**
+  - #82 is resolved by B2a. `TerminalProcessor` owns the `images` lane and sizes it in `reset` (`jam_TerminalProcessor.cpp:24`). `audioDeviceAboutToStart` reaches `reset` through `prepare` (`EVETerminalProcessor.cpp:221-229`, `:261-270`).
+  - #63 is rejected. `imageBounds` is replaced whole on each vblank. MANIFESTO E: *"A complete state replaces a complete state."* The vblank tell also retries an image whose bytes are not yet in the record (PLAN `:75`).
+  - #86 is rejected. The dock visibility has one truth, the `preview` component property (`EVEView.cpp:112-120`).
+  - #87 is rejected. The base class also dispatches with `property ==` (`jam_PluginEditor.cpp:343`).
+  - #88 is rejected. A read of a Model row asks no object for its state (the same read as #79).
+  - #80, part, is rejected. `juce::Identifier { name }` is the Design's own call (PLAN `:81`).
+  - #84, part, is rejected. The base class owns the view bounds (`jam_PluginEditor.cpp:43-69`). Only the hand-written inverse transform changed, to `getLocalArea` (`EVEView.cpp:102`).
+- **Corrections in this session, now in the tree:**
+  - `writePendingData` and `handleAsyncUpdate` are back to their original form (`EVETerminalProcessor.cpp:167-179`). `setOverlays` calls no drain (`EVEView.cpp:122-145`).
+  - The raw RGB path uses the new `jam::simd::convertRgbPixel`, `convertRgb4` and `convertRgb`. They follow the RGBA sibling, with SSE2, NEON and scalar arms (`jam_SimdBlend.cpp:860-923`).
+  - `Lane::images` is renamed to `Lane::imageBounds` (NAMES Rule 3 and Rule 5).
+  - `setImageBounds()` runs at the end of `addLanes()` again.
+- **Final validation build.** Both builds exit 0. The logs have 0 `warning:`, 0 `error:` and 0 `FAILED` lines. Both reach `[65/66]` (`<scratchpad>/build-release.log:73`, `<scratchpad>/build-profile.log:73`; scratchpad `/private/tmp/claude-501/-Users-jreng-Documents-Poems-dev-eve/750cd3a0-9445-4670-9579-0d6cb7b98a57/scratchpad`).
+  - Release: `cast cast/spell.md --no-sign` (`project-info.md:138-142`).
+  - Profile: `cmake -S . -B Builds/Profile -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=OFF -DCAST_PROFILE=ON`, then `ninja -C Builds/Profile` (`benchmark/burn.md:34-36`).
+- **Doxygen pass.** The pass documents all 23 changed headers.
+  - jam: 0 warnings (`~/.config/nvim/doxygen/Doxyfile.lib`, run with `~/.config/nvim/scripts/build-doxygen.sh`).
+  - EVE: 0 warnings (`~/.config/nvim/doxygen/Doxyfile.project`).
+  - Both builds pass again after the pass.
+
+### Remaining
+1. **Step 14 — ARCHITECT.** Run EVE. Senders, with PNG, GIF and JPEG:
+   - `imgcat` (cells, `px`, `auto`);
+   - `kitten icat`, with and without `--unicode-placeholder`;
+   - `chafa`;
+   - fzf with `bin/fzf-preview.sh`;
+   - a full-screen CLI on the alternate screen.
+
+   The criteria are at PLAN `:284-288`. No run of the current build has exercised the overlays or the dock.
+2. **Step 11 and Step 12g checks — ARCHITECT, in the same run:**
+   - `printf '\e]1337;EVE;command;name=clear\a\e]1337;EVE;command;name=clear\a'` clears twice (PLAN `:224`).
+   - `eve preview <png>` and `eve preview <gif>` show in the dock. An empty path hides it. `ctrl+shift+P` toggles it (PLAN `:275`).
+3. **Log — COUNSELOR, on ARCHITECT's word only** (PLAN `:307`).
+   - Write the sprint block per `/log`.
+   - Then run `carol debt clear DEBT-20261025T214955`, with the receipt first.
+4. **Optional — COUNSELOR.** Check the doxygen prose for ASD-STE100 sentence length. The doxygen Engineer flagged this.
+
+### Key Decisions
+- *"be careful with the design we have been meticulously optimize to get fastest performance, don't fucking break working implementation. no fucking hack, DESIGN BY CONTRACT?"*
+- *"if you genuinely needed and doesn't exist, write one, follow established pattern verbatim, CROSSPLATFROM"* — about SIMD RGB.
+- *"why do we need specific RGB only? why not carry the alpha? RGB can use Alpha always opaque"*
+- *"that's the plan. why the fuck flip flop and fucking churn tokens? do you fucking need to ask what i have approved?"* — the overlay of PLAN `:75` and `:269` stands: the vblank tell, plus a retry when the bytes are not yet in the record.
+- *"TextEditor no image"*
+- *"so no images, hold no image data, and name it image? why not using RectangleList?"*
+- *"NAMES.md OBEY THE FUCKING PROTOCOL DESIGN BY CONTRACT CONTRACT NON NEGOTIABLE"*
+- *"final validation only. not fucking every turn"* — builds.
+- *"Percent-encode values"* — audit #89 (PLAN `:313`).
+- *"Siblings via owner"*; *"EVEView, like overlays"* (PLAN `:360-361`).
+- *"TextEditor only "reserve the space""* (PLAN `:32`).
+- *"keep for now, but NOT for native Preview (Component)."* — the EVE `image` operation (PLAN `:36`).
+- *"no fucking resume"* — never resume an agent. A correction goes to a fresh Engineer.
+- The earlier rulings of PLAN `:17-36` stay closed.
+
+### Files Modified
+eve (`git -C eve status --short`, 2026-10-30):
+- `Source/EVETerminalProcessor.h/.cpp` — lanes `commands` and `images`, `addCommand`, `getCommands`, `getSwap`, `registerEvents` additions, `prepare` drain via `triggerAsyncUpdate` + `handleUpdateNowIfNeeded`.
+- `Source/EVEView.h/.cpp` — `applyCommands`, `applyImage`, `setOverlays`, the dock (`resized`, `setPreview`, `setPreviewVisible`, `isPreviewVisible`).
+- `Source/EVEViewComponents.cpp` — the `onImages` binding.
+- `Source/EVEViewPanelCallbacks.cpp` — the `preview` callback.
+- `Source/layout/ViewLayout.md`, `Source/layout/parameters.md`, `cast/identifiers.md`, `Source/generated/Identifiers.*` — the model rows and the keys row; `commandCount` moved to EVE's cast.
+- `Source/shell/zsh_integration.zsh`, `bash_integration.bash`, `powershell_integration.ps1` — the `eve` function with percent-encoding.
+- `SPEC.md`, `PLAN-Grand-Scheme.md`, `comparison.md`, `carol/SPRINT-LOG.md:3`; new `README.md`, `LICENSE`, `PLAN-eve-terminal-protocol.md`.
+- `benchmark/` — the control, live and replay reports; new `cat.md`, `live-sample.md`, `live-where.md`, `replay-where.md` and their reports.
+
+jam (`git -C jam status --short`, 2026-10-30):
+- `jam_terminal/processor/jam_TerminalProcessor.h/.cpp` — payload mode, the OSC 1337, DCS and APC routes, the `images` lane, `eveOperations`, percent decoding, Kitty placements.
+- `jam_terminal/processor/jam_TerminalFIFO.h/.cpp` — the `maxBytes` overload and `applyPendingData`.
+- `jam_terminal/image/` — `jam_TerminalITerm2Decoder`, `jam_TerminalKittyDecoder` (restored, metadata only), `jam_TerminalSixelDecoder`, `jam_TerminalImageSequence.h`; new `jam_TerminalImageEncoding.h`. Deleted: `jam_TerminalSkit.h/.cpp`, `jam_TerminalDecodedImage.h`, `jam_TerminalPendingImage.h`.
+- `jam_terminal/document/` — `jam_TerminalSwap`, `jam_AnsiDocument` (`stringTerminator`, `getIndexedColour`, `dcs`/`apc`); new `jam_TerminalImageRecord.h/.cpp`.
+- `jam_terminal/buffers/jam_TerminalBuffer.h/.cpp` — `ImagePlacement {destination, image}`, placements on both grids, `removeImagePlacements`.
+- `jam_terminal/graphics/jam_TerminalGraphicsContext.h/.cpp` — the inline image branch removed.
+- `jam_gui/widgets/jam_TextEditor.h/.cpp` — reserved space only, `imageBounds`, `onImages`, `setImageBounds`.
+- New `jam_gui/widgets/jam_Preview.h/.cpp`; `jam_gui.h/.cpp`.
+- `jam_graphics/fonts/jam_SimdBlend.h/.cpp` — `convertRgbPixel`, `convertRgb4`, `convertRgb`.
+- `jam_data_structures/model/jam_Model.h/.cpp`, `jam_ParameterText.h`, new `jam_ParameterText.cpp`; `jam_plugin_bootstrap/parameter/jam_ModelLayout.cpp` — the `text` row and `store`.
+- `jam_core/text/jam_AttributedString.h/.cpp` — `setAtom`.
+- `cast/terminal.md`, `cast/gui.md`, `cast/plugin_bootstrap.md`, `cast/spell.md`, `generated/*`, `user-modules-info.md`.
+
+### Open Questions
+- **Step 4 criterion — ARCHITECT.** Decode = `terminalProcess` − `terminalRead`. It went from 15.38 s (Step 3, this session) to 15.49 s (`benchmark/live-report.md:19`, `:27`: 16.340 s − 0.853 s). That is +0.7%. The criterion was "no worse" (PLAN `:304`).
+- **Sixel caps — ARCHITECT ratifies.** 4096 × 4096 pixels, and 65535 for a parameter.
+- **`ninja doxygen` — ARCHITECT.** No EVE build directory defines the target. `CLAUDE.md` lists it. The pass ran `doxygen` direct on `Doxyfile.project`.
+- **scout kernel sampler — ARCHITECT.** There is a known bug at `scout/Source/Sampler.cpp:154`.
+
+### Next Steps
+- Start at Remaining item 1, when ARCHITECT reports the Step 14 run. Fix each runtime failure from a read, per CAROL.md Failure Protocol.
+- Log when ARCHITECT says "log sprint".
 
 ## Sprint: TextEditor nvim Parity — the Harness Is an Editable Buffer; History in the TextEditor, Live in the Processor ✅
 

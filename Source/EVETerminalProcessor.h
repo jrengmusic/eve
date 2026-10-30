@@ -7,8 +7,10 @@
  * @brief Terminal chain of the plugin. It decodes the TTY output into the rows of a `jam::TerminalBuffer` and publishes them through a `jam::TerminalSwap`.
  *
  * `process()` runs the `jam::TerminalProcessor`. The processor decodes the TTY output into the rows of the buffer.
- * A row that leaves the live area stays in the ring of the buffer as a history row. `writePendingData()` moves the history rows into the swap.
+ * A row that leaves the live area stays in the ring of the buffer as a history row. `writePendingData()` moves the history rows into the swap,
+ * and it moves the image records of the processor into the swap with them.
  * The processor writes a changed live area to the swap on each `process()` call.
+ * The processor does not decode images. The view reads the bytes of an image from the swap and decodes them.
  * The view pulls through the getter in `userInterfaceGetters`. The getter gives the swap, and the view reads the history lines and the live lines from it.
  * The view sends input bytes through the `terminalInput` event. The event writes the bytes into the input lane when the lane has room for them, and asks for a process.
  *
@@ -45,6 +47,7 @@ public:
      */
     EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse);
 
+    /** @brief Stops listening to `state` and cancels a pending update. The clock must be stopped (jassert). */
     ~EVETerminalProcessor() override;
 
     /**
@@ -88,8 +91,8 @@ public:
     void clear();
 
     /**
-     * @brief Moves the history rows of the buffer into the swap.
-     * @return `true` when the call wrote at least one line.
+     * @brief Moves the history rows of the buffer and the image records of the processor into the swap.
+     * @return `true` when the call wrote at least one line, or when image records were waiting.
      */
     bool writePendingData();
 
@@ -105,6 +108,12 @@ public:
 
     /** @brief Takes the message manager lock, then flushes the Model lane to its tree. */
     void flush();
+
+    /** @brief Returns the FIFO of the command names that the shell sent. Each name ends with a zero byte. The view reads it. */
+    jam::TerminalFIFO& getCommands() noexcept;
+
+    /** @brief Returns the swap that holds the history lines, the live area and the image bytes. The view reads it. */
+    jam::TerminalSwap& getSwap() noexcept;
 
 #if JAM_USING_PROFILER
     /**
@@ -143,8 +152,24 @@ private:
      */
     void valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
 
-    /** @brief Adds the event setters that copy the terminal state to the Model lane. Each setter calls `storeValue` on `state`. The mode events store a bool as 0 or 1, and `mouseTracking` and `cursor` store an int. */
+    /**
+     * @brief Adds the event setters that copy the terminal state to the Model lane.
+     *
+     * Each setter calls `storeValue` on `state`. The mode events and `shellExited` store a bool as 0 or 1, and `mouseTracking` and `cursor` store an int.
+     * The `preview` event stores the path text. The `previewImage` event releases the previous preview image in the buffer, then stores the number of the new image.
+     * The `command` event adds a command name through `addCommand()`.
+     */
     void registerEvents();
+
+    /**
+     * @brief Writes a command name and a zero byte to the command FIFO, and counts the command in the Model lane.
+     *
+     * The command FIFO must have room for the name and the zero byte (jassert). The call writes nothing when the name is empty or does not fit.
+     *
+     * @param name  Bytes of the command name.
+     * @param size  Number of bytes in @p name.
+     */
+    void addCommand (const char* name, int size);
 
     /** @brief Adds the text editor getter keyed by the winsize type. The getter posts the history writer to the serial context of this object, flushes the Model lane, gives the swap, and asks for a process. */
     void registerUserInterfaceGetters();
@@ -191,13 +216,12 @@ private:
     jam::Model state;                                 ///< Terminal Model. Its tree is the `terminal` child of the model state. The events store the terminal state into it, and the flush writes it to the tree.
     jam::Function::Map<juce::Identifier, void> events;   ///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
     jam::TerminalFIFO input;                          ///< Input lane from the view to the TTY.
+    jam::TerminalFIFO commands;                       ///< Command names from the shell to the view.
     jam::VirtualDevice device { jam::VirtualDeviceType::virtualDeviceTypeName, jam::VirtualDeviceType::virtualDeviceTypeName };   ///< Clock of the chain. This object is its callback.
     std::unique_ptr<jam::TerminalTTY> tty { createTTY() };   ///< Pseudo terminal of the shell.
     jam::TerminalProcessor terminalProcessor;           ///< Decoder of the TTY output into the rows of `terminalBuffer`.
 
-    static constexpr bool shouldUseInlineImages { true };   ///< Whether the engine presents image placements as inline images.
-
-    jam::TerminalBuffer terminalBuffer { shouldUseInlineImages };     ///< Row grid that the terminal processor writes. Its ring holds the history rows until `writePendingData()` moves them.
+    jam::TerminalBuffer terminalBuffer;   ///< Row grid that the terminal processor writes. Its ring holds the history rows until `writePendingData()` moves them. Its list of released images feeds the image records.
     jam::TerminalSwap swap;                           ///< Store of the history lines and the live area. The view reads it.
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVETerminalProcessor)

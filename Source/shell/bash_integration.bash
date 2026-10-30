@@ -32,3 +32,25 @@ fi
 _eve_precmd() { printf '\033]133;D\007'; printf '\033]7;file://%s%s\007\033]133;A\007' "$HOSTNAME" "$PWD"; }
 PS0=$'\033]133;C\007'
 PROMPT_COMMAND="_eve_precmd${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+
+_eve_encode() {
+    local LC_ALL=C
+    local text="$1" char encoded='' i
+    for (( i = 0; i < ${#text}; ++i )); do
+        char="${text:i:1}"
+        case "$char" in
+            '%'|';'|[[:cntrl:]]) encoded+="$(printf '%%%02X' "'$char")" ;;
+            *) encoded+="$char" ;;
+        esac
+    done
+    printf '%s' "$encoded"
+}
+
+eve() {
+    case "$1" in
+        command) printf '\033]1337;EVE;command;name=%s\007' "$(_eve_encode "$2")" ;;
+        preview) printf '\033]1337;EVE;preview;path=%s\007' "$(_eve_encode "${2:+$(realpath "$2")}")" ;;
+        image) printf '\033]1337;EVE;image;:%s\007' "$(base64 < "$(realpath "$2")" | tr -d '\n')" ;;
+        *) printf "eve: unknown command '%s'; use command, preview or image\n" "$1" >&2; return 1 ;;
+    esac
+}

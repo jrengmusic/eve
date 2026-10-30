@@ -70,6 +70,11 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                     return isReported;
                 };
 
+                textEditor->onImages = [this, textEditor] (const jam::HashMap<juce::int64, jam::Array<juce::Rectangle<int>>>& imageBounds)
+                {
+                    setOverlays (*textEditor, imageBounds);
+                };
+
                 textEditor->liveCursor.referTo (terminal.getPropertyAsValue (Id::cursor, nullptr));
                 textEditor->liveCursorVisible.referTo (terminal.getPropertyAsValue (Id::cursorVisible, nullptr));
                 textEditor->liveIsRecording.referTo (terminal.getPropertyAsValue (Id::isRecording, nullptr));
