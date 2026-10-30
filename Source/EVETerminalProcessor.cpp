@@ -18,6 +18,8 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
 {
     state.stopTimer();
     jam::ModelLayout::addParameters (state, jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }));
+    winsizeAttachment = std::make_unique<jam::Model::ParameterAttachment> (*state.getParameter<jam::Parameter<int64_t>> (Id::toType (Id::terminal), Id::winsize),
+                                                                          [this] (const juce::var&) { restart(); });
     registerEvents();
     registerUserInterfaceGetters();
     registerChainEvents();
@@ -185,7 +187,7 @@ int EVETerminalProcessor::getHistoryCapacity() const
 
 jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
 {
-    return jam::TerminalWinsize::unpack (static_cast<juce::int64> (model.getOrCreateComponentProperty (Id::toTag (Id::winsize), Id::value).getValue()));
+    return jam::TerminalWinsize::unpack (state.getParameter<jam::Parameter<int64_t>> (Id::toType (Id::terminal), Id::winsize)->getValue());
 }
 
 void EVETerminalProcessor::prepare()
@@ -199,6 +201,11 @@ void EVETerminalProcessor::prepare()
 
     device.stop();
     device.open ({}, {}, virtualSampleRate, virtualBufferSize);
+    start();
+}
+
+void EVETerminalProcessor::start()
+{
     device.start (this);
     device.requestProcess();
 }
@@ -206,6 +213,7 @@ void EVETerminalProcessor::prepare()
 void EVETerminalProcessor::releaseResources()
 {
     device.stop();
+    device.close();
 }
 
 void EVETerminalProcessor::audioDeviceIOCallbackWithContext (const float* const*, int, float* const*, int, int, const juce::AudioIODeviceCallbackContext&)
@@ -224,8 +232,9 @@ void EVETerminalProcessor::audioDeviceAboutToStart (juce::AudioIODevice*)
     commands.prepare (virtualBlockSize);
     terminalProcessor.prepare (virtualBlockSize);
 
-    if (const auto winsize { getWinsize() }; winsize.isValid())
-        prepare (winsize, getHistoryCapacity());
+    jassert (getWinsize().isValid());
+
+    prepare (getWinsize(), getHistoryCapacity());
 }
 
 void EVETerminalProcessor::audioDeviceStopped() {}

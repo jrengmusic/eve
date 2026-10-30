@@ -36,6 +36,107 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Resize Is One Final Stop, the Active Prompt Anchors at Home, Column Grids Reflow in History ✅
+
+**Date:** 2026-10-31
+**Duration:** multi-session, 2026-10-30 → 2026-10-31
+**Plan:** `PLAN-column-reflow.md` (rulings 1–8, Steps 1–4). The resize and prompt work ran on rulings in chat. SPEC.md State Model → Resize now records them.
+
+### Read First (next COUNSELOR)
+1. `SPEC.md` State Model → **Resize**. It holds the final-stop coalesce, the active prompt anchor and the column reflow rulings.
+2. `PLAN-column-reflow.md`. Steps 2 and 3 describe the code as built: writer-side `gridStart`, chunked tail, open lanes.
+3. This entry, **State for Continuation**. It lists the open work in order.
+4. The entry below this one: the handoff of the terminal protocol sprint. That sprint is committed (`326387d`) but never logged.
+
+### Agents Participated
+- COUNSELOR — design discussion, rulings, PLAN, SPEC, validation of each Engineer return, audit triage.
+- Engineer (sonnet) — every code change, the audit fix batches A–D and their corrections, the doxygen pass.
+- Pathfinder (haiku) — reads of the JUCE FlexBox, the terminal sources of other emulators, git status.
+- Auditor (opus) — one sweep after the steps: 41 findings.
+
+### Problems Solved
+1. **Active prompt anchor on resize.**
+   - ARCHITECT: *"clear: draw active prompt at 0"*; *"ONE FUNCTION, the parameter is where"*.
+   - `TerminalProcessor::reset` puts the cursor at home (`setCursor ({}, terminalBuffer)`). The `pendingBytes = 0` line is gone. `prepare` asserts `pendingBytes <= maximumBlockSize`.
+   - zsh redraws its prompt by relative cursor-up from its own model, and oh-my-posh bakes `--terminal-width`. The fix is in the user's zshrc: `TRAPWINCH() { omp_repaint_prompt }` (`~/.config/zsh/zshrc:181`, inside the OMP block).
+2. **Resize is one final stop.**
+   - ARCHITECT: *"why dont we make resize always coalesce, FINAL STOP only. - resize > pixel > cell > winsize always UNIDIRECTIONAL"*; *"what about Component::Listener? EVEView orchestrate"*.
+   - `jam::AudioStandaloneApp::MainWindow::resizeStart` / `resizeEnd` forward to the editor's constrainer (`jam_AudioStandaloneApp.cpp:74-84`).
+   - `EVEView` is a `juce::ComponentBoundsConstrainer`. It calls `setConstrainer (this)` before `setScaling()`. `resizeStart` / `resizeEnd` call `setResizing (bool)`, which writes `Id::isResizing` to each TextEditor's component state.
+   - `TextEditor::setWinsize` computes cells from `getTerminalBounds()` (the viewport less the scroll bar). It writes only while `isResizing` is false and only a valid winsize. `bindToModel` sets `isResizing` false.
+   - `TextEditor::resized` always reserves the status-bar row. ARCHITECT: *"sole author of ALL is Window size"*.
+3. **Column grids reflow in history.** ARCHITECT: *"i just need ls, eza, whatever column on terminai history always layout symetrical, beautifully, deterministically, without ever losing any performance."*
+   - Block mark: OSC 133 C increments `TerminalProcessor::outputBlock` and starts recording. `addTextCell` marks its row while recording. `TerminalBuffer` keeps one block per ring slot (`outputBlocks`). `writeRow` stores `outputBlock` and `gridStart` as int64 after the placements.
+   - Recognition at the writer: `TerminalSwap::writeFromTerminalBuffer` computes the cell starts of each row and its `gridStart` (`getGridStart`, pure). A reader-side look-back was O(L²) per lane, so it moved.
+   - Lane read: `addLines` = `addRangeLines` (crosses index files) → `removeGridHead` → `addGridTail` / `addGridLines` (one chunked read) → root `Id::size` → root `Id::end` when open → `AnsiDocument::addGrids`.
+   - Open lane: a lane whose first or last line carries the swap's `previousGridStart` gets root `Id::end` = swap end. `TextEditor::addLanes` builds it again when the swap end moves.
+   - Layout: one line per grid. Gutters are `AttributedChar::flexGap` atoms. The codepoint holds the entry order index (overflow asserts). `TextEditor::setGridRows` places the entries with `juce::FlexBox` (column, wrap, `withOrder`, the gutter as right margin), with the smallest row count that fits.
+   - ARCHITECT on width: *"make it equal space between column? then the reminder could be added to EOL as whitespace if it not zero"*. On one rule: *"no need original form. if the layout is most deterministic with ONE SSOT layout reflow rule"*.
+   - Caret, selection and hit-test read the entry positions (`getGridCellBounds`, `getGridCell`, `getCellWidth`).
+4. **Crash after `ls`.** `Document::Element::add` returns a pointer into `properties`. A later `add` can reallocate it. `addGrid` adds every property first, then takes `get` references.
+5. **Clock contract (audit #2).** The winsize attachment started a stopped clock and doubled the start inside `setStateInformation`'s `restart`. The attachment is `restart()` again. `prepare()` starts unconditionally (SPEC Core Principle 9). The Model `winsize` row defaults to 80 × 24 (`22518101216067584` = `TerminalWinsize { 80, 24, 0, 0 }.pack()`), so `audioDeviceAboutToStart` asserts a valid winsize.
+
+### Audit (41 findings) — DCF triage
+- **Resolved:**
+  - Batch A (EVE): winsize default, `preview` / `previewImage` descriptions (`parameters.md:41-45`), dead `winsize` cell in `component.md:8`, clock contract.
+  - Batch B (document): `minimumGutter` scope, gap → gutter names, `addGridRows` → `addGridLines`, overflow assert, `Id::left` / `Id::top` at creation, no default-value `get`s, single tail read, open-lane `Id::end`.
+  - Batch C (gui, core, bootstrap): `applyLayout` / `getLayoutRight` (const) / `getNumRows` (by value), `setEntryPositions` set-only, `rowTolerance`, `getCellWidth`, `getGridCell` (#9), no pessimistic checks, `isResizing` reset in `bindToModel`, `applyToCodepoints` via `getCodepoint`, no `getEditor` null check, open-lane rebuild.
+  - Batch D (processor, buffer): one mark site in `addTextCell` (`jam_TerminalProcessor.cpp:371-372`), `outputBlockBytes` + `gridStartBytes`.
+  - COUNSELOR corrections of Engineer returns: the `setRow` lambda grew `addTextRun` to 43 lines (MANIFESTO L), so the mark went to `addTextCell` (33 lines now). `[&]` capture in `getGridCell` (MANIFESTO E). Double `find` in `addLanes`. `isGridComplete` mutated the document (Verb Contract), so `Id::end` has one site in `addLines`.
+  - #5, #39 by doc updates: PLAN Steps 2–3, SPEC Resize and Feature 5.
+- **Doxygen pass (post-audit).** Headers only, per the `doxygen-writer` skill:
+  - eve: `EVETerminalProcessor.h`, `EVEView.h`.
+  - jam: `jam_TextEditor.h`, `jam_AttributedString.h`, `jam_AudioStandaloneApp.h`, `jam_TerminalProcessor.h`, `jam_TerminalBuffer.h`, `jam_TerminalSwap.h`, `jam_AnsiDocument.h`.
+  - `jam_PluginEditor.h` had no stale block.
+  - Doxygen did not run, so the 0-warning check is open (State for Continuation, item 1).
+- **Rejected, with the read:**
+  - #3 winsize persistence: it is a Model row by design; the valid default answers the assert.
+  - #6 Preview code removal: ARCHITECT *"NO PREVIEW COMPONENT. dont fucking undo the working implementation"*. Only the docs changed.
+  - #7: ruling 8 was ruled with that case known.
+  - #11, #12: document → buffers is the same direction as `TerminalSwap`.
+  - #13b/c: function reuse; creation permits multiple passes (MANIFESTO E, Complete at Creation).
+  - #14: `Id::tokens` holds layout units on every line, same role.
+  - #16: the sibling `setTableRows` lives in TextEditor.
+  - #19–#22: L ladder; a split only for line count is wrong decomposition. `addTextRun` stays at 33 lines: wrap, clamp and cell dispatch are one cluster write.
+  - #25, #31, #37, #40: no clause broken on read.
+  - #26: sibling `jam::Window` has the same shape.
+  - #27: ARCHITECT ruled `registerCallbacks`.
+  - #35: option (a) by ruling (*"sole author of ALL is Window size"*).
+  - #38: ARCHITECT `/go`.
+  - #41: construction order is required.
+  - #32, part: `addRangeLines` is a real responsibility (index-file crossing).
+
+### Files Modified
+- eve: `Source/EVETerminalProcessor.h/.cpp`, `Source/EVEView.h/.cpp`, `Source/EVEViewComponents.cpp`, `Source/EVEViewPanelCallbacks.cpp`, `Source/layout/component.md`, `Source/layout/parameters.md`, `SPEC.md`, `PLAN-Grand-Scheme.md`, new `PLAN-column-reflow.md`, `carol/SPRINT-LOG.md`.
+- jam: `jam_terminal/processor/jam_TerminalProcessor.h/.cpp`, `jam_terminal/buffers/jam_TerminalBuffer.h/.cpp`, `jam_terminal/document/jam_TerminalSwap.h/.cpp`, `jam_terminal/document/jam_AnsiDocument.h/.cpp`, `jam_core/text/jam_AttributedString.h/.cpp`, `jam_gui/widgets/jam_TextEditor.h/.cpp`, `jam_plugin_bootstrap/standalone/jam_AudioStandaloneApp.h/.cpp`, `jam_plugin_bootstrap/view/jam_PluginEditor.h/.cpp`, `cast/gui.md` (`isResizing`), `cast/terminal.md` (`outputBlock`, `gridStart`), `generated/jam_Gui.*`, `generated/jam_Terminal.*`.
+- Outside the repos: `~/.config/zsh/zshrc:181`.
+- The jam tree (`git status --short`, 2026-10-31) also holds changes that this sprint's record does not name: `jam_opentype/document/*` (eleven `.cpp` files deleted and folded into `jam_OpenTypeDocument.cpp` / `jam_OpenTypeWriter.cpp`), `jam_opentype/jam_opentype.cpp`, `jam_gui/buttons/*`, `jam_gui/menu/jam_Menu.*`, `jam_gui/registry/jam_Registry.h`, `jam_Traits.h`, `jam_gui/widgets/jam_FrequencyTextBox.*`, `jam_PresetSelector.h`, `jam_VariComponent.h`, `jam_Preview.*`, `jam_data_structures/model/jam_AudioModel.*`, `jam_data_structures/parameter/jam_ParameterManager.*`. Confirm their origin before the commit.
+
+### Alignment Check
+- [x] BLESSED principles followed
+- [x] NAMES.md adhered
+- [x] MANIFESTO.md principles applied
+- [ ] Build not run after the audit fixes and the doxygen pass. Agents never build. ARCHITECT builds.
+
+### State for Continuation
+1. **Build — ARCHITECT.** `cast cast/spell.md --debug`. Every audit fix and the doxygen pass are unbuilt. The tree already holds regenerated `generated/jam_Terminal.*` (+2 lines) and `generated/jam_Gui.*` (+1 line). Check that they hold `outputBlock`, `gridStart` and `isResizing`. Then regenerate doxygen and check 0 warnings.
+2. **Runtime checks — ARCHITECT.**
+   - `ls` / `eza` grid: resize narrower and wider; click and select inside the grid (new `getGridCell`).
+   - A grid that crosses a 256-line lane edge while the command still prints (open-lane rebuild).
+   - Window resize: one `SIGWINCH` at the final stop; the prompt stays at home.
+   - First launch with no saved state: the 80 × 24 default winsize, then the first layout winsize.
+3. **KANJUT** — `cast --sync` for the `jam_PluginEditor` change.
+4. **Windows** — the resize coalesce is untested there.
+5. **Link detection** — the PTY drops OSC 8 (`jam_Terminal.h:1970-1976`). Not started.
+6. **Side panel / Preview** (grand scheme §3.11) and the GIF bug — open. No Preview component exists now (SPEC Feature 5).
+7. **Previous sprint** — the terminal protocol sprint (entry below, commit `326387d`) is not logged. Its receipt and `carol debt clear DEBT-20261025T214955` wait for ARCHITECT's word.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
 ## Handoff to COUNSELOR: EVE terminal protocol — one envelope, one path; measure and decode; Preview foundation
 
 **From:** COUNSELOR

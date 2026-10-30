@@ -78,6 +78,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                 textEditor->liveCursor.referTo (terminal.getPropertyAsValue (Id::cursor, nullptr));
                 textEditor->liveCursorVisible.referTo (terminal.getPropertyAsValue (Id::cursorVisible, nullptr));
                 textEditor->liveIsRecording.referTo (terminal.getPropertyAsValue (Id::isRecording, nullptr));
+                textEditor->winsize.referTo (terminal.getPropertyAsValue (Id::winsize, nullptr));
                 textEditor->setMode (map::EditorMode::terminal);
             });
     };

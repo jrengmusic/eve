@@ -14,7 +14,9 @@
  * @par Thread contract
  * **MESSAGE THREAD** — all methods.
  */
-class EVEView : public jam::PluginEditor
+class EVEView
+    : public jam::PluginEditor
+    , public juce::ComponentBoundsConstrainer
 {
 public:
     /**
@@ -31,15 +33,24 @@ public:
     /** @brief Paints the transition over the children. @param g Graphics context to paint into. */
     void paintOverChildren (juce::Graphics& g) override;
 
-    /** @brief Places the children. When the side preview is visible, it takes the right part of the bounds and the view gives up the same width. */
-    void resized() override;
-
 private:
     /**
      * @brief Gives the keyboard focus to the default component of the editor.
      * @param cause  Not used.
      */
     void focusGained (FocusChangeType cause) override;
+
+    /** @brief Runs as the constrainer of this editor when a user resize starts. It marks the text editors as resizing, so that they keep the winsize unchanged until the resize ends. */
+    void resizeStart() override;
+
+    /** @brief Clears the resizing mark of the text editors, so that they write the winsize of the final size. */
+    void resizeEnd() override;
+
+    /**
+     * @brief Writes `Id::isResizing` to the component property of each text editor in the view.
+     * @param isResizing  `true` while the user resizes the window.
+     */
+    void setResizing (bool isResizing);
 
     /**
      * @brief Reacts to a change of a property in the model tree.
@@ -80,10 +91,7 @@ private:
     void registerViewComponents (jam::Registry::Registration& registration);
 
     /** @brief Adds the callbacks of the panels: scale, window size, clear, preview and history capacity. */
-    void attachPanelCallbacks() override;
-
-    /** @brief Restarts the terminal processor, so it prepares again from the new window size. */
-    void setWinsize();
+    void registerCallbacks();
 
     /** @brief Clears the screen and the saved lines of the terminal. */
     void clear();
@@ -129,7 +137,6 @@ private:
      */
     void applyImage (juce::int64 image, jam::Owner<jam::Preview>& previews);
 
-    jam::Preview preview;                                       ///< Side preview of the image file that the `preview` command names.
     jam::HashMap<juce::int64, jam::Owner<jam::Preview>> overlays;   ///< Overlays over the text editor, keyed by image number. Each box of an image has one.
 
     //==============================================================================

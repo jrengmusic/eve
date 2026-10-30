@@ -7,6 +7,7 @@ EVEView::EVEView (jam::AudioModel& newModel,
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
 {
     initialise (layout.getOrCreateSettings());
+    setConstrainer (this);
     setScaling();
     juce::MessageManager::callAsync ([this] { grabKeyboardFocus(); });
 }
@@ -18,6 +19,19 @@ void EVEView::focusGained (FocusChangeType)
         if (auto* defaultComponent { traverser->getDefaultComponent (this) })
             defaultComponent->grabKeyboardFocus();
     }
+}
+
+void EVEView::resizeStart() { setResizing (true); }
+
+void EVEView::resizeEnd() { setResizing (false); }
+
+void EVEView::setResizing (bool isResizing)
+{
+    jam::Component::applyFunctionRecursively (view.get(), [this, isResizing] (juce::Component* child)
+    {
+        if (jam::Component::hasProperty (child->getProperties(), Id::type, Id::textEditor))
+            model.getOrCreateComponentProperty (child->getComponentID(), Id::isResizing).setValue (isResizing);
+    });
 }
 
 void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
@@ -47,6 +61,7 @@ void EVEView::initialiseRegistry()
     registerViewComponents (registration);
 
     registry.create (registration);
+    registerCallbacks();
 }
 
 void EVEView::initialiseView()
@@ -56,17 +71,9 @@ void EVEView::initialiseView()
 
     view = jam::ViewEditor::create<jam::MarkdownDocument> (model, *theme, terminalProcessor.userInterfaceGetters, terminalProcessor.chainEvents, files::viewLayout);
     addAndMakeVisible (view.get());
-    addChildComponent (preview);
 }
 
 void EVEView::paintOverChildren (juce::Graphics& g) { transition.paint (g, getLocalBounds()); }
-
-void EVEView::setWinsize()
-{
-    auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
-
-    processor.restart();
-}
 
 void EVEView::clear()
 {
@@ -84,28 +91,8 @@ void EVEView::setHistoryCapacity()
     processor.restart();
 }
 
-void EVEView::resized()
-{
-    jam::PluginEditor::resized();
-
-    preview.setVisible (isPreviewVisible());
-
-    if (isPreviewVisible())
-    {
-        const auto previewWidth { static_cast<float> (
-            styleManager->getConfig (Id::toType (Id::display)).getChildWithName (Id::previewWidth).getProperty (Id::value)) };
-        jassert (previewWidth > 0.0f and previewWidth < 1.0f);
-
-        const auto width { juce::roundToInt (static_cast<float> (getWidth()) * previewWidth) };
-
-        preview.setBounds (getLocalBounds().removeFromRight (width));
-        view->setBounds (view->getBounds().withTrimmedRight (view->getLocalArea (this, preview.getBounds()).getWidth()));
-    }
-}
-
 void EVEView::setPreview (const juce::String& path)
 {
-    preview.setImageFile (juce::File { path });
     setPreviewVisible (path.isNotEmpty());
 }
 

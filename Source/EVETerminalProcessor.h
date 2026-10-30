@@ -29,11 +29,13 @@
  * @par Thread contract
  * `process()` runs on the serial context of the device. It writes the input lane to the TTY, then decodes the TTY output.
  * `prepare()`, `releaseResources()`, `restart()` and `clear()` run on the message thread.
+ * The winsize attachment of `state` calls `restart()` when the winsize changes. A stopped clock stays stopped, so a winsize change prepares the chain only while the clock runs.
  * `EVEProcessor::prepareToPlay` calls `prepare()`. `EVEProcessor::releaseResources` calls `releaseResources()`.
  */
-class EVETerminalProcessor : private jam::AsyncUpdater,
-                             private juce::ValueTree::Listener,
-                             private juce::AudioIODeviceCallback
+class EVETerminalProcessor
+    : private jam::AsyncUpdater
+    , private juce::ValueTree::Listener
+    , private juce::AudioIODeviceCallback
 {
 public:
     /**
@@ -51,14 +53,14 @@ public:
     ~EVETerminalProcessor() override;
 
     /**
-     * @brief Stops the clock, opens it at the fixed sample rate and the device buffer size of the OS, starts it with this object as the callback, and asks for a process.
+     * @brief Stops the clock, opens it at the fixed sample rate and the device buffer size of the OS, then starts it unconditionally.
      *
      * The device buffer size is `virtualBlockSize` on Windows and 1024 on the other systems.
      * The start runs `audioDeviceAboutToStart`, which prepares the chain.
      */
     void prepare();
 
-    /** @brief Stops the clock. `stop` waits for a tick in progress. */
+    /** @brief Stops the clock, then closes the device. `stop` waits for a tick in progress. */
     void releaseResources();
 
     /**
@@ -69,7 +71,7 @@ public:
      * @tparam Callback  Callable type with no argument.
      * @param callback   Callable that runs while the clock is stopped.
      */
-    template <typename Callback>
+    template<typename Callback>
     void restart (Callback&& callback)
     {
         const auto isPlaying { device.isPlaying() };
@@ -78,10 +80,7 @@ public:
         callback();
 
         if (isPlaying)
-        {
-            device.start (this);
-            device.requestProcess();
-        }
+            start();
     }
 
     /** @brief Restarts with no change, so the chain prepares again from the Model winsize and history capacity. */
@@ -123,17 +122,27 @@ public:
     static juce::File getManifestFile();
 #endif
 
-    jam::ViewManager::Getters userInterfaceGetters;     ///< Getters for the view. The constructor adds the text editor getter. It posts the history writer to the serial context of this object, flushes the Model lane, gives the swap, and asks for a process.
-    jam::ViewManager::Events chainEvents;               ///< Events of the chain. The constructor adds the `terminalInput` event. It writes its bytes into the input lane when the lane has room for them, then asks for a process.
+    jam::ViewManager::Getters
+        userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter. It posts the history writer to the serial context of this object, flushes the Model lane, gives the swap, and asks for a process.
+    jam::ViewManager::Events
+        chainEvents;///< Events of the chain. The constructor adds the `terminalInput` event. It writes its bytes into the input lane when the lane has room for them, then asks for a process.
 
 private:
+    /** @brief Starts the clock with this object as the callback, and asks for a process. */
+    void start();
+
     /** @brief Runs on the tick of the clock. It reads `bypass`. When `bypass` is 0, it writes the input lane to the TTY, then the terminal processor reads and decodes the TTY output until a read does not fill its read space. Each call of the terminal processor writes the changed live area to the swap. The live area has the row count of the current window size. */
     void process() noexcept;
 
     /** @brief The tick of the clock. It runs `process()`. */
-    void audioDeviceIOCallbackWithContext (const float* const*, int, float* const*, int, int, const juce::AudioIODeviceCallbackContext&) override;
+    void audioDeviceIOCallbackWithContext (const float* const*,
+                                           int,
+                                           float* const*,
+                                           int,
+                                           int,
+                                           const juce::AudioIODeviceCallbackContext&) override;
 
-    /** @brief Sizes the input lane and the decoder with `virtualBlockSize`. When the winsize is valid, it prepares the buffer, the swap and the TTY. */
+    /** @brief Sizes the input lane, the command FIFO and the decoder with `virtualBlockSize`. It asserts that the winsize is valid, then always prepares the buffer, the swap and the TTY. */
     void audioDeviceAboutToStart (juce::AudioIODevice*) override;
 
     /** @brief Does nothing. */
@@ -150,7 +159,8 @@ private:
      * @param tree      Tree that changed.
      * @param property  Property that changed.
      */
-    void valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
+    void
+    valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
 
     /**
      * @brief Adds the event setters that copy the terminal state to the Model lane.
@@ -210,19 +220,31 @@ private:
     /** @brief Returns the TTY of the platform. */
     static std::unique_ptr<jam::TerminalTTY> createTTY();
 
-    juce::AudioProcessor& processor;                  ///< Processor that owns this object. The object reads its wrapper type in profile builds.
-    jam::AudioModel& model;                          ///< Model that holds the winsize and the parameters.
-    const std::atomic<float>& bypass;                 ///< Atomic of the bypass parameter in the model. `process()` runs only while it is 0.
-    jam::Model state;                                 ///< Terminal Model. Its tree is the `terminal` child of the model state. The events store the terminal state into it, and the flush writes it to the tree.
-    jam::Function::Map<juce::Identifier, void> events;   ///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
-    jam::TerminalFIFO input;                          ///< Input lane from the view to the TTY.
-    jam::TerminalFIFO commands;                       ///< Command names from the shell to the view.
-    jam::VirtualDevice device { jam::VirtualDeviceType::virtualDeviceTypeName, jam::VirtualDeviceType::virtualDeviceTypeName };   ///< Clock of the chain. This object is its callback.
-    std::unique_ptr<jam::TerminalTTY> tty { createTTY() };   ///< Pseudo terminal of the shell.
-    jam::TerminalProcessor terminalProcessor;           ///< Decoder of the TTY output into the rows of `terminalBuffer`.
+    juce::AudioProcessor&
+        processor;///< Processor that owns this object. The object reads its wrapper type in profile builds.
+    jam::AudioModel& model;///< Model that holds the winsize and the parameters.
+    const std::atomic<float>&
+        bypass;///< Atomic of the bypass parameter in the model. `process()` runs only while it is 0.
+    jam::Model
+        state;///< Terminal Model. Its tree is the `terminal` child of the model state. The events store the terminal state into it, and the flush writes it to the tree.
+    std::unique_ptr<jam::Model::ParameterAttachment>
+        winsizeAttachment;///< Listens to the winsize parameter of `state`. A change calls `restart()`, so the chain prepares again for the new grid only while the clock runs.
+    jam::Function::Map<juce::Identifier, void>
+        events;///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
+    jam::TerminalFIFO input;///< Input lane from the view to the TTY.
+    jam::TerminalFIFO commands;///< Command names from the shell to the view.
+    jam::VirtualDevice device {
+        jam::VirtualDeviceType::virtualDeviceTypeName,
+        jam::VirtualDeviceType::virtualDeviceTypeName
+    };///< Clock of the chain. This object is its callback.
+    std::unique_ptr<jam::TerminalTTY> tty { createTTY() };///< Pseudo terminal of the shell.
+    jam::TerminalProcessor
+        terminalProcessor;///< Decoder of the TTY output into the rows of `terminalBuffer`.
 
-    jam::TerminalBuffer terminalBuffer;   ///< Row grid that the terminal processor writes. Its ring holds the history rows until `writePendingData()` moves them. Its list of released images feeds the image records.
-    jam::TerminalSwap swap;                           ///< Store of the history lines and the live area. The view reads it.
+    jam::TerminalBuffer
+        terminalBuffer;///< Row grid that the terminal processor writes. Its ring holds the history rows until `writePendingData()` moves them. Its list of released images feeds the image records.
+    jam::TerminalSwap swap;///< Store of the history lines and the live area. The view reads it.
 
+    //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVETerminalProcessor)
 };

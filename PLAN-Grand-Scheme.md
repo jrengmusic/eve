@@ -680,7 +680,10 @@ its message thread contract, while Terminal could be used in any context"*.
   10000 rows) sizes the history lane; the live lane is sized by the winsize alone
   (`EVETerminalProcessor.cpp:20-31`, `jam_TerminalProcessor.cpp:5-9`).
 
-### 3.11 File browser and Preview [ADDED 2026-10-30]
+### 3.11 EVE-Finder-Parity [ADDED 2026-10-30; RENAMED AND EXTENDED 2026-10-30]
+
+The earlier title was "File browser and Preview". ARCHITECT: *"the best context to
+DESIGN, is probably EVE-Finder-Parity."* ARCHITECT ruled the rename of this section.
 
 ARCHITECT's vision, verbatim. Each line is a ruling.
 
@@ -704,7 +707,8 @@ ARCHITECT's vision, verbatim. Each line is a ruling.
   1. Overlay on a third-party CLI's cell box. Owner: ARCHITECT *"Siblings via
      owner"* — siblings above the TextEditor, laid out by the view's owner.
   2. The native right-side column, toggled by a command. Owner: ARCHITECT
-     *"EVEView, like overlays"* — EVEView splits its bounds.
+     *"EVEView, like overlays"* — EVEView splits its bounds. **Superseded
+     2026-10-30** by the side-panel rulings under "Ownership and hierarchy" below.
 - *"render on eve native Preview widget that have IDENTICAL UX to Finder/Explorer
   right side "Preview/Gallery column""*.
 - The native Preview takes a file path (the `preview` Model row). The EVE `image`
@@ -785,6 +789,165 @@ ARCHITECT's vision, verbatim. Each line is a ruling.
   (`jam_MarkdownComponent.h:11-80`). It builds each mermaid diagram once
   (`:21-23`). EVE already builds `jam_markdown_graphics` and `jam_mermaid_diagram`
   (EVE `CLAUDE.md`, the module list).
+
+**Finder parity — the scope [ADDED 2026-10-30].**
+- ARCHITECT: *"finder parity features could be triggered by ls, native fzf, actual fzf
+  cli, this include side panel of file tree, that could be clicked, jump to specific
+  path on tree, etc. so EVE terminal operation is like using Finder/Explorer but fully
+  keyboard input driven"*.
+- Three triggers start the same Finder-parity features:
+  1. `ls`.
+  2. EVE's native fzf. ARCHITECT: *"next iteration actually, implementing eve native
+     fzf. Identical UI/UX with fzf, with its fuzzy search, BUT actually with identical
+     ephemeral Side panel preview on its right side."*
+  3. The fzf CLI. ARCHITECT: *"we also want to politely "hijack" cli widget rendering,
+     when user actually using fzf as their fuzzy finder."*
+- The design constraint. ARCHITECT: *"be very careful with the design. must be SSOT,
+  UNIVERSAL, GENERAL, not hardcoded to specific pattern."*
+
+**Ownership and hierarchy [ADDED 2026-10-30].**
+- ARCHITECT: *"EVEView should not own Preview directly. but we probably can use
+  juce::SidePanel, it probably alrady provide almost everything we need as Panel. hence
+  Preview is only the content"*.
+- ARCHITECT: *"so EVEView could hold Owner<Component>, 3 members. 2 SidePanel (left
+  later for file tree, right for Preview), and full sized MarkdownComponent to
+  "preview" markdown"*.
+- ARCHITECT: *"IIUC side panel already have API to show and dismiss, so we could just
+  use that"*.
+- ARCHITECT: *"possibly, the Preview Component itself probably only need to be created
+  ONCE. the owner always EVEView, but at hiearchy visibility always driven by event,
+  context, who actually called it, when to render it. when to render with Side Panel,
+  when to render ONLY the Preview component"*.
+- The `juce::SidePanel` API, read 2026-10-30 (JUCE `juce_SidePanel.h`, `.cpp`):
+  - Constructor: `SidePanel (StringRef title, int width, bool positionOnLeft, Component*
+    contentComponent = nullptr, bool deleteComponentWhenNoLongerNeeded = true)`
+    (`.h:69-71`).
+  - Content: `setContent (Component* newContentComponent, bool
+    deleteComponentWhenNoLongerNeeded = true)` (`.h:92-93`). `getContent()` (`.h:99`).
+    The content takes the panel bounds less the title bar and the shadow
+    (`.cpp:171-172`).
+  - Title bar: `setTitleBarComponent (Component*, bool keepDismissButton, bool
+    deleteComponentWhenNoLongerNeeded = true)` (`.h:115-117`). `setTitleBarHeight`
+    (`.h:149`). The default height is 40 (`.h:237`).
+  - Show and dismiss: `showOrHide (bool show)` (`.h:133`). It animates the panel to its
+    bounds in 250 ms (`.cpp:115-116`). `isPanelShowing()` (`.h:137`). A hidden panel
+    sits off the parent edge, at `{ isOnLeft ? -panelWidth : panelWidth, 0 }`
+    (`.cpp:297-303`). The panel hides itself when the animation ends (`.cpp:284-285`).
+  - Callbacks: `onPanelMove` (`.h:200`) and `onPanelShowHide (bool)` (`.h:203`,
+    `.cpp:282`).
+  - Parent: the panel adds no parent itself; the caller adds it as a child. It finds
+    the parent in `parentHierarchyChanged` (`.cpp:193-205`). It follows each parent
+    resize (`.cpp:272-276`). The constructor sets `setVisible (false)` and
+    `setAlwaysOnTop (true)` (`.cpp:60-61`).
+  - Width: the constructor sets `panelWidth` (`.cpp:42`). The header has no
+    `setPanelWidth`. `setShadowWidth` (`.h:143`); the default is 15 (`.h:236`).
+  - Style: `LookAndFeelMethods` — `getSidePanelTitleFont`,
+    `getSidePanelTitleJustification`, `getSidePanelDismissButtonShape`
+    (`.h:172-179`). Colour ids `backgroundColour` … `dismissButtonDownColour`
+    (`.h:188-196`).
+- The current state, read 2026-10-30 (the foundation sprint):
+  - EVEView holds `jam::Preview preview` as a direct child (`EVEView.h:132`,
+    `EVEView.cpp:59`). `resized` cuts the right column by the `previewWidth` display
+    setting (`EVEView.cpp:87-104`). The `preview` component property is the visibility
+    (`EVEView.cpp:112-120`).
+  - The overlays are one `jam::Preview` per image box: `jam::HashMap<juce::int64,
+    jam::Owner<jam::Preview>> overlays` (`EVEView.h:133`; `setOverlays`,
+    `EVEView.cpp:122-145`; `applyImage`, `:177-189`).
+  - `jam::Preview` draws an image only. It decodes in `setImageData` and plays the
+    frames on a `juce::Timer` (`jam_Preview.h:11-64`).
+
+**Preview content [ADDED 2026-10-30].**
+- ARCHITECT: *"so Preview component is actually not only render image, but also text
+  content, like cat?"*
+- ARCHITECT: *"the UI/UX actually identical with fzf preview"*.
+- ARCHITECT, on the Finder reference: *"there's line separator, metadata underneath
+  image"*; *"we probably can use MarkdownComponent with its frontmatter/metadata
+  renderer?"* The reference shows the image, then a separator, then the name, the type
+  and size, and an "Information" table (created, modified, dimensions), then "Tags".
+- The metadata path in jam, read 2026-10-30:
+  - `MarkdownDocument` parses a pandoc `yaml_metadata_block` at the document start
+    (`BlockParser::isMetadataBlock`, `jam_MarkdownBlockParser.cpp:1187-1207`; tried
+    first in `addLeaf`, `:2390-2402`).
+  - `MarkdownDocument::addProperties (const juce::NamedValueSet&)` adds a metadata
+    block from values (`jam_MarkdownDocument.cpp:1349-1357`). `getProperties()` reads
+    it (`:1388-1397`).
+  - Each property gets a type: text, number, date, date-time, list or tags
+    (`getPropertyType`, `jam_MarkdownDocument.cpp:1408-1423`). `addPropertyLines`
+    writes a bold "properties" header and one line per property (`:1487-1510`).
+  - `MarkdownGraphics::addPropertyRow` draws each row with a type icon
+    (`jam_MarkdownGraphics.cpp:177-211`).
+  - The `MarkdownComponent` compound has no frontmatter or metadata symbol. How
+    `MarkdownComponent` consumes `MarkdownGraphics` is not yet read.
+
+**Show and dismiss [ADDED 2026-10-30].**
+- The show triggers, ARCHITECT verbatim:
+  1. *"explicit eve preview command"*.
+  2. *"clicking with mouse"*.
+  3. *"entering modal mode to "jump" with marked keyboard shortcut (read endless as
+     reference, ONLY as reference. our architecture is now significantly different),
+     when pressed the and jumped into previewable file the preview shows the
+     "content""*.
+  4. *"entering modal mode to "browse", cursor highlighted to ls file list,
+     highlighted file name shows file content on preview, exactly like
+     Finder/Explorer"*.
+- The dismiss triggers, ARCHITECT verbatim:
+  1. *"Preview is now working but there are no way to dismiss, it so once it shows, it
+     always shows. this later would be event driven, by state of last active "ls"
+     command. but but by default press any key after showing should just dismiss (when
+     user explicitly call eve preview command on active prompt)"*.
+  2. *"Side panel preview immediately dismissed when user exit modal mode"*.
+
+**`ls` as the file list [ADDED 2026-10-30].**
+- ARCHITECT: *"the expected UI is identical like this, when user call "ls" the left
+  side, the file list is our TextEditor, the terminal. when ls "active", OSC 133 D
+  after last called ls, mark "openable" file with underscore, hyperlink."*
+- The reference: a Finder column view. The file list is on the left, with the selected
+  row highlighted. The Preview column is on the right.
+
+**Styling [ADDED 2026-10-30].**
+- ARCHITECT: *"the styling, the separator etc is juce native contract with LAF, our
+  Style. we could use END separator with its SVG Flex, SSOT"*.
+- END's separator, read 2026-10-30:
+  - The component is `jam::PaneEdge` (`jam_gui/layout/jam_PaneEdge.h:20-118`). Its
+    `paint` calls `StyleCustom::drawPaneEdge` (`:68-71`). It never lays itself out
+    (`:98-100`).
+  - END's `ENDLookAndFeel::drawPaneEdge` paints the `resizerBar` segments through
+    `jam::Svg::Flex::paint` (`end/Source/lookAndFeel/ENDLookAndFeel.cpp:482-510`).
+  - `Svg::Flex::paint` fits each 9-slice segment with `RectanglePlacement::stretchToFit`
+    (`jam_graphics/svg/jam_SvgFlex.cpp:95-113`).
+  - The asset is `end/Source/config/svg/resizerBar.svg` (ids `left`, `centre`,
+    `right`). `ENDLookAndFeel::loadGraphics` fills the segments from the `flex` config
+    child (`end/Source/end/EventRegistration.cpp:135-151`).
+  - The step from the file `resizerBar.svg` to the `flex` property `resizerBar` is not
+    yet read.
+
+**GIF frame position [ADDED 2026-10-30].**
+- ARCHITECT: *"gif works, but when i tried to preview angry-typing-kitty.gif, the frame
+  position is not in one place … it's jumping all over the place, we probably
+  mis-decode not considering what the gif animation "position"?"*
+- The decode path, read 2026-10-30:
+  - `Preview::setImageData` (`jam_Preview.cpp:116-130`) → `getSequence` (`:78-91`) →
+    `loadImageSequenceNative` (`jam_terminal/image/native/jam_TerminalImageSequence_mac.mm:71-353`).
+  - `parseGifMetadata` reads the logical screen size (`jam_TerminalGifMetadata.h:86-87`),
+    each frame's left, top, width and height (`:124-127`) and its disposal (`:180`,
+    `:131`).
+  - The decoder composes each frame on a canvas of the logical screen size. It blits
+    the frame at its left and top (`mac.mm:196-209`). It applies disposal 2 and 3 of
+    the previous frame (`:121-154`).
+  - The blit size comes from the `CGImage` of the frame, not from the frame
+    descriptor (`mac.mm:162-163`).
+  - The Windows decoder (`jam_TerminalImageSequence_windows.cpp`) is not yet read.
+  - The cause is not yet found.
+
+**Order of work [ADDED 2026-10-30].**
+- ARCHITECT: *"the above could not be implemented, until we have correct event handling
+  for terminal sizing, reflow, wrap / uwrap of history that ENTIRELY DECOUPLED from tty
+  live buffer. which current state FAR FROM WORKING CORRECTLY. so this sprint focus is
+  fixing winsize-reflow first. then next logical steps are:"*
+  1. Winsize and reflow (this sprint).
+  2. *"link detection for history and its event handling"*.
+  3. *"side panel / preview component design, and its event handling"*.
+- ARCHITECT: *"winsize planning must be discussed first, i still need to elaborate."*
 
 ## 4. Ecosystem — EVE and END
 

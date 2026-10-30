@@ -322,6 +322,11 @@ dictate the layout, and what command tell them to be visible."*
   column and splits its bounds in `resized`. The `preview` keys row toggles the
   persisted component state `PREVIEW`; its width is the display row
   `previewWidth`, a fraction of the window width.
+- [Superseded for the current build] ARCHITECT: *"NO PREVIEW COMPONENT. dont
+  fucking undo the working implementation"*. EVE has no Preview component and
+  no Preview column now. The `preview` and `previewImage` Model rows keep the
+  operation that the EVE `preview` envelope names. The side panel and the
+  Preview stay open work (grand scheme §3.11).
 
 ### Feature 6: Configuration
 
@@ -342,9 +347,56 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   record (`jam::TerminalSwap`). ARCHITECT: *"GUI is ephemeral … gui only
   materialisation, on demand"*.
 - **Rows:** a row's atom count is its content end. A scrolled line enters the
-  ring empty; nothing clears a full row width. A prepare with an unchanged grid
-  keeps the screen rows; a grid change starts an empty screen, and the shell
-  redraws it on `SIGWINCH`.
+  ring empty; nothing clears a full row width.
+- **History and live, split at OSC 133 D.** ARCHITECT: *"history is everything
+  after OSC 133 D"*. Every row up to the last OSC 133 D is history: the prompt,
+  the command line and its output. The active prompt after it is the live buffer.
+  ARCHITECT, on the example: *"--- history ends here --- OSC 133 D here"*;
+  *"--- ACTIVE PROMPT below always live buffer"*.
+  - The OSC 133 D mark is a terminal command with a callback in the decoder's
+    shell integration table. ARCHITECT: *"must be event driven, just like the
+    foundation we have built in previous sprints, this is just another terminal
+    command we need to register, and assign the callback"*.
+  - On the normal screen, the callback scrolls the screen up by the cursor row,
+    so each row above the cursor becomes a history row, and the cursor row
+    becomes the top row. The alternate screen keeps its rows.
+  - The marks come from EVE's own shell integration, from the TTY bytes. No
+    rule names a prompt framework. ARCHITECT: *"CLI is CLI, OSC 133 is
+    deterministic"*.
+- **Resize.** ARCHITECT: *"dont conflate about 2 size. Window size (component
+  size) and winsize (tty side)"*; *"sole author of ALL is Window size"*.
+  1. The GUI side, on the message thread: the window resize reaches the
+     TextEditor, which reflows the history at its width.
+  2. The terminal side: the TextEditor writes the packed `jam::TerminalWinsize`
+     to the `winsize` row of the Model lane. The processor's attachment on that
+     row restarts the chain, which prepares the grid and sends `TIOCSWINSZ` and
+     `SIGWINCH`.
+  - ARCHITECT: *"resizing can call SIGWINCH, clear live buffer, realloc, then
+    redraw active prompt, whatever it needs to be done as tty, history should be
+    UNAFFECTED"*. A prepare with an unchanged grid keeps the screen rows. A grid
+    change starts an empty live screen, and the shell redraws its active prompt
+    on `SIGWINCH`.
+  - ARCHITECT: *"history only clear, when user explicitly call command
+    `clear`"*.
+  - **Final stop only.** ARCHITECT: *"why dont we make resize always coalesce,
+    FINAL STOP only. - resize > pixel > cell > winsize always UNIDIRECTIONAL"*;
+    *"what about Component::Listener? EVEView orchestrate"*.
+    1. The standalone window forwards `resizeStart` and `resizeEnd` to the
+       constrainer of the editor. EVEView is that constrainer.
+    2. EVEView writes `Id::isResizing` to the component state of each
+       TextEditor. The TextEditor sets it false when it binds.
+    3. The TextEditor computes the winsize from the cells of its terminal area
+       (the viewport less the scroll bar). It writes the winsize only while
+       `isResizing` is false, and only when the winsize is valid.
+    4. The Model `winsize` row defaults to 80 columns by 24 rows. Thus the
+       winsize is valid before the first layout, and `audioDeviceAboutToStart`
+       asserts it.
+  - **Active prompt anchor.** ARCHITECT: *"clear: draw active prompt at 0"*.
+    A prepare puts the cursor at home. The shell redraws its prompt there on
+    `SIGWINCH`. For oh-my-posh, the user's zshrc repaints the prompt in
+    `TRAPWINCH`.
+  - **Column reflow.** A column grid in history reflows at the TextEditor width
+    (`PLAN-column-reflow.md`). ARCHITECT: *"no hardcode about ls nor eza"*.
 - **Record:** `TerminalSwap` writes each history row once to its index and
   segment files (`jam_TerminalSwap.cpp:99-158`). It writes the live frame to a
   two-slot live file through a FIFO (`:64-87`, `:248-277`). `prepare` starts a
