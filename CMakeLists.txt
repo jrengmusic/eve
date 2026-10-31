@@ -64,7 +64,8 @@ project(EVE
     DESCRIPTION "EVE Audio Plugin"
 )
 
-set(CAST_FORMATS Standalone VST3 AU)
+set(CAST_FORMATS Standalone VST VST3 AU)
+set(CAST_INSTALLER_FORMATS VST VST3 AU)
 
 message(STATUS "CAST: configuring ${PROJECT_NAME} ${PROJECT_VERSION}")
 
@@ -592,6 +593,11 @@ elseif(WIN32)
     set(CAST_INSTALL_DIRECTORY_Standalone [==[$PROGRAMFILES64\JRENG]==])
 endif()
 if(APPLE)
+    set(CAST_INSTALL_DIRECTORY_VST "/Library/Audio/Plug-Ins/VST")
+elseif(WIN32)
+    set(CAST_INSTALL_DIRECTORY_VST [==[$PROGRAMFILES64\Steinberg\VstPlugins]==])
+endif()
+if(APPLE)
     set(CAST_INSTALL_DIRECTORY_VST3 "/Library/Audio/Plug-Ins/VST3")
 elseif(WIN32)
     set(CAST_INSTALL_DIRECTORY_VST3 [==[$COMMONFILES64\VST3]==])
@@ -608,6 +614,22 @@ if(WIN32)
         string(REPLACE "$COMMONFILES64" "$ENV{CommonProgramW6432}" CAST_INSTALL_DIRECTORY_${CAST_FORMAT} "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}")
         file(TO_CMAKE_PATH "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}" CAST_INSTALL_DIRECTORY_${CAST_FORMAT})
     endforeach()
+endif()
+
+if(APPLE)
+    set(CAST_PACK_folder "../end/Source/plugins")
+elseif(WIN32)
+    set(CAST_PACK_folder "../end/Source/plugins")
+endif()
+if(APPLE)
+    set(CAST_PACK_format "zip")
+elseif(WIN32)
+    set(CAST_PACK_format "zip")
+endif()
+if(APPLE)
+    set(CAST_PACK_platform "macOS")
+elseif(WIN32)
+    set(CAST_PACK_platform "Windows")
 endif()
 
 if(CAST_SIGNING_PROFILE STREQUAL "jreng")
@@ -638,10 +660,10 @@ if(CAST_SIGNING_PROFILE STREQUAL "jreng")
     set(CAST_SIGNING_signFormatsWindows "")
 endif()
 if(CAST_SIGNING_PROFILE STREQUAL "jreng")
-    set(CAST_SIGNING_signFormats "Standalone;VST3;AU")
+    set(CAST_SIGNING_signFormats "Standalone;VST;VST3;AU")
 endif()
 if(CAST_SIGNING_PROFILE STREQUAL "jreng")
-    set(CAST_SIGNING_installFormats "VST3;AU")
+    set(CAST_SIGNING_installFormats "VST;VST3;AU")
 endif()
 
 if(NOT "${CAST_SIGNING_edenPassword}" STREQUAL "")
@@ -732,6 +754,42 @@ COMMAND sudo "${CMAKE_COMMAND}" -E copy_directory "$<TARGET_FILE_DIR:${PROJECT_N
     endforeach()
 endif()
 
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_custom_target(post-build ALL)
+
+    foreach(CAST_FORMAT ${CAST_FORMATS})
+        if(TARGET ${PROJECT_NAME}_${CAST_FORMAT})
+            add_dependencies(post-build ${PROJECT_NAME}_${CAST_FORMAT})
+        endif()
+    endforeach()
+
+    set(CAST_PACK_ARCHIVE "${CMAKE_SOURCE_DIR}/${CAST_PACK_folder}/EVE v${PROJECT_VERSION} ${CAST_PACK_platform}.${CAST_PACK_format}")
+
+    if(CAST_PACK_format STREQUAL "zip")
+        foreach(CAST_FORMAT ${CAST_INSTALLER_FORMATS})
+            if(TARGET ${PROJECT_NAME}_${CAST_FORMAT})
+                if(APPLE)
+                    list(APPEND CAST_PACK_ITEMS "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>")
+                elseif(WIN32)
+                    if(CAST_FORMAT STREQUAL "VST3" OR CAST_FORMAT STREQUAL "AAX")
+                        list(APPEND CAST_PACK_ITEMS "$<TARGET_FILE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>/../..")
+                    else()
+                        list(APPEND CAST_PACK_ITEMS "$<TARGET_FILE:${PROJECT_NAME}_${CAST_FORMAT}>")
+                    endif()
+                endif()
+            endif()
+        endforeach()
+
+        add_custom_command(TARGET post-build POST_BUILD
+            COMMAND cast --pack "${CAST_PACK_ARCHIVE}" "${CAST_PACK_ITEMS}"
+            COMMENT "CAST: pack ${CAST_PACK_ARCHIVE}"
+            VERBATIM
+            COMMAND_EXPAND_LISTS
+            USES_TERMINAL
+        )
+    endif()
+endif()
 
 # ==============================================================================
 # REPORT

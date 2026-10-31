@@ -28,7 +28,6 @@ namespace Id
     const juce::Identifier colorMode        { juce::String::fromUTF8 ("colorMode") };
     const juce::Identifier commandCount     { juce::String::fromUTF8 ("commandCount") };
     const juce::Identifier deviceClock      { juce::String::fromUTF8 ("deviceClock") };
-    const juce::Identifier down             { juce::String::fromUTF8 ("down") };
     const juce::Identifier historyCapacity  { juce::String::fromUTF8 ("historyCapacity") };
     const juce::Identifier previewWidth     { juce::String::fromUTF8 ("previewWidth") };
     const juce::Identifier profiler         { juce::String::fromUTF8 ("profiler") };
@@ -38,7 +37,6 @@ namespace Id
     const juce::Identifier startDirectory   { juce::String::fromUTF8 ("startDirectory") };
     const juce::Identifier terminalInput    { juce::String::fromUTF8 ("terminalInput") };
     const juce::Identifier textEditor       { juce::String::fromUTF8 ("textEditor") };
-    const juce::Identifier up               { juce::String::fromUTF8 ("up") };
     const juce::Identifier winsize          { juce::String::fromUTF8 ("winsize") };
 
 /**______________________________END OF NAMESPACE______________________________*/

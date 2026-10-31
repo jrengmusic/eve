@@ -75,6 +75,10 @@ private:
     /** @brief Builds the view from the view layout and the getters and events of the terminal processor, then adds the view and the side preview. */
     void initialiseView() override;
 
+    void getAllCommands (juce::Array<juce::CommandID>& commands) override;
+
+    void getCommandInfo (juce::CommandID commandID, juce::ApplicationCommandInfo& result) override;
+
     /**
      * @brief Registers the buttons.
      * @param registration  Registration that receives the buttons.
@@ -138,6 +142,8 @@ private:
     void applyImage (juce::int64 image, jam::Owner<jam::Preview>& previews);
 
     jam::HashMap<juce::int64, jam::Owner<jam::Preview>> overlays;   ///< Overlays over the text editor, keyed by image number. Each box of an image has one.
+
+    jam::SharedInstance<map::CommandId> commandId { std::in_place };
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEView)

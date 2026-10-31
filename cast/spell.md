@@ -23,6 +23,7 @@
 | @Identifiers       | ../Source/generated/Identifiers.h   |          |
 | @IdentifiersSource | ../Source/generated/Identifiers.cpp |          |
 | @Generated         | ../Source/generated/Generated.h     |          |
+| @bimapIdentifier   | jam::Bimap<int, juce::Identifier>   |          |
 +--------------------+-------------------------------------+----------+
 
 ## headers
@@ -53,80 +54,94 @@
 
 ## output
 
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| list                                                         | separator                 | structure                                     | file               |
-+==============================================================+===========================+===============================================+====================+
-| > - [list]: @project-info:project info                       |                           | @code:namespace                               | @ProjectInfo       |
-|                                                              |                           | - macro: #pragma once                         |                    |
-|                                                              |                           | - name: ProjectInfo                           |                    |
-|                                                              |                           | - [description]: @headers:brief               |                    |
-|                                                              |                           | > - [list]: @code:constant                    |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| - [list]: @project-info:cmake                                | - [list]:                 | @cmake:cmake                                  | @CMakeLists        |
-| - [list]: @project-info:project info                         |                           |                                               |                    |
-| - [list]: @project-info:plugin format                        | - [list]: @space          | - [list]: @cmake:value                        |                    |
-| - [list]: @project-info:compile option:configuration=all     | - [list]: @semicolon      | - [list]: @cmake:mac                          |                    |
-| - [list]: @project-info:compile option:configuration=Release | - [list]: @semicolon      | - [list]: @cmake:mac                          |                    |
-| - [list]: @project-info:link option:configuration=Release    | - [list]: @semicolon      | - [list]: @cmake:mac                          |                    |
-| - [list]: @project-info:compile option:configuration=Debug   | - [list]: @semicolon      | - [list]: @cmake:mac                          |                    |
-| - [list]: @project-info:compile option:configuration=all     | - [list]: @semicolon      | - [list]: @cmake:win                          |                    |
-| - [list]: @project-info:compile option:configuration=Release | - [list]: @semicolon      | - [list]: @cmake:win                          |                    |
-| - [list]: @project-info:link option:configuration=Release    | - [list]: @semicolon      | - [list]: @cmake:win                          |                    |
-| - [list]: @project-info:compile option:configuration=Debug   | - [list]: @semicolon      | - [list]: @cmake:win                          |                    |
-| - [list]: @project-info:user module                          |                           | - [list]: @cmake:module                       |                    |
-| > - [list]: @project-info:source                             |                           | > - [list]: @cmake:entry                      |                    |
-| > - [list]: @project-info:macro                              |                           | > - [list]: @cmake:entry                      |                    |
-| > - [list]: @project-info:include                            |                           | > - [list]: @cmake:entry                      |                    |
-| > > - [list]: @project-info:juce module                      |                           | > > - [list]: @cmake:value                    |                    |
-| > > - [list]: @project-info:user module                      |                           | > > - [list]: @cmake:link                     |                    |
-| > - [list]: @project-info:layout glob                        |                           | > - [list]: @cmake:entry                      |                    |
-| > - [list]: @project-info:binary                             |                           | > - [list]: @cmake:value                      |                    |
-| - [list]: @project-info:plugin format                        |                           | - [list]: @cmake:format-directory             |                    |
-| - [list]: @signing:signing                                   |                           | - [list]: @sign:signing-value                 |                    |
-|                                                              |                           | - xattr: @sign:xattr                          |                    |
-|                                                              |                           | - codesign: @sign:codesign                    |                    |
-|                                                              |                           | - verify: @sign:verify                        |                    |
-|                                                              |                           | - wraptool: @sign:wraptool                    |                    |
-|                                                              |                           | - wraptool-win: @sign:wraptool-win            |                    |
-|                                                              |                           | - signtool-win: @sign:signtool-win            |                    |
-|                                                              |                           | - install-directory: @cmake:install-directory |                    |
-|                                                              |                           | - install-copy: @cmake:install-copy           |                    |
-|                                                              |                           | - install-copy-win: @cmake:install-copy-win   |                    |
-|                                                              |                           | - install-file-win: @cmake:install-file-win   |                    |
-|                                                              |                           | - patched-juce: @juce:patched-juce            |                    |
-| - [list]: @modules:submodule:module=patch                    |                           | - [list]: @juce:patch                         |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| > - [list]: @signing:entitlement                             |                           | @sign:[xml]entitlements                       | @Entitlements      |
-|                                                              |                           | > - [list]: @sign:entitlement                 |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| > - [list]: @files:files                                     | - [list]: @code:linebreak | @code:line                                    | @Files             |
-|                                                              |                           | - macro: #pragma once                         |                    |
-|                                                              |                           |                                               |                    |
-|                                                              |                           | @code:namespace                               |                    |
-|                                                              |                           | - name: files                                 |                    |
-|                                                              |                           | > - [list]: @code:identifier                  |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| > - [list]: @files:files                                     | - [list]: @code:linebreak | @source:source                                | @FilesSource       |
-|                                                              |                           | - file: Files.h                               |                    |
-|                                                              |                           |                                               |                    |
-|                                                              |                           | @code:namespace                               |                    |
-|                                                              |                           | - name: files                                 |                    |
-|                                                              |                           | > - [list]: @code:identifier-definition       |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| - [list]: @identifiers:identifiers                           |                           | @code:namespace                               | @Identifiers       |
-|                                                              |                           | - macro: #pragma once                         |                    |
-|                                                              |                           | - generated:                                  |                    |
-|                                                              |                           | - name: Id                                    |                    |
-|                                                              |                           | - [description]: @headers:brief               |                    |
-|                                                              |                           | - [list]: @code:identifier                    |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
-| > - [list]: @identifiers:identifiers                         |                           | @source:source                                | @IdentifiersSource |
-|                                                              |                           | - file: Identifiers.h                         |                    |
-|                                                              |                           |                                               |                    |
-|                                                              |                           | @code:namespace                               |                    |
-|                                                              |                           | - name: Id                                    |                    |
-|                                                              |                           | > - [list]: @code:identifier-definition       |                    |
-+--------------------------------------------------------------+---------------------------+-----------------------------------------------+--------------------+
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
+| list                                                         | separator                 | structure                                        | file               |
++==============================================================+===========================+==================================================+====================+
+| > - [list]: @project-info:project info                       |                           | @code:namespace                                  | @ProjectInfo       |
+|                                                              |                           | - macro: #pragma once                            |                    |
+|                                                              |                           | - name: ProjectInfo                              |                    |
+|                                                              |                           | - [description]: @headers:brief                  |                    |
+|                                                              |                           | > - [list]: @code:constant                       |                    |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
+| - [list]: @project-info:cmake                                | - [list]:                 | @cmake:cmake                                     | @CMakeLists        |
+| - [list]: @project-info:project info                         |                           |                                                  |                    |
+| - [list]: @project-info:plugin format                        | - [list]: @space          | - [list]: @cmake:value                           |                    |
+| - [list]: @project-info:plugin format:installer=yes          | - [list]: @space          | - [list]: @cmake:value                           |                    |
+| - [list]: @project-info:compile option:configuration=all     | - [list]: @semicolon      | - [list]: @cmake:mac                             |                    |
+| - [list]: @project-info:compile option:configuration=Release | - [list]: @semicolon      | - [list]: @cmake:mac                             |                    |
+| - [list]: @project-info:link option:configuration=Release    | - [list]: @semicolon      | - [list]: @cmake:mac                             |                    |
+| - [list]: @project-info:compile option:configuration=Debug   | - [list]: @semicolon      | - [list]: @cmake:mac                             |                    |
+| - [list]: @project-info:compile option:configuration=all     | - [list]: @semicolon      | - [list]: @cmake:win                             |                    |
+| - [list]: @project-info:compile option:configuration=Release | - [list]: @semicolon      | - [list]: @cmake:win                             |                    |
+| - [list]: @project-info:link option:configuration=Release    | - [list]: @semicolon      | - [list]: @cmake:win                             |                    |
+| - [list]: @project-info:compile option:configuration=Debug   | - [list]: @semicolon      | - [list]: @cmake:win                             |                    |
+| - [list]: @project-info:user module                          |                           | - [list]: @cmake:module                          |                    |
+| > - [list]: @project-info:source                             |                           | > - [list]: @cmake:entry                         |                    |
+| > - [list]: @project-info:macro                              |                           | > - [list]: @cmake:entry                         |                    |
+| > - [list]: @project-info:include                            |                           | > - [list]: @cmake:entry                         |                    |
+| > > - [list]: @project-info:juce module                      |                           | > > - [list]: @cmake:value                       |                    |
+| > > - [list]: @project-info:user module                      |                           | > > - [list]: @cmake:link                        |                    |
+| > - [list]: @project-info:layout glob                        |                           | > - [list]: @cmake:entry                         |                    |
+| > - [list]: @project-info:binary                             |                           | > - [list]: @cmake:value                         |                    |
+| - [list]: @project-info:plugin format                        |                           | - [list]: @cmake:format-directory                |                    |
+| - [list]: @project-info:pack                                 |                           | - [list]: @cmake:pack-value                      |                    |
+| - [list]: @signing:signing                                   |                           | - [list]: @sign:signing-value                    |                    |
+|                                                              |                           | - xattr: @sign:xattr                             |                    |
+|                                                              |                           | - codesign: @sign:codesign                       |                    |
+|                                                              |                           | - verify: @sign:verify                           |                    |
+|                                                              |                           | - wraptool: @sign:wraptool                       |                    |
+|                                                              |                           | - wraptool-win: @sign:wraptool-win               |                    |
+|                                                              |                           | - signtool-win: @sign:signtool-win               |                    |
+|                                                              |                           | - install-directory: @cmake:install-directory    |                    |
+|                                                              |                           | - install-copy: @cmake:install-copy              |                    |
+|                                                              |                           | - install-copy-win: @cmake:install-copy-win      |                    |
+|                                                              |                           | - install-file-win: @cmake:install-file-win      |                    |
+|                                                              |                           | - patched-juce: @juce:patched-juce               |                    |
+| - [list]: @modules:submodule:module=patch                    |                           | - [list]: @juce:patch                            |                    |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
+| > - [list]: @signing:entitlement                             |                           | @sign:[xml]entitlements                          | @Entitlements      |
+|                                                              |                           | > - [list]: @sign:entitlement                    |                    |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
+| > - [list]: @files:files                                     | - [list]: @code:linebreak | @code:line                                       | @Files             |
+|                                                              |                           | - macro: #pragma once                            |                    |
+|                                                              |                           |                                                  |                    |
+|                                                              |                           | @code:namespace                                  |                    |
+|                                                              |                           | - name: files                                    |                    |
+|                                                              |                           | > - [list]: @code:identifier                     |                    |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
+| > - [list]: @files:files                                     | - [list]: @code:linebreak | @source:source                                   | @FilesSource       |
+|                                                              |                           | - file: Files.h                                  |                    |
+|                                                              |                           |                                                  |                    |
+|                                                              |                           | @code:namespace                                  |                    |
+|                                                              |                           | - name: files                                    |                    |
+|                                                              |                           | > - [list]: @code:identifier-definition          |                    |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
+| - [list]: @identifiers:identifiers                           |                           | @code:namespace                                  | @Identifiers       |
+|                                                              |                           | - macro: #pragma once                            |                    |
+|                                                              |                           | - generated:                                     |                    |
+|                                                              |                           | - name: Id                                       |                    |
+|                                                              |                           | - [description]: @headers:brief                  |                    |
+|                                                              |                           | - [list]: @code:identifier                       |                    |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
+| > > > - [list]: @identifiers:CommandId                       | - [list]: @code:linebreak | @code:namespace                                  | @Identifiers       |
+|                                                              |                           | - name: map                                      |                    |
+| > > - [list]: @identifiers:CommandId                         |                           |                                                  |                    |
+|                                                              |                           | @code:bimap                                      |                    |
+|                                                              |                           | - name: CommandId                                |                    |
+|                                                              |                           | - [description]: Command-id to command-name map. |                    |
+|                                                              |                           | - base: @bimapIdentifier                         |                    |
+|                                                              |                           | - keyType: int                                   |                    |
+|                                                              |                           | - valueType: juce::Identifier                    |                    |
+|                                                              |                           | > > > - [list]: @code:identifier-entry           |                    |
+|                                                              |                           | > > - [list]: @code:enum-entry                   |                    |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
+| > - [list]: @identifiers:identifiers                         |                           | @source:source                                   | @IdentifiersSource |
+|                                                              |                           | - file: Identifiers.h                            |                    |
+|                                                              |                           |                                                  |                    |
+|                                                              |                           | @code:namespace                                  |                    |
+|                                                              |                           | - name: Id                                       |                    |
+|                                                              |                           | > - [list]: @code:identifier-definition          |                    |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
 
 ## output index
 

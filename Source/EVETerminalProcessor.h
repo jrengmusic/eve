@@ -142,7 +142,7 @@ private:
                                            int,
                                            const juce::AudioIODeviceCallbackContext&) override;
 
-    /** @brief Sizes the input lane, the command FIFO and the decoder with `virtualBlockSize`. It asserts that the winsize is valid, then always prepares the buffer, the swap and the TTY. */
+    /** @brief Sizes the input lane, the command FIFO and the decoder with `virtualBlockSize`. When the winsize is valid, it prepares the buffer, the swap and the TTY. */
     void audioDeviceAboutToStart (juce::AudioIODevice*) override;
 
     /** @brief Does nothing. */

@@ -73,6 +73,18 @@ void EVEView::initialiseView()
     addAndMakeVisible (view.get());
 }
 
+void EVEView::getAllCommands (juce::Array<juce::CommandID>& commands)
+{
+    for (const auto& [command, name] : map::CommandId::getInstance()->get())
+        commands.add (command);
+}
+
+void EVEView::getCommandInfo (juce::CommandID commandID, juce::ApplicationCommandInfo& result)
+{
+    const auto name { map::CommandId::getInstance()->get (commandID).toString() };
+    result.setInfo (name, name, {}, result.flags & ~ juce::ApplicationCommandInfo::isDisabled);
+}
+
 void EVEView::paintOverChildren (juce::Graphics& g) { transition.paint (g, getLocalBounds()); }
 
 void EVEView::clear()

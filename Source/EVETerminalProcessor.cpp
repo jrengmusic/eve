@@ -232,9 +232,8 @@ void EVETerminalProcessor::audioDeviceAboutToStart (juce::AudioIODevice*)
     commands.prepare (virtualBlockSize);
     terminalProcessor.prepare (virtualBlockSize);
 
-    jassert (getWinsize().isValid());
-
-    prepare (getWinsize(), getHistoryCapacity());
+    if (const auto winsize { getWinsize() }; winsize.isValid())
+        prepare (winsize, getHistoryCapacity());
 }
 
 void EVETerminalProcessor::audioDeviceStopped() {}

@@ -21,9 +21,9 @@
 +----------------------+--------------------------------------------------------------+----------------------------------------------------+
 | signFormatsWindows   |                                                              | Windows formats signed by signtool                 |
 +----------------------+--------------------------------------------------------------+----------------------------------------------------+
-| signFormats          | Standalone;VST3;AU                                           | macOS formats signed by codesign                   |
+| signFormats          | Standalone;VST;VST3;AU                                       | macOS formats signed by codesign                   |
 +----------------------+--------------------------------------------------------------+----------------------------------------------------+
-| installFormats       | VST3;AU                                                      | Formats copied into the plugin folders after build |
+| installFormats       | VST;VST3;AU                                                  | Formats copied into the plugin folders after build |
 +----------------------+--------------------------------------------------------------+----------------------------------------------------+
 
 ## entitlement
