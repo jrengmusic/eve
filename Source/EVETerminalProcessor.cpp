@@ -271,14 +271,14 @@ void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCap
     triggerAsyncUpdate();
     handleUpdateNowIfNeeded();
 
-    const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (device.getCurrentSampleRate() / virtualBlockSize / jam::VulkanEngine::getRefreshRateHz()))) };
+    const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (device.getCurrentSampleRate() / virtualBlockSize / jam::CpuGraphicsEngine::getRefreshRateHz()))) };
 
     terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * virtualBlockSize + winsize.rows);
     swap.prepare (winsize);
     terminalProcessor.reset (terminalBuffer, winsize);
     swap.setCapacity (historyCapacity);
 
-    const auto vblankMilliseconds { static_cast<double> (juce::RelativeTime::seconds (1.0 / jam::VulkanEngine::getRefreshRateHz()).inMilliseconds()) };
+    const auto vblankMilliseconds { static_cast<double> (juce::RelativeTime::seconds (1.0 / jam::CpuGraphicsEngine::getRefreshRateHz()).inMilliseconds()) };
     openTTY (device.getCurrentBufferSizeSamples(), vblankMilliseconds, winsize);
     tty->setWinsize (winsize);
 }
