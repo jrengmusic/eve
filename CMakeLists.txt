@@ -131,6 +131,8 @@ set(CAST_JUCE_PATCHES
 "${CAST_USER_MODULE_PATH}/patch/juce-attributed-text-hook.patch"            # Attributed text virtual on LowLevelGraphicsContext; applies after juce-vulkan-engine-hook.patch
 "${CAST_USER_MODULE_PATH}/patch/juce-adhoc-sign-hook.patch"                 # No ad-hoc signature on the VST3 bundle
 "${CAST_USER_MODULE_PATH}/patch/juce-display-changed-hook.patch"            # Callback after refresh() finds a display change
+"${CAST_USER_MODULE_PATH}/patch/juce-plugin-transparency-hook.patch"        # Host function lookup; plugin editor wrapper transparent under a host that exports jam_host_context_factory; host plugin windows transparent; applies after juce-vulkan-engine-hook.patch
+"${CAST_USER_MODULE_PATH}/patch/juce-key-pressed-hook.patch"                # Host key press callback before a peer's components; applies after juce-plugin-transparency-hook.patch
 )
 
 if(WIN32)
@@ -274,7 +276,7 @@ juce_add_plugin(${PROJECT_NAME}
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS TRUE
 
     COPY_PLUGIN_AFTER_BUILD FALSE
 )
@@ -755,40 +757,38 @@ COMMAND sudo "${CMAKE_COMMAND}" -E copy_directory "$<TARGET_FILE_DIR:${PROJECT_N
 endif()
 
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    add_custom_target(post-build ALL)
+add_custom_target(post-build ALL)
 
-    foreach(CAST_FORMAT ${CAST_FORMATS})
+foreach(CAST_FORMAT ${CAST_FORMATS})
+    if(TARGET ${PROJECT_NAME}_${CAST_FORMAT})
+        add_dependencies(post-build ${PROJECT_NAME}_${CAST_FORMAT})
+    endif()
+endforeach()
+
+set(CAST_PACK_ARCHIVE "${CMAKE_SOURCE_DIR}/${CAST_PACK_folder}/EVE v${PROJECT_VERSION} ${CAST_PACK_platform}.${CAST_PACK_format}")
+
+if(CAST_PACK_format STREQUAL "zip")
+    foreach(CAST_FORMAT ${CAST_INSTALLER_FORMATS})
         if(TARGET ${PROJECT_NAME}_${CAST_FORMAT})
-            add_dependencies(post-build ${PROJECT_NAME}_${CAST_FORMAT})
+            if(APPLE)
+                list(APPEND CAST_PACK_ITEMS "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>")
+            elseif(WIN32)
+                if(CAST_FORMAT STREQUAL "VST3" OR CAST_FORMAT STREQUAL "AAX")
+                    list(APPEND CAST_PACK_ITEMS "$<TARGET_FILE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>/../..")
+                else()
+                    list(APPEND CAST_PACK_ITEMS "$<TARGET_FILE:${PROJECT_NAME}_${CAST_FORMAT}>")
+                endif()
+            endif()
         endif()
     endforeach()
 
-    set(CAST_PACK_ARCHIVE "${CMAKE_SOURCE_DIR}/${CAST_PACK_folder}/EVE v${PROJECT_VERSION} ${CAST_PACK_platform}.${CAST_PACK_format}")
-
-    if(CAST_PACK_format STREQUAL "zip")
-        foreach(CAST_FORMAT ${CAST_INSTALLER_FORMATS})
-            if(TARGET ${PROJECT_NAME}_${CAST_FORMAT})
-                if(APPLE)
-                    list(APPEND CAST_PACK_ITEMS "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>")
-                elseif(WIN32)
-                    if(CAST_FORMAT STREQUAL "VST3" OR CAST_FORMAT STREQUAL "AAX")
-                        list(APPEND CAST_PACK_ITEMS "$<TARGET_FILE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>/../..")
-                    else()
-                        list(APPEND CAST_PACK_ITEMS "$<TARGET_FILE:${PROJECT_NAME}_${CAST_FORMAT}>")
-                    endif()
-                endif()
-            endif()
-        endforeach()
-
-        add_custom_command(TARGET post-build POST_BUILD
-            COMMAND cast --pack "${CAST_PACK_ARCHIVE}" "${CAST_PACK_ITEMS}"
-            COMMENT "CAST: pack ${CAST_PACK_ARCHIVE}"
-            VERBATIM
-            COMMAND_EXPAND_LISTS
-            USES_TERMINAL
-        )
-    endif()
+    add_custom_command(TARGET post-build POST_BUILD
+        COMMAND cast --pack "${CAST_PACK_ARCHIVE}" "${CAST_PACK_ITEMS}"
+        COMMENT "CAST: pack ${CAST_PACK_ARCHIVE}"
+        VERBATIM
+        COMMAND_EXPAND_LISTS
+        USES_TERMINAL
+    )
 endif()
 
 # ==============================================================================

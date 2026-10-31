@@ -107,7 +107,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +-----------------------------+---------------------------------------------------------+---------------------------------------------+
 | isMidiEffect                | FALSE                                                   | Plugin processes MIDI only                  |
 +-----------------------------+---------------------------------------------------------+---------------------------------------------+
-| editorWantsKeyboardFocus    | FALSE                                                   | Editor requires keyboard focus              |
+| editorWantsKeyboardFocus    | TRUE                                                    | Editor requires keyboard focus              |
 +-----------------------------+---------------------------------------------------------+---------------------------------------------+
 | copyPluginAfterBuild        | FALSE                                                   | JUCE copy step, replaced by CAST post-build |
 +-----------------------------+---------------------------------------------------------+---------------------------------------------+
