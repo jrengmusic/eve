@@ -985,6 +985,121 @@ via API — CLAP extension is the candidate mechanism — for:
 
 Any format should ultimately be supportable; CLAP is primary.
 
+> **[AMENDED 2026-11-01 — ENAX, the END host–client contract, ARCHITECT verbatim]**
+> This amendment replaces the "design-ahead only" intent of this section. The rulings of
+> the 2026-11-01 session replace earlier rulings where they conflict. ARCHITECT: *"our
+> agreement, understanding in this session supersed all precedents rulings when
+> conflicting"*.
+>
+> **Identity.** ARCHITECT: *"END is audio plugin host. through and through audio plugins
+> host end-to-end. its default plugin is EVE with ENAX (developed with all audio plugin
+> format, one by one), later will be formalised with CLAP"*.
+> - *"ENAX by default will be using CLAP binary format (future work per grand scheme),
+>   but our development still need to be tested with ALL AUDIO PLUGIN FORMAT FIRST."*
+> - *"ALL formats means ONE at a time, for EVE. any valid audio format SHOULD WORK. any
+>   3rd audio plugin with "ALL FORMAT" must be able to be loaded in END."*
+> - END hosts VST2, VST3 and AU (`end/project-info.md:371-375`) and CLAP
+>   (`end/Source/plugins/Nexus.cpp:14-19`). The EVE format under test is the one row
+>   `files::evePlugin` (`end/cast/files.md:31`).
+>
+> **The name.** ENAX: *"END Native API eXtension"*. *"Native means native to END"*. ENAX
+> is a contract. It is not a binary format. The plugin binary stays a true audio plugin
+> in every format. ARCHITECT: *"the plugin(s) itself STILL not hardcoded to END … the
+> contract formalised and enforced at RUNTIME."*
+>
+> **Host identity.** ARCHITECT: *"jam::PluginHostType (derived from juce::PluginHostType).
+> juce's is hardcoded to known types, we NEED END as one of the KNOWN type, this is the
+> SSOT seam in order we could design an SSOT "registrable" rules for END-EVE (and future
+> END's "in-house" plugin)."*
+> - A jam patch registers END in JUCE's own shape, after the `SADiE` precedent
+>   (`juce_PluginHostType.h:96`, `:190`).
+> - `jam::PluginHostType` is detection only. It replaces the free functions of
+>   `jam_core/utilities/jam_PluginHost.h`.
+>
+> **Client side.** `jam::ENAXClientExtensions` (*"ENAXClientExtensions"*) is the isomorph
+> of JUCE's per-format client extensions: `AAXClientExtensions`, `VST2ClientExtensions`,
+> `VST3ClientExtensions` (`juce_AudioProcessor.h:1254-1284`).
+> - The processor mixes it in, and jam reaches it by `dynamic_cast` (*"Mixin +
+>   dynamic_cast"*). This is JUCE's default form (`juce_AudioProcessor.h:1259-1262`).
+> - It holds the rule registry. ARCHITECT: *"these rules should not be scattered, BUT
+>   governs by ONE RULE … so later if we need to enforce new rule, we only need to
+>   register"*. One `isEND()` probe selects the END arm of each rule. Every other host
+>   gets the plugin's own arm: *"as standalone, plugins that loaded into whatever known
+>   hosts other than END, EVE SPEC CONTRACT must stands as is"*.
+>
+> **Channel.** One `extern "C"` END export, `enax_get_extension (id)`, over
+> `Nexus::extensions` (`end/Source/plugins/Nexus.h:30`). It has CLAP `get_extension`
+> semantics: an absent id returns nullptr. The ids are `enax.context-factory`,
+> `enax.peer-deleted` and `enax.key-pressed` (*"enax.* / enax export"*).
+>
+> **Rules registered today.**
+> 1. Engine. The plugin always owns its `CpuGraphicsEngine`
+>    (`jam_PluginEditorLayout.h:124`). Under END, END's engine paints the plugin's peers
+>    through `externalContextFactory`. Elsewhere the plugin creates its own
+>    `VulkanGraphicsEngine`.
+> 2. Key hook. Under END, the plugin's peer gives each key to END first
+>    (`externalKeyPressedCallback`, `jam/patch/juce-key-pressed-hook.patch`). *"END as
+>    host always win"*.
+> 3. Key binding (the command-id contract below).
+>
+> **Focus.** ARCHITECT: *"Focus is END responsibility"*. *"focus grabbing, asking to peer
+> to front and wants keyboard etc IS NOT EVE responsibility when hosted at END"*. The
+> focused pane gives keyboard focus to its plugin's editor. The plugin never grabs focus
+> in any host. Each host window gives focus to the editor.
+>
+> **Transparency.** The JUCE wrappers ask JUCE's own host type: the plugin's editor wrapper
+> is opaque only when the host is not END.
+>
+> **Command ids.** ARCHITECT: *"this is Id for command, a definitive SSOT for CALLBACKS,
+> open seam for user driven config also for future API exposes"*; *"the real questions who
+> own, and responsible to its own command? that's where the commandId belong."*; *"ALWAYS
+> one entry point, always SSOT"*.
+> - A command id is a callback id. It belongs to the owner of the state that its callback
+>   changes. jam widget commands are in jam (`map::TextEditorCommandId`,
+>   `map::PluginEditorCommandId`). Project commands are in the project (END and EVE
+>   `map::CommandId`). This is the `ColourId` pattern (`jam/cast/style.md:66`).
+> - The widget declares its default bindings by command id. *"could be overriden by config,
+>   when the orchestrator TELL to register from config, disk always win. widget doesnt care
+>   nor acknowledge about config on disk."*
+> - One entry per binary: `CommandManager::invokeDirectly`. One binder per binary: the top
+>   orchestrator.
+> - END's `keys.md` names commands only. *"parameter, commandId, etc are internal
+>   implementation, probably could be exposed for API later, but never to config"*.
+>
+> **State that END drives goes through host parameters.** ARCHITECT: *"so ENAX host-client
+> orchestration actually can be wired through APVTS, NOT by our handroll methods"*; *"zoom
+> and mode are both attachable host automatable parameter"*.
+> - Editor mode is widget state, not terminal state: *"terminal state is VT spec state
+>   machine, cursor, command, etc Editor is widget, not "terminal""*. This supersedes the
+>   2026-10-24 line *"not on a `MODE` parameter"* (§5.3 Gap 2, the nvim-parity amendment)
+>   for editor mode.
+> - Each widget attaches its state with `jam::Model::ValueAttachment`
+>   (`jam_Model.h:293-353`).
+> - END finds a hosted parameter by its name (*"By parameter name"*). The hosted
+>   parameter id is format-specific: the VST2 index (`juce_VSTPluginFormatImpl.h:979-981`),
+>   the VST3 `ParamID` (`juce_VST3PluginFormatImpl.h:2106-2108`) and the AU parameter id
+>   (`juce_AudioUnitPluginFormatImpl.h:758-760`).
+> - END works in normalised values only, through JUCE's own parameter API
+>   (`juce_AudioProcessorParameter.h:105-159`). ARCHITECT: *"normalisation should not be
+>   handrolled. all API already exists OOTB"*; *"parameters range could be any arbitrary
+>   number while you still can get the normalised value"*.
+>
+> **Zoom.** Zoom is the JUCE view transform over the `zoom` parameter. It reflows: the view
+> bounds are divided by the zoom before the transform (`jam_ViewEditor.cpp:96`,
+> `jam_PluginEditor.cpp:55-56`). Glyphs rasterise at the scaled size
+> (`jam_GlyphRasterizer.cpp:55-61`, `:463-465`). END's zoom command tells its panes to set
+> the parameter: *"how about EXCLUSIVE_ZOOM? default false, means all. true means focused
+> only"*.
+>
+> **Future work, recorded here.** CLAP as ENAX's default format: an EVE CLAP target, and
+> the END CLAP host contract (`jam_clap/clap/host.h`, `hostRequestProcess`) driving the
+> plugin's own `jam::VirtualDevice`, with no host clock (§8, `[AMENDED 2026-10-29]`). The
+> daemon follows tmux's process model (`~/Documents/Poems/dev/tmux/`).
+>
+> **Plans.** `end/PLAN-enax-plugin-host-type.md` (host identity, channel, engine, key hook,
+> transparency, focus, AU registration) and `end/PLAN-enax-command-id.md` (command ids,
+> binding, mode and zoom parameters, copy and paste).
+
 ---
 
 ## 5. jam Inventory — Kill / Keep / Gap
