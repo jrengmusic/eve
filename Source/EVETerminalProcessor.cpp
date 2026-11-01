@@ -34,7 +34,7 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
 
 EVETerminalProcessor::~EVETerminalProcessor()
 {
-    jassert (not device.isPlaying());
+    releaseResources();
 
     state.removeListener (this);
     cancelPendingUpdate();

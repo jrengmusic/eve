@@ -37,7 +37,6 @@ namespace Id
     const juce::Identifier startDirectory   { juce::String::fromUTF8 ("startDirectory") };
     const juce::Identifier terminalInput    { juce::String::fromUTF8 ("terminalInput") };
     const juce::Identifier textEditor       { juce::String::fromUTF8 ("textEditor") };
-    const juce::Identifier winsize          { juce::String::fromUTF8 ("winsize") };
 
 /**______________________________END OF NAMESPACE______________________________*/
 }// namespace Id

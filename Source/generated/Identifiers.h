@@ -41,7 +41,6 @@ extern const juce::Identifier shellIntegration;
 extern const juce::Identifier startDirectory;
 extern const juce::Identifier terminalInput;
 extern const juce::Identifier textEditor;
-extern const juce::Identifier winsize;
 
 /**______________________________END OF NAMESPACE______________________________*/
 }// namespace Id

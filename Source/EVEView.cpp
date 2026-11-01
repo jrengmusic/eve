@@ -9,7 +9,6 @@ EVEView::EVEView (jam::AudioModel& newModel,
     initialise (layout.getOrCreateSettings());
     setConstrainer (this);
     setScaling();
-    juce::MessageManager::callAsync ([this] { grabKeyboardFocus(); });
 }
 
 void EVEView::focusGained (FocusChangeType)
@@ -118,31 +117,6 @@ bool EVEView::isPreviewVisible() const
     return static_cast<bool> (model.getOrCreateComponentProperty (Id::toTag (Id::preview), Id::value).getValue());
 }
 
-void EVEView::setOverlays (const juce::Component& textEditor, const jam::HashMap<juce::int64, jam::Array<juce::Rectangle<int>>>& imageBounds)
-{
-    jam::HashMap<juce::int64, jam::Owner<jam::Preview>> told;
-
-    for (const auto& [image, boxes] : imageBounds)
-    {
-        auto [toldEntry, inserted] { told.try_emplace (image, overlays.contains (image) ? std::move (overlays.at (image)) : jam::Owner<jam::Preview> {}) };
-        auto& [toldImage, previews] { *toldEntry };
-
-        while (previews.size() > boxes.size())
-            previews.remove (previews.size() - 1);
-
-        for (int index { 0 }; index < boxes.size(); ++index)
-        {
-            if (index == previews.size())
-                applyImage (image, previews);
-
-            if (index < previews.size())
-                previews.at (static_cast<size_t> (index))->setBounds (getLocalArea (&textEditor, boxes.at (index)));
-        }
-    }
-
-    overlays = std::move (told);
-}
-
 void EVEView::applyCommands()
 {
     juce::String cut;
@@ -171,18 +145,4 @@ void EVEView::applyCommands()
             data = juce::jmin (terminator + 1, end);
         }
     });
-}
-
-void EVEView::applyImage (juce::int64 image, jam::Owner<jam::Preview>& previews)
-{
-    auto& swap { static_cast<EVEProcessor&> (*getAudioProcessor()).getTerminalProcessor().getSwap() };
-    const auto data { swap.getImageData (image) };
-
-    if (data.getSize() > 0)
-    {
-        auto& preview { *previews.add (std::make_unique<jam::Preview>()) };
-
-        preview.setImageData (data.getData(), data.getSize(), swap.getImageEncoding (image));
-        addAndMakeVisible (preview);
-    }
 }

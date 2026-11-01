@@ -118,30 +118,8 @@ private:
     /** @brief Returns `true` when the model says that the side preview is visible. */
     bool isPreviewVisible() const;
 
-    /**
-     * @brief Matches the overlays to the boxes of the images in the text editor.
-     *
-     * Each box has one overlay, in the bounds of the box. A new box gets a new overlay. An overlay whose box is gone is removed.
-     *
-     * @param textEditor   Text editor that reported the boxes.
-     * @param imageBounds  Boxes of the visible images, keyed by image number, in the space of @p textEditor.
-     */
-    void setOverlays (const juce::Component& textEditor, const jam::HashMap<juce::int64, jam::Array<juce::Rectangle<int>>>& imageBounds);
-
     /** @brief Runs each command that the shell wrote to the command FIFO. A name that is not a command is ignored. */
     void applyCommands();
-
-    /**
-     * @brief Adds an overlay that shows an image.
-     *
-     * The call adds nothing when the swap holds no bytes for the image.
-     *
-     * @param image     Number of the image in the record.
-     * @param previews  Overlays of the image. The new overlay joins them.
-     */
-    void applyImage (juce::int64 image, jam::Owner<jam::Preview>& previews);
-
-    jam::HashMap<juce::int64, jam::Owner<jam::Preview>> overlays;   ///< Overlays over the text editor, keyed by image number. Each box of an image has one.
 
     jam::SharedInstance<map::CommandId> commandId { std::in_place };
 

@@ -1023,8 +1023,8 @@ Any format should ultimately be supportable; CLAP is primary.
 >   dynamic_cast"*). This is JUCE's default form (`juce_AudioProcessor.h:1259-1262`).
 > - It holds the rule registry. ARCHITECT: *"these rules should not be scattered, BUT
 >   governs by ONE RULE … so later if we need to enforce new rule, we only need to
->   register"*. One `isEND()` probe selects the END arm of each rule. Every other host
->   gets the plugin's own arm: *"as standalone, plugins that loaded into whatever known
+>   register"*. One `isEND()` probe selects the END callback of each rule. Every other host
+>   gets the plugin's own callback: *"as standalone, plugins that loaded into whatever known
 >   hosts other than END, EVE SPEC CONTRACT must stands as is"*.
 >
 > **Channel.** One `extern "C"` END export, `enax_get_extension (id)`, over
@@ -1043,9 +1043,9 @@ Any format should ultimately be supportable; CLAP is primary.
 > 3. Key binding (the command-id contract below).
 >
 > **Focus.** ARCHITECT: *"Focus is END responsibility"*. *"focus grabbing, asking to peer
-> to front and wants keyboard etc IS NOT EVE responsibility when hosted at END"*. The
-> focused pane gives keyboard focus to its plugin's editor. The plugin never grabs focus
-> in any host. Each host window gives focus to the editor.
+> to front and wants keyboard etc IS NOT EVE responsibility when hosted at END"*.
+> *"so END pane focus management actually only need to forward, focused PANE give the
+> keyboard focus to its loaded plugin"*.
 >
 > **Transparency.** The JUCE wrappers ask JUCE's own host type: the plugin's editor wrapper
 > is opaque only when the host is not END.

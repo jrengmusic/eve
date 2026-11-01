@@ -23,62 +23,15 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                                          });
     };
 
-    registration.events = [this] (jam::Registry& r)
+    registration.events = [] (jam::Registry& r)
     {
         r.bindEvent.add<juce::Component*&, jam::ViewManager::Events*, const juce::String&, const juce::String&> (
             Id::textEditor,
-            [this] (juce::Component* component, jam::ViewManager::Events* chainEvents, const juce::String& eventName, const juce::String&)
+            [] (juce::Component* component, jam::ViewManager::Events* chainEvents, const juce::String& eventName, const juce::String&)
             {
-                enum class TerminalInputCallback { write };
-
                 auto* textEditor { static_cast<jam::TextEditor*> (component) };
-                auto& callbacks { chainEvents->at (juce::Identifier { eventName }) };
-                auto terminal { model.state.getChildWithName (Id::toType (Id::terminal)) };
 
-                textEditor->onKeyPress = [&callbacks, applicationCursor = terminal.getPropertyAsValue (Id::applicationCursor, nullptr)] (const juce::KeyPress& key)
-                {
-                    const auto bytes { jam::TerminalKeyboard::map (key, static_cast<bool> (applicationCursor.getValue())) };
-                    const auto isSent { not bytes.empty() };
-
-                    if (isSent)
-                        callbacks.get (static_cast<int> (TerminalInputCallback::write), bytes.data(), static_cast<int> (bytes.size()));
-
-                    return isSent;
-                };
-
-                textEditor->onMouse = [&callbacks,
-                                       mouseTracking = terminal.getPropertyAsValue (Id::mouseTracking, nullptr),
-                                       mouseSgr = terminal.getPropertyAsValue (Id::mouseSgr, nullptr)] (jam::TerminalMouse::Type type,
-                                                                                                         int button,
-                                                                                                         jam::Cell::Point cell,
-                                                                                                         const juce::ModifierKeys& mods)
-                {
-                    const auto bytes { jam::TerminalMouse::map (type,
-                                                                button,
-                                                                cell.x,
-                                                                cell.y,
-                                                                mods,
-                                                                static_cast<int> (mouseTracking.getValue()),
-                                                                static_cast<bool> (mouseSgr.getValue())) };
-                    const auto isReported { bytes.getSize() > 0 };
-
-                    if (isReported)
-                        callbacks.get (static_cast<int> (TerminalInputCallback::write),
-                                       static_cast<const char*> (bytes.getData()),
-                                       static_cast<int> (bytes.getSize()));
-
-                    return isReported;
-                };
-
-                textEditor->onImages = [this, textEditor] (const jam::HashMap<juce::int64, jam::Array<juce::Rectangle<int>>>& imageBounds)
-                {
-                    setOverlays (*textEditor, imageBounds);
-                };
-
-                textEditor->liveCursor.referTo (terminal.getPropertyAsValue (Id::cursor, nullptr));
-                textEditor->liveCursorVisible.referTo (terminal.getPropertyAsValue (Id::cursorVisible, nullptr));
-                textEditor->liveIsRecording.referTo (terminal.getPropertyAsValue (Id::isRecording, nullptr));
-                textEditor->winsize.referTo (terminal.getPropertyAsValue (Id::winsize, nullptr));
+                textEditor->bindToEvents (chainEvents->at (juce::Identifier { eventName }));
                 textEditor->setMode (map::EditorMode::terminal);
             });
     };

@@ -6,6 +6,7 @@ class EVEProcessor
 #if JucePlugin_Enable_ARA
     , public juce::AudioProcessorARAExtension
 #endif
+    , public jam::ENAXClientExtensions
 {
 public:
     EVEProcessor();
@@ -95,6 +96,7 @@ private:
 
     jam::PluginEditorLayout layout {
         jam::PluginEditorLayout::create<jam::SettingsDocument<jam::ConfigDocument>> (
+            *this,
             BinaryData::fetcher,
             files::viewLayout,
             files::viewLayout)
@@ -109,8 +111,13 @@ private:
 
     jam::AudioModel model { parameterManager,
                             *this,
-                            jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (
-                                juce::Identifier { files::parametersLayout })) };
+                            jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }),
+                                                       [this]
+                                                       {
+                                                           jam::HashMap<juce::Identifier, juce::Range<int>> ranges;
+                                                           set (Id::size, [] (jam::HashMap<juce::Identifier, juce::Range<int>>&) {}, ranges);
+                                                           return ranges;
+                                                       }()) };
 
     jam::SharedInstance<jam::StyleManager> styleManager;
 
