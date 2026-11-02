@@ -33,6 +33,8 @@ public:
     /** @brief Paints the transition over the children. @param g Graphics context to paint into. */
     void paintOverChildren (juce::Graphics& g) override;
 
+    void resized() override;
+
 private:
     /**
      * @brief Gives the keyboard focus to the default component of the editor.
@@ -138,6 +140,9 @@ private:
 
     /** Shared instance of the `map::CommandId` map. */
     jam::SharedInstance<map::CommandId> commandId { std::in_place };
+
+    /** Overlay that shows the settings message. It shows the message when the message callback runs with a non-empty MESSAGE component property. */
+    jam::MessageOverlay messageOverlay;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEView)

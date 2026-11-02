@@ -540,6 +540,16 @@ EVE drops its own `prefix` and `normal` rows (`jam_ENAXClientExtensions.cpp:33-3
 END also tells EVE its keyboard focus through the `focus` host parameter; EVE takes
 keyboard focus when it turns on (`PluginEditor::addCallbacks`).
 
+**Config.** `eve.md` follows END's contract. The binary carries the defaults
+(`ViewLayout.md` plus the binary css, written by `PluginEditorLayout::getDefaultSettings`);
+a valid disk copy overlays them row by row (`ConfigDocument::addTables`,
+`Model::setValuesFrom`). The front-matter version gates a rewrite of an older file
+(`ConfigDocument::getOrCreateDefaultFile`); agents never change a version. Every key
+is lower-case words; the reader formats it when it creates the row. Theme tables use
+`light | dark` columns over a named `## colours` palette; `## terminal` holds ANSI
+0–15. A validation or column error goes to `EVEView::messageOverlay`, the default
+stays, and nothing asserts on the disk file.
+
 ## Success Criteria
 
 The system:

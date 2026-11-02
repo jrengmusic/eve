@@ -1229,6 +1229,28 @@ terminal**. Subsystem completeness ≠ architecture proven. The assembly is EVE.
    > `ConfigDocument::getValueTree` gained column selection (the `dark` tree).
    > Sprint closed: 47 audit findings resolved or dispositioned, doxygen pass
    > complete, superseded PLANs deleted.
+   >
+   > **[AMENDED 2026-11-03 — config]** ARCHITECT: *"cancel the css, but WRITE
+   > CORRECT md structure. BUT make eve config to organized like end. not just lazily
+   > write all css var with double dash into table."*; *"css still the only SSOT. but
+   > the contract exactly like END. binary carry default, disk always win."*;
+   > *"colours should be defined with NAMES, with LIGHT/DARK theme."*; *"END and EVE
+   > keys all using user friendly case. lower case with whitespace."*; *"there's only
+   > ONE `mono`"*.
+   > - Defaults: `ViewLayout.md` plus the binary css, written by
+   >   `PluginEditorLayout::getDefaultSettings` as `## colours` (palette names, JFS
+   >   else jam's nearest name, `0xAARRGGBB`), one `light | dark` table per css
+   >   component, `## terminal` (ANSI 0–15 by `map::AnsiColour`; 16–255 stay in the
+   >   binary css), `## metrics`, `## fonts`. No `--` key. An alpha colour is a direct
+   >   `0xAARRGGBB` cell.
+   > - Load: `ConfigDocument::getOrCreateDefaultFile` (front-matter version gate),
+   >   `ConfigDocument::addTables` (validation and a column check against the
+   >   default), `Model::setValuesFrom` over the binary default, then
+   >   `setStyleValues` into the css tree — the same jam path as END's `ConfigModel`.
+   >   A failure travels as `Id::message` to `EVEView::messageOverlay`; nothing
+   >   asserts on `eve.md`. The `settings` lane formats its keys to tags
+   >   (`ui scale` → `UI_SCALE`) in `SettingsDocument<ConfigDocument>::parse`.
+   > - The `style` / `UI_size` tables of the paragraph above are superseded.
 
    > **[NEXT SPRINT — ruled 2026-09-15]** Build `jam::TextEditor` as a
    > full-feature, vim-based text editor FIRST. The terminal wires into it

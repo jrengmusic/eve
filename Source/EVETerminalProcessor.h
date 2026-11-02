@@ -162,21 +162,11 @@ private:
     /**
      * @brief Adds the event setters that copy the terminal state to the Model lane.
      *
-     * Each setter calls `storeValue` on `state`. The mode events and `shellExited` store a bool as 0 or 1, and `mouseTracking` and `cursor` store an int.
+     * Each setter calls `storeValue` on `state`. The bool events store 0 or 1, and `mouseTracking` and `cursor` store an int.
      * The `preview` event stores the path text. The `previewImage` event releases the previous preview image in the buffer, then stores the number of the new image.
-     * The `command` event adds a command name through `addCommand()`.
+     * The `command` event writes the name and a zero byte to `commands`, then flushes `commands`. It then increments `commandCount` in `state`.
      */
     void registerEvents();
-
-    /**
-     * @brief Writes a command name and a zero byte to the command FIFO, and counts the command in the Model lane.
-     *
-     * The command FIFO must have room for the name and the zero byte (jassert). The call writes nothing when the name is empty or does not fit.
-     *
-     * @param name  Bytes of the command name.
-     * @param size  Number of bytes in @p name.
-     */
-    void addCommand (const char* name, int size);
 
     /** @brief Adds the text editor getter keyed by the winsize type. The getter posts the history writer to the serial context of this object, flushes the Model lane, gives the swap, and asks for a process. */
     void registerUserInterfaceGetters();

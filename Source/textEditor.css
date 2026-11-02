@@ -1,20 +1,13 @@
 :root {
-    --terminalIndexed0: #090D12;
-    --terminalIndexed1: #FC704C;
-    --terminalIndexed2: #C5F0E9;
-    --terminalIndexed3: #F3F5C5;
-    --terminalIndexed4: #8CC9D9;
-    --terminalIndexed5: #519299;
-    --terminalIndexed6: #699DAA;
-    --terminalIndexed7: #DDDDDD;
-    --terminalIndexed8: #33535B;
-    --terminalIndexed9: #FC704C;
-    --terminalIndexed10: #BAFFFD;
-    --terminalIndexed11: #FEFFD2;
-    --terminalIndexed12: #67DFEF;
-    --terminalIndexed13: #01C2D2;
-    --terminalIndexed14: #00C8D8;
-    --terminalIndexed15: #BAFFFD;
+    --preciousPersimmon: #FC704C;
+    --gentleCold: #C5F0E9;
+    --silkStar: #F3F5C5;
+    --dolphin: #8CC9D9;
+    --lagoon: #519299;
+    --tranquiliTeal: #699DAA;
+    --steam: #DDDDDD;
+    --poseidonJr: #67DFEF;
+    --crystal: #A1D6E5;
     --terminalIndexed16: #000000;
     --terminalIndexed17: #00005F;
     --terminalIndexed18: #000087;
@@ -255,43 +248,41 @@
     --terminalIndexed253: #DADADA;
     --terminalIndexed254: #E4E4E4;
     --terminalIndexed255: #EEEEEE;
-    --endCodeText: #A1D6E5;
-    --endCodeBackground: #00000000;
     --endCodeHighlight: #00DDEE20;
 }
 
 .appearance.DARK {
-    --TextEditor--backgroundColourId: var(--endCodeBackground);
-    --TextEditor--textColourId: var(--endCodeText);
+    --TextEditor--backgroundColourId: var(--blank);
+    --TextEditor--textColourId: var(--crystal);
     --TextEditor--highlightColourId: var(--endCodeHighlight);
     --TextEditorStatusBar--backgroundColourId: var(--endCodeHighlight);
-    --TextEditorStatusBar--textColourId: var(--endCodeText);
-    --CaretComponent--caretColourId: var(--endCodeText);
+    --TextEditorStatusBar--textColourId: var(--crystal);
+    --CaretComponent--caretColourId: var(--crystal);
 }
 
 .appearance {
-    --TextEditor--backgroundColourId: var(--endCodeBackground);
-    --TextEditor--textColourId: var(--endCodeText);
+    --TextEditor--backgroundColourId: var(--blank);
+    --TextEditor--textColourId: var(--crystal);
     --TextEditor--highlightColourId: var(--endCodeHighlight);
     --TextEditorStatusBar--backgroundColourId: var(--endCodeHighlight);
-    --TextEditorStatusBar--textColourId: var(--endCodeText);
-    --CaretComponent--caretColourId: var(--endCodeText);
-    --Terminal--indexed0ColourId: var(--terminalIndexed0);
-    --Terminal--indexed1ColourId: var(--terminalIndexed1);
-    --Terminal--indexed2ColourId: var(--terminalIndexed2);
-    --Terminal--indexed3ColourId: var(--terminalIndexed3);
-    --Terminal--indexed4ColourId: var(--terminalIndexed4);
-    --Terminal--indexed5ColourId: var(--terminalIndexed5);
-    --Terminal--indexed6ColourId: var(--terminalIndexed6);
-    --Terminal--indexed7ColourId: var(--terminalIndexed7);
-    --Terminal--indexed8ColourId: var(--terminalIndexed8);
-    --Terminal--indexed9ColourId: var(--terminalIndexed9);
-    --Terminal--indexed10ColourId: var(--terminalIndexed10);
-    --Terminal--indexed11ColourId: var(--terminalIndexed11);
-    --Terminal--indexed12ColourId: var(--terminalIndexed12);
-    --Terminal--indexed13ColourId: var(--terminalIndexed13);
-    --Terminal--indexed14ColourId: var(--terminalIndexed14);
-    --Terminal--indexed15ColourId: var(--terminalIndexed15);
+    --TextEditorStatusBar--textColourId: var(--crystal);
+    --CaretComponent--caretColourId: var(--crystal);
+    --Terminal--indexed0ColourId: var(--bunker);
+    --Terminal--indexed1ColourId: var(--preciousPersimmon);
+    --Terminal--indexed2ColourId: var(--gentleCold);
+    --Terminal--indexed3ColourId: var(--silkStar);
+    --Terminal--indexed4ColourId: var(--dolphin);
+    --Terminal--indexed5ColourId: var(--lagoon);
+    --Terminal--indexed6ColourId: var(--tranquiliTeal);
+    --Terminal--indexed7ColourId: var(--steam);
+    --Terminal--indexed8ColourId: var(--mediterranea);
+    --Terminal--indexed9ColourId: var(--preciousPersimmon);
+    --Terminal--indexed10ColourId: var(--paleSky);
+    --Terminal--indexed11ColourId: var(--mattWhite);
+    --Terminal--indexed12ColourId: var(--poseidonJr);
+    --Terminal--indexed13ColourId: var(--caribbeanBlue);
+    --Terminal--indexed14ColourId: var(--blueBikini);
+    --Terminal--indexed15ColourId: var(--paleSky);
     --Terminal--indexed16ColourId: var(--terminalIndexed16);
     --Terminal--indexed17ColourId: var(--terminalIndexed17);
     --Terminal--indexed18ColourId: var(--terminalIndexed18);

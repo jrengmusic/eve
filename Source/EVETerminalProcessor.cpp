@@ -96,7 +96,20 @@ void EVETerminalProcessor::registerEvents()
     for (const auto& id : { Id::mouseTracking, Id::cursor })
         events.add<int> (id, [this, id, tag = Id::toType (Id::terminal)] (int value) { state.storeValue (tag, id, value); });
 
-    events.add<const char*, int> (Id::command, [this] (const char* name, int size) { addCommand (name, size); });
+    events.add<const char*, int> (Id::command, [this, tag = Id::toType (Id::terminal)] (const char* name, int size)
+                                  {
+                                      const auto numBytes { size + static_cast<int> (sizeof (char)) };
+
+                                      jassert (numBytes <= commands.getFreeSpace());
+
+                                      if (size > 0 and numBytes <= commands.getFreeSpace())
+                                      {
+                                          commands.write (name, static_cast<size_t> (size));
+                                          commands.writeByte ('\0');
+                                          commands.flush();
+                                          state.storeValue (tag, Id::commandCount, state.getParameter<jam::Parameter<int>> (tag, Id::commandCount)->getValue() + 1);
+                                      }
+                                  });
 
     events.add<const char*, int> (Id::preview, [this, tag = Id::toType (Id::terminal)] (const char* path, int size) { state.storeValue (tag, Id::preview, path, size); });
 
@@ -109,22 +122,6 @@ void EVETerminalProcessor::registerEvents()
 
                                  state.storeValue (tag, Id::previewImage, static_cast<int64_t> (image));
                              });
-}
-
-void EVETerminalProcessor::addCommand (const char* name, int size)
-{
-    const auto tag { Id::toType (Id::terminal) };
-    const auto numBytes { size + static_cast<int> (sizeof (char)) };
-
-    jassert (numBytes <= commands.getFreeSpace());
-
-    if (size > 0 and numBytes <= commands.getFreeSpace())
-    {
-        commands.write (name, static_cast<size_t> (size));
-        commands.writeByte ('\0');
-        commands.flush();
-        state.storeValue (tag, Id::commandCount, state.getParameter<jam::Parameter<int>> (tag, Id::commandCount)->getValue() + 1);
-    }
 }
 
 jam::TerminalFIFO& EVETerminalProcessor::getCommands() noexcept { return commands; }
@@ -244,7 +241,7 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
         const auto manifest { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest) };
         const auto profilerTable { manifest.getChildWithName (Id::toType (Id::profiler)) };
 
-        [[maybe_unused]] const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), profilerTable[Id::shell].toString(), profilerTable[Id::args].toString(), manifestFile.getParentDirectory().getFullPathName()) };
+        [[maybe_unused]] const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), profilerTable[Id::toType (Id::shell)].toString(), profilerTable[Id::toType (Id::args)].toString(), manifestFile.getParentDirectory().getFullPathName()) };
         jassert (isOpen);
         state.addListener (this);
     }

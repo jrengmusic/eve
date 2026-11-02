@@ -5,10 +5,20 @@ EVEView::EVEView (jam::AudioModel& newModel,
                   jam::PluginEditorLayout& newLayout,
                   juce::AudioProcessor& processorToConnectTo)
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
+    , messageOverlay (newModel.getOrCreateComponentState (Id::toTag (Id::message)), [this] { return theme->getMonoFont(); })
 {
     initialise (layout.getOrCreateSettings());
+    addChildComponent (messageOverlay);
     setConstrainer (this);
     setScaling();
+
+    registry->callbacks.get (Id::toType (Id::message).toString(), static_cast<juce::Component&> (*this));
+}
+
+void EVEView::resized()
+{
+    jam::PluginEditor::resized();
+    messageOverlay.setBounds (getLocalBounds());
 }
 
 void EVEView::focusGained (FocusChangeType)
@@ -180,6 +190,16 @@ void EVEView::registerCallbacks()
                                                     static_cast<EVEView&> (c).resized();
                                                 });
 
+    registry->callbacks.add<juce::Component&> (Id::toType (Id::message),
+                                                [] (juce::Component& c)
+                                                {
+                                                    auto& editor { static_cast<EVEView&> (c) };
+                                                    const auto errors { editor.model.getOrCreateComponentProperty (Id::toTag (Id::message), Id::value).toString() };
+
+                                                    if (errors.isNotEmpty())
+                                                        editor.messageOverlay.showMessage (errors);
+                                                });
+
     registry->callbacks.add<juce::Component&> (Id::toType (Id::historyCapacity),
                                                 [] (juce::Component& c)
                                                 {
@@ -274,12 +294,12 @@ void EVEView::applyCommands()
                 cut += juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (end) };
             else
             {
-                const auto name { cut.isEmpty() ? juce::Identifier { juce::String::CharPointerType (data), juce::String::CharPointerType (terminator) }
-                                                : juce::Identifier { cut + juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (terminator) } } };
+                const auto name { cut + juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (terminator) } };
 
                 cut = juce::String {};
 
-                invokeCommand (name);
+                if (name.isNotEmpty())
+                    invokeCommand (juce::Identifier { name });
             }
 
             data = juce::jmin (terminator + 1, end);
