@@ -132,7 +132,9 @@ among ours.
     `ESC ] 1337 ; EVE ; <operation> ; <key=value;…> [ : <base64> ] BEL|ST`,
     beside iTerm2's `ESC ] 1337 ; File=<args> : <base64> BEL`. ARCHITECT:
     *"change the marker "END" to "EVE""*.
-    - Operations: `command` (`name=` a `map::CommandId` name), `preview`
+    - Operations: `command` (`name=` the name of any command registered in EVE's
+      command manager: EVE's, the plugin editor's or the text editor's;
+      `EVEView.cpp:150-151`), `preview`
       (`path=` an absolute path; an empty path hides the preview), `image`
       (base64 bytes). The shell integration's `eve` function emits them.
     - State and commands. ARCHITECT: *"all state machine that drives/driven by
@@ -422,8 +424,10 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
 
 Editor state is ONE `juce::ValueTree`: the TextEditor's component node in the
 plugin state, from `AudioModel::getOrCreateComponentState (componentID)`. The
-node carries `mode` (a `map::EditorMode` value: `normal`, `visual`,
-`terminal`; the default is `normal`), `visualMode` (a `map::VisualMode` value:
+node carries `mode` (a `map::EditorMode` key: 0 `normal`, 1 `visual`,
+2 `terminal`). The node's `mode` is the host parameter `Mode`, attached in both
+directions (`jam::Model::ValueAttachment`, `TextEditor::bindToModel`); its default
+is `terminal` (`Source/layout/parameters.md`). `visualMode` (a `map::VisualMode` value:
 `character`, `line`, `block`), `cursorLine`, `cursorColumn`,
 `cursorWantedColumn`, `anchorLine`, `anchorColumn`, `count`, `operatorCount`,
 `pendingOperator` and `pendingChord`. The host serialises this node with the
@@ -467,10 +471,11 @@ comparison"*.
   the message thread, on the same tick that reads the live frame.
   `getStateInformation` also flushes it, under the message-manager lock, before
   it copies the state.
-- **Consumers.** The view binds `juce::Value`s to the properties of the Model
-  tree (`getPropertyAsValue`, `referTo`). The caret and the record gate listen
-  to their Values. The key and mouse encoders read their Values when an event
-  arrives (`EVEViewComponents.cpp`).
+- **Consumers.** Each text editor binds its own instance's `terminal` row and
+  listens to it (`TextEditor::bindToModel`). The caret and the record gate react
+  through the editor's property map. The key and mouse encoders read the row
+  when an event arrives, and send the bytes through the `terminalInput` chain
+  event (`TextEditor::bindToEvents`).
 - **Tree.** The Model tree is the `terminal` child of the APVTS state.
   `getStateInformation` saves it. On `setStateInformation`, EVE suspends
   processing. The Model takes the restored values, and its tree replaces the
@@ -505,18 +510,28 @@ later sprints implement it.
 | Document end | `G` | `G` | |
 | Half page up | `ctrl+u` | `ctrl+u` | |
 | Half page down | `ctrl+d` | `ctrl+d` | |
-| Return to terminal | `escape` `i` `a` `I` `A` `o` `O` | | |
-| Leave mode | | `escape` | `` `] `` |
+| Return to terminal | `escape` `i` `a` `I` `A` `o` `O` | `escape` `i` `a` `I` `A` `o` `O` | |
+| Enter normal | | | `` `] `` |
 | Enter visual (character) | `v` | `v` | |
 | Enter visual (line) | `V` | `V` | |
 | Enter visual (block) | `ctrl+v` | `ctrl+v` | |
 | Yank | `y` | `y` | |
+| Copy | `cmd+c` / `ctrl+shift+c` | `cmd+c` / `ctrl+shift+c` | |
+| Paste | | | `cmd+v` / `ctrl+shift+v` |
 
-All bindings are config-table entries; the table above is the shipped
-default. A chord is matched by text character and is case-sensitive.
-A two-character cell (`gg`) is a prefix sequence. A JUCE key description
-(`ctrl+u`, `escape`) names a non-printing key. `eve.md` hot-reloads this
-table.
+The default keys belong to the command's state owner. The text editor commands
+and their keys and modes are jam tables (`jam/cast/gui.md:253-435`); zoom and
+settings are the plugin editor's (`jam/cast/plugin_bootstrap.md`). The first key
+of a Copy or Paste cell is macOS, the second Windows, so `ctrl+c` still sends
+`\x03`. Paste sends the clipboard to the shell, wrapped in the bracketed-paste
+markers while the shell sets DEC 2004 (`jam_TextEditor.cpp:514-524`). A row of
+`eve.md`'s `keys` table replaces every default row of its command name
+(`jam_PluginEditor.cpp:292-314`). A chord is matched by text character and is
+case-sensitive. A two-character cell (`gg`) is a prefix sequence. A JUCE key
+description (`ctrl+u`, `escape`) names a non-printing key. `eve.md` hot-reloads
+the keys. Under END, END's own `normal` command (`` `] ``) drives NORMAL through
+EVE's `Mode` host parameter, and the hosted EVE drops its own `` `] `` default
+(`jam_ENAXClientExtensions.cpp:21-38`).
 
 ## Success Criteria
 

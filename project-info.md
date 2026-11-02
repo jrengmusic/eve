@@ -332,12 +332,6 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
 | viewSource              | Source/EVEView.cpp               | Plugin editor — theme, component registry and view construction             |
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
-| viewRegistration        | Source/EVEViewRegistration.cpp   | Plugin editor button registration and dialog config                         |
-+-------------------------+----------------------------------+-----------------------------------------------------------------------------+
-| viewComponents          | Source/EVEViewComponents.cpp     | Plugin editor view component configs                                        |
-+-------------------------+----------------------------------+-----------------------------------------------------------------------------+
-| viewPanelCallbacks      | Source/EVEViewPanelCallbacks.cpp | Plugin editor UI scale and winsize callbacks                                |
-+-------------------------+----------------------------------+-----------------------------------------------------------------------------+
 | standaloneAppHeader     | Source/EVEStandaloneApp.h        | Standalone app class declaration, jam::AudioStandaloneApp                   |
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
 | standaloneAppSource     | Source/EVEStandaloneApp.cpp      | Standalone app: plugin state file in the user settings directory            |

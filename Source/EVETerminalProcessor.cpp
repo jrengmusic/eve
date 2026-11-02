@@ -37,12 +37,11 @@ EVETerminalProcessor::~EVETerminalProcessor()
     releaseResources();
 
     state.removeListener (this);
-    cancelPendingUpdate();
 }
 
 void EVETerminalProcessor::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
 {
-    if (property == Id::shellExited and static_cast<bool> (tree.getProperty (property)))
+    if (property == Id::shellExited and static_cast<bool> (tree.getProperty (property)) and juce::JUCEApplicationBase::isStandaloneApp())
         juce::JUCEApplicationBase::quit();
 }
 

@@ -63,6 +63,130 @@ void EVEView::initialiseRegistry()
     registerCallbacks();
 }
 
+void EVEView::registerButtons (jam::Registry::Registration& registration)
+{
+    registration.buttons = [] (jam::Registry& r)
+    {
+        r.registerComponent<jam::ButtonSVG> (Id::button);
+        r.registerComponent<jam::ButtonSVG> (Id::up,
+                                             juce::StringArray { BinaryData::getString (files::upNormal),
+                                                                 BinaryData::getString (files::upOver),
+                                                                 BinaryData::getString (files::upDown),
+                                                                 juce::String(),
+                                                                 juce::String(),
+                                                                 juce::String(),
+                                                                 juce::String(),
+                                                                 juce::String() });
+        r.registerComponent<jam::ButtonSVG> (Id::down,
+                                             juce::StringArray { BinaryData::getString (files::downNormal),
+                                                                 BinaryData::getString (files::downOver),
+                                                                 BinaryData::getString (files::downDown),
+                                                                 juce::String(),
+                                                                 juce::String(),
+                                                                 juce::String(),
+                                                                 juce::String(),
+                                                                 juce::String() });
+    };
+
+    registration.config = [] (jam::Registry& r)
+    {
+        r.registerConfig<jam::Selector> (Id::selector,
+                                         [] (jam::Selector* s)
+                                         {
+                                             auto* reg { jam::Registry::getInstance() };
+                                             jassert (reg != nullptr);
+
+                                             s->setNavigationButtons (jam::Registry::toButton (reg->make.get (Id::up)),
+                                                                      jam::Registry::toButton (reg->make.get (Id::down)));
+                                         });
+    };
+}
+
+void EVEView::registerViewComponents (jam::Registry::Registration& registration)
+{
+    registration.viewComponents = [] (jam::Registry& r)
+    {
+        r.registerComponent<juce::Label> (Id::label);
+        r.registerComponent<jam::Selector> (Id::selector);
+        r.registerComponent<jam::TextEditor> (Id::textEditor);
+
+        r.registerConfig<jam::Selector> (Id::selector,
+                                         Id::toTag (Id::appearance),
+                                         [] (jam::Selector* selector)
+                                         {
+                                             selector->addItemList (map::Appearance::getInstance()->get());
+                                         });
+
+        r.registerConfig<jam::Selector> (Id::selector,
+                                         Id::toTag (Id::UIScale),
+                                         [] (jam::Selector* selector)
+                                         {
+                                             selector->addItemList (map::UIScaleMap::getInstance()->get());
+                                         });
+    };
+
+    registration.events = [] (jam::Registry& r)
+    {
+        r.bindEvent.add<juce::Component*&, jam::ViewManager::Events*, const juce::String&, const juce::String&> (
+            Id::textEditor,
+            [] (juce::Component* component, jam::ViewManager::Events* chainEvents, const juce::String& eventName, const juce::String&)
+            {
+                auto* textEditor { static_cast<jam::TextEditor*> (component) };
+
+                textEditor->bindToEvents (chainEvents->at (juce::Identifier { eventName }));
+            });
+    };
+
+    registration.styles = [] (jam::Registry& r)
+    {
+        r.registerStyle<jam::StyleCustom> (Id::textEditor);
+    };
+
+    registration.makeContent = [] (jam::Registry& r)
+    {
+        r.makeContent.add<jam::AudioModel&, juce::LookAndFeel&> (
+            Id::settings,
+            [] (jam::AudioModel& modelToUse, juce::LookAndFeel& lookAndFeel)
+            {
+                return jam::ViewSettings::create (modelToUse, lookAndFeel, jam::HtmlDocument::getOrCreate (juce::Identifier { files::settingsLayout }));
+            });
+    };
+}
+
+void EVEView::registerCallbacks()
+{
+    registry->callbacks.add<juce::Component&> (Id::toType (Id::UIScale),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).resized();
+                                                });
+
+    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::clear),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).clear();
+                                                });
+
+    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::preview),
+                                                [] (juce::Component& c)
+                                                {
+                                                    auto& editor { static_cast<EVEView&> (c) };
+                                                    editor.setPreviewVisible (not editor.isPreviewVisible());
+                                                });
+
+    registry->callbacks.add<juce::Component&> (Id::toType (Id::preview),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).resized();
+                                                });
+
+    registry->callbacks.add<juce::Component&> (Id::toType (Id::historyCapacity),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).setHistoryCapacity();
+                                                });
+}
+
 void EVEView::initialiseView()
 {
     auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
@@ -74,14 +198,23 @@ void EVEView::initialiseView()
 
 void EVEView::getAllCommands (juce::Array<juce::CommandID>& commands)
 {
+    jam::PluginEditor::getAllCommands (commands);
+
     for (const auto& [command, name] : map::CommandId::getInstance()->get())
         commands.add (command);
 }
 
 void EVEView::getCommandInfo (juce::CommandID commandID, juce::ApplicationCommandInfo& result)
 {
-    const auto name { map::CommandId::getInstance()->get (commandID).toString() };
-    result.setInfo (name, name, {}, result.flags & ~ juce::ApplicationCommandInfo::isDisabled);
+    if (jam::Map::contains (map::CommandId::getInstance()->get(), commandID))
+    {
+        const auto name { map::CommandId::getInstance()->get (commandID).toString() };
+        result.setInfo (name, name, {}, result.flags & ~ juce::ApplicationCommandInfo::isDisabled);
+    }
+    else
+    {
+        jam::PluginEditor::getCommandInfo (commandID, result);
+    }
 }
 
 void EVEView::paintOverChildren (juce::Graphics& g) { transition.paint (g, getLocalBounds()); }
@@ -138,8 +271,8 @@ void EVEView::applyCommands()
 
                 cut = juce::String {};
 
-                if (const auto found { map::CommandId::getInstance()->find (name) })
-                    commandManager->invokeDirectly (*found, false);
+                if (const auto* command { commandManager->getCommandForName (name) })
+                    commandManager->invokeDirectly (command->commandID, false);
             }
 
             data = juce::jmin (terminator + 1, end);
