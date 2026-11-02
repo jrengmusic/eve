@@ -3,8 +3,6 @@
 static constexpr std::string_view zshDirectory { "zsh" };
 static constexpr std::string_view zshIntegrationFile { "eve-integration" };
 static constexpr std::string_view zshEnvironmentFile { ".zshenv" };
-static constexpr std::string_view bashIntegrationFile { "bash_integration.bash" };
-static constexpr std::string_view powershellIntegrationFile { "powershell_integration.ps1" };
 
 bool ShellIntegration::isShellIntegrated()
 {
@@ -30,8 +28,8 @@ void ShellIntegration::addShellScripts (const juce::File& directory)
     zshFolder.createDirectory();
     zshFolder.getChildFile (juce::String { zshEnvironmentFile.data() }).replaceWithData (zshEnvironment.data, static_cast<size_t> (zshEnvironment.size));
     zshFolder.getChildFile (juce::String { zshIntegrationFile.data() }).replaceWithData (zshIntegration.data, static_cast<size_t> (zshIntegration.size));
-    directory.getChildFile (juce::String { bashIntegrationFile.data() }).replaceWithData (bashIntegration.data, static_cast<size_t> (bashIntegration.size));
-    directory.getChildFile (juce::String { powershellIntegrationFile.data() }).replaceWithData (powershellIntegration.data, static_cast<size_t> (powershellIntegration.size));
+    directory.getChildFile (files::bashIntegration).replaceWithData (bashIntegration.data, static_cast<size_t> (bashIntegration.size));
+    directory.getChildFile (files::powershellIntegration).replaceWithData (powershellIntegration.data, static_cast<size_t> (powershellIntegration.size));
 }
 
 juce::StringPairArray ShellIntegration::getShellEnvironment (const juce::String& shell, const juce::File& directory)
@@ -56,7 +54,7 @@ juce::StringPairArray ShellIntegration::getShellEnvironment (const juce::String&
             {
                 juce::StringPairArray environment;
 
-                environment.set ("ENV", directory.getChildFile (juce::String { bashIntegrationFile.data() }).getFullPathName());
+                environment.set ("ENV", directory.getChildFile (files::bashIntegration).getFullPathName());
                 environment.set ("EVE_BASH_INJECT", "1");
                 environment.set ("EVE_BASH_UNEXPORT_HISTFILE", "1");
                 return environment;
@@ -78,7 +76,7 @@ juce::String ShellIntegration::getShellArguments (const juce::String& shell, con
         jam::Function::Map<juce::String, juce::String> table;
         const auto getPowershellArguments { [] (const juce::File& directory)
                                          {
-                                             return "-NoLogo -NoProfile -NoExit -Command \". '" + directory.getChildFile (juce::String { powershellIntegrationFile.data() }).getFullPathName() + "'\"";
+                                             return "-NoLogo -NoProfile -NoExit -Command \". '" + directory.getChildFile (files::powershellIntegration).getFullPathName() + "'\"";
                                          } };
 
         table.add<const juce::File&> ("bash", [] (const juce::File&) { return juce::String { "--posix" }; });

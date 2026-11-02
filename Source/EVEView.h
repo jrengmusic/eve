@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "generated/Generated.h"
+#include "EVETerminalProcessor.h"
 
 /**
  * @class EVEView
@@ -108,8 +109,7 @@ private:
     /** @brief Clears the screen and the saved lines of the terminal. */
     void clear();
 
-    /** @brief Shows the message that the history cleared, clears the terminal, and restarts the terminal processor with the new history capacity. */
-    void setHistoryCapacity();
+    EVETerminalProcessor& getTerminalProcessor();
 
     /**
      * @brief Sets the visibility of the side preview from a path. A non-empty path shows the side preview, and an empty path hides it.
@@ -133,6 +133,8 @@ private:
      * A name that the command manager has no command for is ignored.
      */
     void applyCommands();
+
+    void invokeCommand (const juce::Identifier& name);
 
     /** Shared instance of the `map::CommandId` map. */
     jam::SharedInstance<map::CommandId> commandId { std::in_place };

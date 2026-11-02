@@ -41,7 +41,7 @@ EVETerminalProcessor::~EVETerminalProcessor()
 
 void EVETerminalProcessor::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
 {
-    if (property == Id::shellExited and static_cast<bool> (tree.getProperty (property)) and juce::JUCEApplicationBase::isStandaloneApp())
+    if (property == Id::shellExited and static_cast<bool> (tree.getProperty (property)))
         juce::JUCEApplicationBase::quit();
 }
 
@@ -128,8 +128,6 @@ void EVETerminalProcessor::addCommand (const char* name, int size)
 }
 
 jam::TerminalFIFO& EVETerminalProcessor::getCommands() noexcept { return commands; }
-
-jam::TerminalSwap& EVETerminalProcessor::getSwap() noexcept { return swap; }
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
 {

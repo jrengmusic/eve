@@ -44,19 +44,19 @@ The specification is [SPEC.md](SPEC.md).
 - Runs `$SHELL` (zsh by default) on macOS and PowerShell on Windows, with shell integration for zsh, bash and PowerShell: OSC 7 (working folder) and OSC 133 A, C, D (prompt and command marks).
 - History lines are kept in a record on disk; `HISTORY_CAPACITY` sets how many (10000 by default).
 - Reflow belongs to the view: wrapping follows the view's own width, never the PTY window size.
-- Normal and visual modes with vim keys over the terminal content; every key is a row in the config.
+- Normal and visual modes with vim keys over the terminal content. The text editor carries its default keys, and a config row overrides a key by its command name.
 
 ### Shell API
 
 The shell integration adds an `eve` function. It speaks EVE's envelope, `ESC ] 1337 ; EVE ; <operation> ; <args> BEL`:
 
 - `eve command <name>` — runs an EVE command, the same command a key binding runs.
-- `eve preview <file>` — shows the file in the Preview column; `eve preview` hides it.
+- `eve preview <file>` — records the file as the preview path; `eve preview` clears it. EVE has no Preview column now.
 - `eve image <file>` — sends the image bytes to EVE.
 
 ### Formats and platforms
 
-Standalone, VST3 and AU, on macOS (Intel and Apple silicon) and Windows.
+Standalone, VST, VST3 and AU, on macOS (Intel and Apple silicon) and Windows. END hosts EVE in every pane.
 
 ---
 

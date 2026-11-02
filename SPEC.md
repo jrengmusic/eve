@@ -1,6 +1,6 @@
 # EVE Specification v0.0.1
 
-**Companion:** RFC-EVE-terminal-grand-scheme.md (architecture, evidence, non-negotiables — normative for all architectural questions; this SPEC does not repeat it)
+**Companion:** PLAN-Grand-Scheme.md (architecture, evidence, non-negotiables — normative for all architectural questions; this SPEC does not repeat it)
 
 ## Overview
 
@@ -24,10 +24,10 @@ among ours.
 
 - **Language:** C++17
 - **Frameworks:** JUCE + JAM (jam_terminal, jam_graphics, jam_vulkan, jam_style, jam_markdown, jam_core)
-- **Renderer:** jam::vulkan::LowLevelGraphicsContext (GPU), juce software renderer as oracle
+- **Renderer:** `jam::VulkanLowLevelGraphicsContext` (GPU) and `jam::CpuLowLevelGraphicsContext` (CPU lane), juce software renderer as oracle
 - **Build:** self-contained single-file CMakeLists (CAST target oracle), CMake + Ninja
 - **Platform:** macOS (Intel + ARM) and Windows; identical DX
-- **Shape:** standalone application first; CLAP plugin hosted by END later (RFC §4.3)
+- **Shape:** standalone application and audio plugin (VST2, VST3, AU). END hosts it in every pane under ENAX; the CLAP format comes later (`PLAN-Grand-Scheme.md` §4.3)
 - **Config:** markdown tables + CSS (CAST conventions) — no lua
 
 ## Core Principles
@@ -114,7 +114,7 @@ among ours.
    capacity, clear and state restore restart it (stop → change → start), and
    only while it runs. ARCHITECT: *"make it consistent then"*; *"prepareToPlay
    upstream still juce contract"*; the restart rule approved with `/go`
-   (2026-10-29, `PLAN-terminal-clock.md` Amendment A).
+   (2026-10-29, Amendment A of the terminal clock plan; the plan is deleted, END `carol/SPRINT-LOG.md:186`).
 10. **One serial clock context.** PTY readiness and the clock run on one
     serial context. A readiness tick is a block of the bytes the readiness
     event reports; a requested tick is a zero-sample block. The spec has three
@@ -133,8 +133,9 @@ among ours.
     beside iTerm2's `ESC ] 1337 ; File=<args> : <base64> BEL`. ARCHITECT:
     *"change the marker "END" to "EVE""*.
     - Operations: `command` (`name=` the name of any command registered in EVE's
-      command manager: EVE's, the plugin editor's or the text editor's;
-      `EVEView.cpp:150-151`), `preview`
+      command manager: EVE's, the plugin editor's or the text editor's. The
+      command runs on the instance that read it, through its text editor's
+      command chain, `EVEView::invokeCommand`, `EVEView.cpp:249-259`), `preview`
       (`path=` an absolute path; an empty path hides the preview), `image`
       (base64 bytes). The shell integration's `eve` function emits them.
     - State and commands. ARCHITECT: *"all state machine that drives/driven by
@@ -229,9 +230,9 @@ layout event only).
      the same"*.
    - The swap keeps the last `HISTORY_CAPACITY` lines. It deletes the index
      and segment files of older lines (`jam_TerminalSwap.cpp:139-155`).
-   - The TextEditor is the receiver. It builds only the lanes the view shows
-     (`TerminalSwap::linesPerLane` lines each) and keeps their line counts. A
-     resize or a font change lays out the resident lanes again. ARCHITECT:
+   - The TextEditor is the receiver. It builds only the blocks the view shows
+     (`TerminalSwap::linesPerBlock` lines each) and keeps their line counts. A
+     resize or a font change lays out the resident blocks again. ARCHITECT:
      *"can we make it always O(1)?"*
    - Full throttle. ARCHITECT: *"the events chain should not be manually
      managed, lock free, wait free, yield free, always full throttle"*. Each
@@ -398,15 +399,15 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
     `SIGWINCH`. For oh-my-posh, the user's zshrc repaints the prompt in
     `TRAPWINCH`.
   - **Column reflow.** A column grid in history reflows at the TextEditor width
-    (`PLAN-column-reflow.md`). ARCHITECT: *"no hardcode about ls nor eza"*.
+    (the column reflow plan, done and deleted, END `carol/SPRINT-LOG.md:186`). ARCHITECT: *"no hardcode about ls nor eza"*.
 - **Record:** `TerminalSwap` writes each history row once to its index and
   segment files (`jam_TerminalSwap.cpp:99-158`). It writes the live frame to a
   two-slot live file through a FIFO (`:64-87`, `:248-277`). `prepare` starts a
   new live file and drops a ready slot of the old one.
 - **Pull:** on each vblank of its display (`juce::VBlankAttachment`), the
   TextEditor calls the view getter. The getter flushes the terminal Model and
-  gives the swap. The TextEditor builds the history lanes it shows
-  (`TerminalSwap::linesPerLane` lines each) and the live lane, then sets the
+  gives the swap. The TextEditor builds the history blocks it shows
+  (`TerminalSwap::linesPerBlock` lines each) and the live block, then sets the
   content size, then scrolls to the tail in terminal mode
   (`jam_TextEditor.cpp:803-884`).
 - **Layout state** (advances, rows, row heights) lives on each line as value
@@ -430,7 +431,7 @@ directions (`jam::Model::ValueAttachment`, `TextEditor::bindToModel`); its defau
 is `terminal` (`Source/layout/parameters.md`). `visualMode` (a `map::VisualMode` value:
 `character`, `line`, `block`), `cursorLine`, `cursorColumn`,
 `cursorWantedColumn`, `anchorLine`, `anchorColumn`, `count`, `operatorCount`,
-`pendingOperator` and `pendingChord`. The host serialises this node with the
+`pendingOperator`, `layer` and `sequence`. The host serialises this node with the
 rest of the plugin state.
 
 `TextEditor` is a `juce::ValueTree::Listener`. Its `valueTreePropertyChanged`
@@ -453,12 +454,13 @@ terminal/Model.h:17-28`). ARCHITECT: *"you could learn how endless manage its
 terminal state machine … factually raw bytes test beats all terminal in
 comparison"*.
 
-- **Schema.** `Source/layout/model.md`, table `## model`, columns `id`, `type`,
-  `default`, `description`. `jam::ModelLayout` (jam_plugin_bootstrap) reads it,
+- **Schema.** `Source/layout/parameters.md`, table `## model` (`:22-52`), columns
+  `id`, `type`, `max`, `default`, `description`. `jam::ModelLayout` (jam_plugin_bootstrap) reads it,
   the sibling of `jam::ParameterLayout` for `parameters.md`.
-- **Rows.** `applicationCursor`, `bracketedPaste`, `mouseSgr`,
-  `mouseTracking`, `cursorVisible`, `alternateScreen`, `isRecording` and
-  `cursor`. `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
+- **Rows.** `applicationCursor`, `bracketedPaste`, `mouseTracking`,
+  `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited`,
+  `cursor`, `commandCount`, `preview`, `previewImage` and `winsize`
+  (`parameters.md:27-51`). `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
   the column change together.
 - **Producer.** The decoder (`jam::TerminalProcessor`) keeps its working state
   and fires one event per value at the end of each drain. The owner's handlers
@@ -520,18 +522,23 @@ later sprints implement it.
 | Paste | | | `cmd+v` / `ctrl+shift+v` |
 
 The default keys belong to the command's state owner. The text editor commands
-and their keys and modes are jam tables (`jam/cast/gui.md:253-435`); zoom and
+and their keys, modes and layers are jam tables (`jam/cast/gui.md`); zoom and
 settings are the plugin editor's (`jam/cast/plugin_bootstrap.md`). The first key
 of a Copy or Paste cell is macOS, the second Windows, so `ctrl+c` still sends
 `\x03`. Paste sends the clipboard to the shell, wrapped in the bracketed-paste
-markers while the shell sets DEC 2004 (`jam_TextEditor.cpp:514-524`). A row of
+markers while the shell sets DEC 2004 (`TextEditor` paste action). A row of
 `eve.md`'s `keys` table replaces every default row of its command name
-(`jam_PluginEditor.cpp:292-314`). A chord is matched by text character and is
-case-sensitive. A two-character cell (`gg`) is a prefix sequence. A JUCE key
-description (`ctrl+u`, `escape`) names a non-printing key. `eve.md` hot-reloads
-the keys. Under END, END's own `normal` command (`` `] ``) drives NORMAL through
-EVE's `Mode` host parameter, and the hosted EVE drops its own `` `] `` default
-(`jam_ENAXClientExtensions.cpp:21-38`).
+(`PluginEditor::addCommands`). A value of one or two characters is matched by text
+character and is case-sensitive; a two-character cell (`gg`) is a sequence. A JUCE
+key description (`ctrl+u`, `escape`) names a non-printing key. `eve.md` hot-reloads
+the keys. The prefix key (`` ` ``) enters the prefix layer, and `]` there enters
+NORMAL from TERMINAL; `` ` `` pressed twice types `` ` `` in the shell. Any other key
+in the layer is dropped. `sequenceTimeout` (jam default 1000 ms; a `keys` row
+overrides it) ends a sequence or a layer. Under END, END's own prefix layer and
+`normal` command drive NORMAL through EVE's `mode` host parameter, and the hosted
+EVE drops its own `prefix` and `normal` rows (`jam_ENAXClientExtensions.cpp:33-39`).
+END also tells EVE its keyboard focus through the `focus` host parameter; EVE takes
+keyboard focus when it turns on (`PluginEditor::addCallbacks`).
 
 ## Success Criteria
 

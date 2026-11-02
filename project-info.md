@@ -318,7 +318,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
 | terminalProcessorHeader | Source/EVETerminalProcessor.h    | Terminal processor class declaration                                        |
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
-| terminalProcessorSource | Source/EVETerminalProcessor.cpp  | Terminal processor chain: harness load, engine ring, history and live lanes |
+| terminalProcessorSource | Source/EVETerminalProcessor.cpp  | Terminal processor chain: clock, shell, engine ring, history and live lanes |
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
 | terminalMemoryTTYHeader | Source/TerminalMemoryTTY.h       | Replay TTY class declaration                                                |
 +-------------------------+----------------------------------+-----------------------------------------------------------------------------+
@@ -358,7 +358,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
 | jamUseCustomStandaloneApp                 | JAM_USE_CUSTOM_STANDALONE_APP=1                                | Custom JAM standalone app entry point          |
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
-| juceVst3CanReplaceVst2                    | JUCE_VST3_CAN_REPLACE_VST2=0                                   | VST3 loads VST2-compatible state               |
+| juceVst3CanReplaceVst2                    | JUCE_VST3_CAN_REPLACE_VST2=0                                   | VST3 does not replace the VST2 plugin          |
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
 | jucePluginAaxDisableDefaultSettingsChunks | JucePlugin_AAXDisableDefaultSettingsChunks=1                   | AAX default settings chunks disabled           |
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+

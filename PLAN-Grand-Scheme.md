@@ -999,7 +999,7 @@ Any format should ultimately be supportable; CLAP is primary.
 > - *"ALL formats means ONE at a time, for EVE. any valid audio format SHOULD WORK. any
 >   3rd audio plugin with "ALL FORMAT" must be able to be loaded in END."*
 > - END hosts VST2, VST3 and AU (`end/project-info.md:371-375`) and CLAP
->   (`end/Source/plugins/Nexus.cpp:14-19`). The EVE format under test is the one row
+>   (`end/Source/plugins/Nexus.cpp`, `Nexus::Nexus`). The EVE format under test is the one row
 >   `files::evePlugin` (`end/cast/files.md:31`).
 >
 > **The name.** ENAX: *"END Native API eXtension"*. *"Native means native to END"*. ENAX
@@ -1028,24 +1028,47 @@ Any format should ultimately be supportable; CLAP is primary.
 >   hosts other than END, EVE SPEC CONTRACT must stands as is"*.
 >
 > **Channel.** One `extern "C"` END export, `enax_get_extension (id)`, over
-> `Nexus::extensions` (`end/Source/plugins/Nexus.h:30`). It has CLAP `get_extension`
+> `Nexus::extensions` (`end/Source/plugins/Nexus.h:93`). It has CLAP `get_extension`
 > semantics: an absent id returns nullptr. The ids are `enax.context-factory`,
-> `enax.peer-deleted` and `enax.key-pressed` (*"enax.* / enax export"*).
+> `enax.display-bounds`, `enax.key-pressed`, `enax.mouse-event` and `enax.peer-deleted`
+> (*"enax.* / enax export"*; `jam/cast/core.md:74-78`).
 >
 > **Rules registered today.**
 > 1. Engine. The plugin always owns its `CpuGraphicsEngine`
->    (`jam_PluginEditorLayout.h:124`). Under END, END's engine paints the plugin's peers
+>    (`jam_PluginEditorLayout.h:137`). Under END, END's engine paints the plugin's peers
 >    through `externalContextFactory`. Elsewhere the plugin creates its own
 >    `VulkanGraphicsEngine`.
-> 2. Key hook. Under END, the plugin's peer gives each key to END first
->    (`externalKeyPressedCallback`, `jam/patch/juce-key-pressed-hook.patch`). *"END as
->    host always win"*.
-> 3. Key binding (the command-id contract below).
+> 2. Key and mouse hook. Under END, the plugin's peer gives each key and each mouse
+>    event to END first (`externalKeyPressedCallback`, `externalMouseEventCallback`;
+>    `jam/patch/juce-key-pressed-hook.patch`, `jam/patch/juce-mouse-event-hook.patch`).
+>    *"END as host always win"*. The `engine` rule installs these hooks with the other
+>    peer hooks (`jam_ENAXClientExtensions.cpp:9-31`). The `keys` rule removes the
+>    `normal` and `prefix` rows from the text editor's defaults
+>    (`jam_ENAXClientExtensions.cpp:33-39`); the binder applies it
+>    (`PluginEditor::addCommands`).
+> 3. Size. Under END, the `width` and `height` ranges run from
+>    `jam::PaneComponent::minimumPaneExtent` to END's display bounds
+>    (`jam_ENAXClientExtensions.cpp:40-50`).
+> 4. Key binding (the command-id contract below).
 >
 > **Focus.** ARCHITECT: *"Focus is END responsibility"*. *"focus grabbing, asking to peer
 > to front and wants keyboard etc IS NOT EVE responsibility when hosted at END"*.
 > *"so END pane focus management actually only need to forward, focused PANE give the
-> keyboard focus to its loaded plugin"*.
+> keyboard focus to its loaded plugin"*. *"when hosted at END the FOCUS parameter always
+> being told by END always sync with Pane focus. so more handroll method, but pure event
+> driven, SSOT API. still Plugin doesnt grab its own focus, only being told"*.
+> - EVE's `focus` host parameter (bool, `master`; `Source/layout/parameters.md`). END's
+>   pane sets it from its row's `Id::focus` (`EditorView::valueTreePropertyChanged`);
+>   jam `PluginEditor` grabs keyboard focus only when it turns on
+>   (`PluginEditor::addCallbacks`).
+>
+> **Layers and sequences.** ARCHITECT: *"prefix is only tell to "enter a layer", while
+> "gg" is on "default layer""*; *"`] is entering NORMAL mode ONLY from TERMINAL mode. the
+> contract is identical. one is handle by EVE itself in standalone, plugin its own
+> CommandManager. while with ENAX, isEND() == true, this is END CommandManager
+> responsibility to handle, and TELL eve"*.
+> - One key method in `jam::CommandManager::invokeKey` for sequences and layers; a row's
+>   `layer` names its layer. Under END, the hosted text editor holds no layer rows.
 >
 > **Transparency.** The JUCE wrappers ask JUCE's own host type: the plugin's editor wrapper
 > is opaque only when the host is not END.
@@ -1061,8 +1084,9 @@ Any format should ultimately be supportable; CLAP is primary.
 > - The widget declares its default bindings by command id. *"could be overriden by config,
 >   when the orchestrator TELL to register from config, disk always win. widget doesnt care
 >   nor acknowledge about config on disk."*
-> - One entry per binary: `CommandManager::invokeDirectly`. One binder per binary: the top
->   orchestrator.
+> - One key entry per caller: `CommandManager::invokeKey` (END `ENDView.cpp:57-60`). A
+>   shell command runs on the instance that read it, through its text editor's command
+>   chain (`eve/Source/EVEView.cpp:249-259`). One binder per binary: the top orchestrator.
 > - END's `keys.md` names commands only. *"parameter, commandId, etc are internal
 >   implementation, probably could be exposed for API later, but never to config"*.
 >
@@ -1086,7 +1110,7 @@ Any format should ultimately be supportable; CLAP is primary.
 >
 > **Zoom.** Zoom is the JUCE view transform over the `zoom` parameter. It reflows: the view
 > bounds are divided by the zoom before the transform (`jam_ViewEditor.cpp:96`,
-> `jam_PluginEditor.cpp:55-56`). Glyphs rasterise at the scaled size
+> `jam_PluginEditor.cpp:63-70`). Glyphs rasterise at the scaled size
 > (`jam_GlyphRasterizer.cpp:55-61`, `:463-465`). END's zoom command tells its panes to set
 > the parameter: *"how about EXCLUSIVE_ZOOM? default false, means all. true means focused
 > only"*.

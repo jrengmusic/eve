@@ -290,16 +290,13 @@ target_sources(${PROJECT_NAME} PRIVATE
     Source/EVEProcessor.h            # juce::AudioProcessor plugin entry class declaration
     Source/EVEProcessor.cpp          # juce::AudioProcessor plugin entry, state serialization, createPluginFilter
     Source/EVETerminalProcessor.h    # Terminal processor class declaration
-    Source/EVETerminalProcessor.cpp  # Terminal processor chain: harness load, engine ring, history and live lanes
+    Source/EVETerminalProcessor.cpp  # Terminal processor chain: clock, shell, engine ring, history and live lanes
     Source/TerminalMemoryTTY.h       # Replay TTY class declaration
     Source/TerminalMemoryTTY.cpp     # Replay TTY: records the shell output, then replays it from memory
     Source/ShellIntegration.h        # Shell integration class declaration
     Source/ShellIntegration.cpp      # Shell integration: scripts, start directory, shell arguments, environment
     Source/EVEView.h                 # Plugin editor class declaration, jam::PluginEditor
     Source/EVEView.cpp               # Plugin editor — theme, component registry and view construction
-    Source/EVEViewRegistration.cpp   # Plugin editor button registration and dialog config
-    Source/EVEViewComponents.cpp     # Plugin editor view component configs
-    Source/EVEViewPanelCallbacks.cpp # Plugin editor UI scale and winsize callbacks
     Source/EVEStandaloneApp.h        # Standalone app class declaration, jam::AudioStandaloneApp
     Source/EVEStandaloneApp.cpp      # Standalone app: plugin state file in the user settings directory
     Source/generated/Identifiers.cpp # Product identifier vocabulary definitions
@@ -328,7 +325,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
     JAM_VULKAN_RUNTIME_SHADER_COMPILER=0                                 # JAM runtime SPIR-V shader compilation
     JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1                              # Custom standalone app entry point
     JAM_USE_CUSTOM_STANDALONE_APP=1                                      # Custom JAM standalone app entry point
-    JUCE_VST3_CAN_REPLACE_VST2=0                                         # VST3 loads VST2-compatible state
+    JUCE_VST3_CAN_REPLACE_VST2=0                                         # VST3 does not replace the VST2 plugin
     JucePlugin_AAXDisableDefaultSettingsChunks=1                         # AAX default settings chunks disabled
     JUCE_STRICT_REFCOUNTEDPOINTER=1                                      # Strict ReferenceCountedObjectPtr casting
     JUCE_WEB_BROWSER=0                                                   # WebBrowserComponent support

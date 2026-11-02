@@ -183,14 +183,16 @@ void EVEView::registerCallbacks()
     registry->callbacks.add<juce::Component&> (Id::toType (Id::historyCapacity),
                                                 [] (juce::Component& c)
                                                 {
-                                                    static_cast<EVEView&> (c).setHistoryCapacity();
+                                                    auto& editor { static_cast<EVEView&> (c) };
+
+                                                    jam::MessageBox::historyCleared (&editor);
+                                                    editor.clear();
                                                 });
 }
 
 void EVEView::initialiseView()
 {
-    auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
-    auto& terminalProcessor { processor.getTerminalProcessor() };
+    auto& terminalProcessor { getTerminalProcessor() };
 
     view = jam::ViewEditor::create<jam::MarkdownDocument> (model, *theme, terminalProcessor.userInterfaceGetters, terminalProcessor.chainEvents, files::viewLayout);
     addAndMakeVisible (view.get());
@@ -219,20 +221,14 @@ void EVEView::getCommandInfo (juce::CommandID commandID, juce::ApplicationComman
 
 void EVEView::paintOverChildren (juce::Graphics& g) { transition.paint (g, getLocalBounds()); }
 
-void EVEView::clear()
+EVETerminalProcessor& EVEView::getTerminalProcessor()
 {
-    auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
-
-    processor.clear();
+    return static_cast<EVEProcessor&> (*getAudioProcessor()).getTerminalProcessor();
 }
 
-void EVEView::setHistoryCapacity()
+void EVEView::clear()
 {
-    auto& processor { static_cast<EVEProcessor&> (*getAudioProcessor()) };
-
-    jam::MessageBox::historyCleared (this);
-    clear();
-    processor.restart();
+    getTerminalProcessor().clear();
 }
 
 void EVEView::setPreview (const juce::String& path)
@@ -250,11 +246,23 @@ bool EVEView::isPreviewVisible() const
     return static_cast<bool> (model.getOrCreateComponentProperty (Id::toTag (Id::preview), Id::value).getValue());
 }
 
+void EVEView::invokeCommand (const juce::Identifier& name)
+{
+    if (const auto* command { commandManager->getCommandForName (name) })
+    {
+        if (auto traverser { createKeyboardFocusTraverser() })
+        {
+            if (auto* defaultComponent { dynamic_cast<juce::ApplicationCommandTarget*> (traverser->getDefaultComponent (this)) })
+                defaultComponent->invoke (juce::ApplicationCommandTarget::InvocationInfo { command->commandID }, false);
+        }
+    }
+}
+
 void EVEView::applyCommands()
 {
-    juce::String cut;
+    juce::String cut {};
 
-    static_cast<EVEProcessor&> (*getAudioProcessor()).getTerminalProcessor().getCommands().applyPendingData ([this, &cut] (const char* data, int size)
+    getTerminalProcessor().getCommands().applyPendingData ([this, &cut] (const char* data, int size)
     {
         const char* const end { data + size };
 
@@ -271,8 +279,7 @@ void EVEView::applyCommands()
 
                 cut = juce::String {};
 
-                if (const auto* command { commandManager->getCommandForName (name) })
-                    commandManager->invokeDirectly (command->commandID, false);
+                invokeCommand (name);
             }
 
             data = juce::jmin (terminator + 1, end);

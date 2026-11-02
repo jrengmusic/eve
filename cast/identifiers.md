@@ -55,9 +55,9 @@ Maps each command-id ordinal to the command name a config `keys` row uses.
 The key is the juce::CommandID; the value is the row key.
 ```
 
-+-----------------+-----------+-------------------+
-| name            | key       | value             |
-+=================+===========+===================+
-| clear           | 0x4600012 | `clear`           |
-| preview         | 0x4600027 | `preview`         |
-+-----------------+-----------+-------------------+
++---------+-----------+-----------+
+| name    | key       | value     |
++=========+===========+===========+
+| clear   | 0x4600012 | `clear`   |
+| preview | 0x4600027 | `preview` |
++---------+-----------+-----------+

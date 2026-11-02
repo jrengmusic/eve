@@ -173,13 +173,6 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 
 EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept { return terminalProcessor; }
 
-void EVEProcessor::restart()
-{
-    terminalProcessor.restart();
-}
-
-void EVEProcessor::clear() { terminalProcessor.clear(); }
-
 juce::AudioProcessorParameter* EVEProcessor::getBypassParameter() const
 {
     return model.getParameter (Id::toTag (Id::bypass));

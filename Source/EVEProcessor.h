@@ -77,12 +77,6 @@ public:
     /** @brief Returns the terminal processor of the plugin. */
     EVETerminalProcessor& getTerminalProcessor() noexcept;
 
-    /** @brief Tells the terminal processor to restart its clock. */
-    void restart();
-
-    /** @brief Tells the terminal processor to clear. */
-    void clear();
-
     /** @brief Returns the bypass parameter of the model, for the host. */
     juce::AudioProcessorParameter* getBypassParameter() const override;
 

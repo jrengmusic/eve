@@ -90,12 +90,6 @@ public:
     void clear();
 
     /**
-     * @brief Moves the history rows of the buffer and the image records of the processor into the swap.
-     * @return `true` when the call wrote at least one line, or when image records were waiting.
-     */
-    bool writePendingData();
-
-    /**
      * @brief Joins the Model lane to a restored state tree.
      *
      * When @p newState has a `terminal` child, `state` replaces its content with that child, and the child leaves @p newState.
@@ -111,9 +105,6 @@ public:
     /** @brief Returns the FIFO of the command names that the shell sent. Each name ends with a zero byte. The view reads it. */
     jam::TerminalFIFO& getCommands() noexcept;
 
-    /** @brief Returns the swap that holds the history lines, the live area and the image bytes. The view reads it. */
-    jam::TerminalSwap& getSwap() noexcept;
-
 #if JAM_USING_PROFILER
     /**
      * @brief Returns the manifest file of a profile build.
@@ -128,6 +119,12 @@ public:
         chainEvents;///< Events of the chain. The constructor adds the `terminalInput` event. It writes its bytes into the input lane when the lane has room for them, then asks for a process.
 
 private:
+    /**
+     * @brief Moves the history rows of the buffer and the image records of the processor into the swap.
+     * @return `true` when the call wrote at least one line, or when image records were waiting.
+     */
+    bool writePendingData();
+
     /** @brief Starts the clock with this object as the callback, and asks for a process. */
     void start();
 

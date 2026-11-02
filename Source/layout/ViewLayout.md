@@ -1,5 +1,5 @@
 ---
-version: 0.0.2
+version: 0.0.1
 ---
 
 # EVE
@@ -17,7 +17,7 @@ Editor scaling, initial window size and zoom step.
 +=====================+=========+==================+================+=======================================================================+
 | previewWidth        | float   | 0.4              |                | Width of the preview column, as a fraction of the window width.       |
 +---------------------+---------+------------------+----------------+-----------------------------------------------------------------------+
-| scaling             | string  | ZOOM             | UI_SCALE, ZOOM | UI_SCALE resizes the window; ZOOM scales text.                        |
+| scaling             | string  | ZOOM             | UI_SCALE, ZOOM | UI_SCALE resizes the window; ZOOM scales the view by `zoom`.          |
 +---------------------+---------+------------------+----------------+-----------------------------------------------------------------------+
 | scrollDuration      | numbers | 100, 200         |                | Wheel scroll animation duration range {short, long}, in milliseconds. |
 +---------------------+---------+------------------+----------------+-----------------------------------------------------------------------+
@@ -34,11 +34,13 @@ Editor scaling, initial window size and zoom step.
 
 ## keys
 
-Key bindings. Format: "modifier+key", for example "cmd+=". Modifiers: cmd, ctrl, alt, shift. An
-empty mode applies in every mode. A value of one or two characters is a text chord. It is matched by
-text character and is case-sensitive. A two-character value is a prefix sequence. A key description
-such as ctrl+u or escape names a non-printing key. In terminal mode every other key goes to the
-shell.
+Key bindings. Format: "modifier+key", for example "cmd+=". Modifiers: cmd, ctrl, alt, shift. A row
+here replaces the default row of its command name. An empty mode applies in every mode. A value of
+one or two characters is matched by text character and is case-sensitive; a two-character value is
+a sequence (gg). A key description such as ctrl+u or escape names a non-printing key. The prefix
+key (\`) enters the prefix layer, and ] there enters normal mode; press \` twice to send it to the
+shell. sequenceTimeout (ms) ends a sequence or a layer. Under END, END owns the prefix layer and
+normal mode. In terminal mode every other key goes to the shell.
 
 +-----------------+--------+--------------+----------+-----------------------------------+
 | key             | type   | value        | mode     | description                       |
@@ -46,6 +48,9 @@ shell.
 | clear           | string |              |          | Clear the screen and the history. |
 +-----------------+--------+--------------+----------+-----------------------------------+
 | preview         | string | ctrl+shift+p |          | Show or hide the preview column.  |
++-----------------+--------+--------------+----------+-----------------------------------+
+| sequenceTimeout | int    | 1000         |          | Time in ms to wait for the next   |
+|                 |        |              |          | key of a sequence or a layer.     |
 +-----------------+--------+--------------+----------+-----------------------------------+
 
 ## settings
