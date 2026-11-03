@@ -6,14 +6,14 @@ static constexpr std::string_view zshEnvironmentFile { ".zshenv" };
 
 bool ShellIntegration::isShellIntegrated()
 {
-    const auto text { jam::ParameterManager::getInstance()->getDefaultValueForSettings (Id::toTag (Id::shellIntegration), Id::tokenTrue.toString()) };
+    const auto text { jam::ParameterManager::getInstance()->getDefaultValueForSettings (jam::Format::toTag (Id::shellIntegration), Id::tokenTrue.toString()) };
 
     return juce::Identifier { text } == Id::tokenTrue;
 }
 
 juce::File ShellIntegration::getStartDirectory()
 {
-    return juce::File { jam::ParameterManager::getInstance()->getDefaultValueForSettings (Id::toTag (Id::startDirectory), "~") };
+    return juce::File { jam::ParameterManager::getInstance()->getDefaultValueForSettings (jam::Format::toTag (Id::startDirectory), "~") };
 }
 
 void ShellIntegration::addShellScripts (const juce::File& directory)

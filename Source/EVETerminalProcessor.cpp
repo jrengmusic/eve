@@ -13,12 +13,12 @@ static constexpr int virtualBlockSize { 65536 };
 EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse)
     : processor (processorToUse),
       model (modelToUse),
-      bypass (*model.getRawParameterValue (Id::toTag (Id::bypass))),
-      state (model.state.getOrCreateChildWithName (Id::toType (Id::terminal), nullptr))
+      bypass (*model.getRawParameterValue (jam::Format::toTag (Id::bypass))),
+      state (model.state.getOrCreateChildWithName (jam::Format::toType (Id::terminal), nullptr))
 {
     state.stopTimer();
     jam::ModelLayout::addParameters (state, jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }));
-    winsizeAttachment = std::make_unique<jam::Model::ParameterAttachment> (*state.getParameter<jam::Parameter<int64_t>> (Id::toType (Id::terminal), Id::winsize),
+    winsizeAttachment = std::make_unique<jam::Model::ParameterAttachment> (*state.getParameter<jam::Parameter<int64_t>> (jam::Format::toType (Id::terminal), Id::winsize),
                                                                           [this] (const juce::var&) { restart(); });
     registerEvents();
     registerUserInterfaceGetters();
@@ -54,7 +54,7 @@ juce::File EVETerminalProcessor::getManifestFile()
 
 void EVETerminalProcessor::setState (juce::ValueTree newState)
 {
-    const auto restored { newState.getChildWithName (Id::toType (Id::terminal)) };
+    const auto restored { newState.getChildWithName (jam::Format::toType (Id::terminal)) };
 
     if (restored.isValid())
     {
@@ -91,12 +91,12 @@ std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY()
 void EVETerminalProcessor::registerEvents()
 {
     for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited })
-        events.add<bool> (id, [this, id, tag = Id::toType (Id::terminal)] (bool value) { state.storeValue (tag, id, static_cast<int> (value)); });
+        events.add<bool> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (bool value) { state.storeValue (tag, id, static_cast<int> (value)); });
 
     for (const auto& id : { Id::mouseTracking, Id::cursor, Id::promptCount })
-        events.add<int> (id, [this, id, tag = Id::toType (Id::terminal)] (int value) { state.storeValue (tag, id, value); });
+        events.add<int> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (int value) { state.storeValue (tag, id, value); });
 
-    events.add<const char*, int> (Id::command, [this, tag = Id::toType (Id::terminal)] (const char* name, int size)
+    events.add<const char*, int> (Id::command, [this, tag = jam::Format::toType (Id::terminal)] (const char* name, int size)
                                   {
                                       const auto numBytes { size + static_cast<int> (sizeof (char)) };
 
@@ -111,9 +111,9 @@ void EVETerminalProcessor::registerEvents()
                                       }
                                   });
 
-    events.add<const char*, int> (Id::preview, [this, tag = Id::toType (Id::terminal)] (const char* path, int size) { state.storeValue (tag, Id::preview, path, size); });
+    events.add<const char*, int> (Id::preview, [this, tag = jam::Format::toType (Id::terminal)] (const char* path, int size) { state.storeValue (tag, Id::preview, path, size); });
 
-    events.add<juce::int64> (Id::previewImage, [this, tag = Id::toType (Id::terminal)] (juce::int64 image)
+    events.add<juce::int64> (Id::previewImage, [this, tag = jam::Format::toType (Id::terminal)] (juce::int64 image)
                              {
                                  const auto previous { state.getParameter<jam::Parameter<int64_t>> (tag, Id::previewImage)->getValue() };
 
@@ -128,7 +128,7 @@ jam::TerminalFIFO& EVETerminalProcessor::getCommands() noexcept { return command
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
 {
-    userInterfaceGetters[Id::textEditor].add<jam::TerminalSwap*&> (Id::toType (Id::winsize), [this] (jam::TerminalSwap*& output)
+    userInterfaceGetters[Id::textEditor].add<jam::TerminalSwap*&> (jam::Format::toType (Id::winsize), [this] (jam::TerminalSwap*& output)
                                                                                                     {
                                                                                                         triggerAsyncUpdate();
 
@@ -176,12 +176,12 @@ void EVETerminalProcessor::handleAsyncUpdate()
 
 int EVETerminalProcessor::getHistoryCapacity() const
 {
-    return static_cast<int> (jam::Model::getChildWithID (model.state, Id::toTag (Id::historyCapacity)).getProperty (Id::value));
+    return static_cast<int> (jam::Model::getChildWithID (model.state, jam::Format::toTag (Id::historyCapacity)).getProperty (Id::value));
 }
 
 jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
 {
-    return jam::TerminalWinsize::unpack (state.getParameter<jam::Parameter<int64_t>> (Id::toType (Id::terminal), Id::winsize)->getValue());
+    return jam::TerminalWinsize::unpack (state.getParameter<jam::Parameter<int64_t>> (jam::Format::toType (Id::terminal), Id::winsize)->getValue());
 }
 
 void EVETerminalProcessor::prepare()
@@ -239,9 +239,9 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
     {
         const auto manifestFile { getManifestFile() };
         const auto manifest { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest) };
-        const auto profilerTable { manifest.getChildWithName (Id::toType (Id::profiler)) };
+        const auto profilerTable { manifest.getChildWithName (jam::Format::toType (Id::profiler)) };
 
-        [[maybe_unused]] const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), profilerTable[Id::toType (Id::shell)].toString(), profilerTable[Id::toType (Id::args)].toString(), manifestFile.getParentDirectory().getFullPathName()) };
+        [[maybe_unused]] const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), profilerTable[jam::Format::toType (Id::shell)].toString(), profilerTable[jam::Format::toType (Id::args)].toString(), manifestFile.getParentDirectory().getFullPathName()) };
         jassert (isOpen);
         state.addListener (this);
     }
@@ -256,8 +256,8 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
         if (extensions != nullptr)
             extensions->set (Id::manifestFile, [] (juce::File&) {}, manifestFile);
 
-        const auto profilerTable { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest).getChildWithName (Id::toType (Id::profiler)) };
-        const auto shell { profilerTable.getProperty (Id::toType (Id::shell), juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() })).toString() };
+        const auto profilerTable { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest).getChildWithName (jam::Format::toType (Id::profiler)) };
+        const auto shell { profilerTable.getProperty (jam::Format::toType (Id::shell), juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() })).toString() };
 #else
         const auto shell { juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() }) };
 #endif

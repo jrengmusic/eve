@@ -28,7 +28,7 @@ EVEProcessor::~EVEProcessor()
 
         profiler->drain();
         profiler->writeSamples (
-            manifestFile, Id::toType (juce::Identifier { ProjectInfo::projectName }));
+            manifestFile, jam::Format::toType (juce::Identifier { ProjectInfo::projectName }));
     }
 #endif
 }
@@ -171,7 +171,7 @@ EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept { return ter
 
 juce::AudioProcessorParameter* EVEProcessor::getBypassParameter() const
 {
-    return model.getParameter (Id::toTag (Id::bypass));
+    return model.getParameter (jam::Format::toTag (Id::bypass));
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new EVEProcessor(); }

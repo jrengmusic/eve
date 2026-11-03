@@ -5,14 +5,14 @@ EVEView::EVEView (jam::AudioModel& newModel,
                   jam::PluginEditorLayout& newLayout,
                   juce::AudioProcessor& processorToConnectTo)
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
-    , messageOverlay (newModel.getOrCreateComponentState (Id::toTag (Id::message)), [this] { return theme->getMonoFont(); })
+    , messageOverlay (newModel.getOrCreateComponentState (jam::Format::toTag (Id::message)), [this] { return theme->getMonoFont(); })
 {
     initialise (layout.getOrCreateSettings());
     addChildComponent (messageOverlay);
     setConstrainer (this);
     setScaling();
 
-    registry->callbacks.get (Id::toType (Id::message).toString(), static_cast<juce::Component&> (*this));
+    registry->callbacks.get (jam::Format::toType (Id::message).toString(), static_cast<juce::Component&> (*this));
 }
 
 void EVEView::resized()
@@ -140,14 +140,14 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
         r.registerComponent<jam::TextEditor> (Id::textEditor);
 
         r.registerConfig<jam::Selector> (Id::selector,
-                                         Id::toTag (Id::appearance),
+                                         jam::Format::toTag (Id::appearance),
                                          [] (jam::Selector* selector)
                                          {
                                              selector->addItemList (map::Appearance::getInstance()->get());
                                          });
 
         r.registerConfig<jam::Selector> (Id::selector,
-                                         Id::toTag (Id::UIScale),
+                                         jam::Format::toTag (Id::UIScale),
                                          [] (jam::Selector* selector)
                                          {
                                              selector->addItemList (map::UIScaleMap::getInstance()->get());
@@ -184,7 +184,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
 void EVEView::registerCallbacks()
 {
-    registry->callbacks.add<juce::Component&> (Id::toType (Id::UIScale),
+    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::UIScale),
                                                 [] (juce::Component& c)
                                                 {
                                                     static_cast<EVEView&> (c).resized();
@@ -203,23 +203,23 @@ void EVEView::registerCallbacks()
                                                     editor.setPreviewVisible (not editor.isPreviewVisible());
                                                 });
 
-    registry->callbacks.add<juce::Component&> (Id::toType (Id::preview),
+    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::preview),
                                                 [] (juce::Component& c)
                                                 {
                                                     static_cast<EVEView&> (c).resized();
                                                 });
 
-    registry->callbacks.add<juce::Component&> (Id::toType (Id::message),
+    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::message),
                                                 [] (juce::Component& c)
                                                 {
                                                     auto& editor { static_cast<EVEView&> (c) };
-                                                    const auto errors { editor.model.getOrCreateComponentProperty (Id::toTag (Id::message), Id::value).toString() };
+                                                    const auto errors { editor.model.getOrCreateComponentProperty (jam::Format::toTag (Id::message), Id::value).toString() };
 
                                                     if (errors.isNotEmpty())
                                                         editor.messageOverlay.showMessage (errors);
                                                 });
 
-    registry->callbacks.add<juce::Component&> (Id::toType (Id::historyCapacity),
+    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::historyCapacity),
                                                 [] (juce::Component& c)
                                                 {
                                                     auto& editor { static_cast<EVEView&> (c) };
@@ -277,12 +277,12 @@ void EVEView::setPreview (const juce::String& path)
 
 void EVEView::setPreviewVisible (bool isVisible)
 {
-    model.getOrCreateComponentProperty (Id::toTag (Id::preview), Id::value).setValue (isVisible);
+    model.getOrCreateComponentProperty (jam::Format::toTag (Id::preview), Id::value).setValue (isVisible);
 }
 
 bool EVEView::isPreviewVisible() const
 {
-    return static_cast<bool> (model.getOrCreateComponentProperty (Id::toTag (Id::preview), Id::value).getValue());
+    return static_cast<bool> (model.getOrCreateComponentProperty (jam::Format::toTag (Id::preview), Id::value).getValue());
 }
 
 void EVEView::invokeCommand (const juce::Identifier& name)
