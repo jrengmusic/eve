@@ -51,6 +51,25 @@ void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Ident
     if (property == Id::preview)
         setPreview (tree.getProperty (property).toString());
 
+#if JAM_USING_PROFILER
+    if (property == Id::promptCount and static_cast<int> (tree.getProperty (property)) == 1)
+    {
+        repaint();
+
+        auto* peer { getPeer() };
+        jassert (peer != nullptr);
+
+        if (peer != nullptr)
+            peer->performAnyPendingRepaintsNow();
+
+        const auto* extensions { dynamic_cast<const jam::ENAXClientExtensions*> (getAudioProcessor()) };
+        jassert (extensions != nullptr);
+
+        if (extensions != nullptr)
+            extensions->set (Id::promptPainted, [] {});
+    }
+#endif
+
     jam::PluginEditor::valueTreePropertyChanged (tree, property);
 }
 

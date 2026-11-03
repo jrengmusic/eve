@@ -123,6 +123,12 @@ message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 # TARGET — the plugin declaration
 # ==============================================================================
 
+set(CAST_BUNDLE_ID :::bundleIdentifier:::)
+
+if(CAST_PROFILE)
+    string(APPEND CAST_BUNDLE_ID ".scout")
+endif()
+
 :::juceTargetFunction:::(${PROJECT_NAME}
     PRODUCT_NAME ":::productName:::"
     COMPANY_NAME ":::companyName:::"
@@ -132,7 +138,7 @@ message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 
     PLUGIN_MANUFACTURER_CODE :::manufacturerCode:::
     PLUGIN_CODE :::pluginCode:::
-    BUNDLE_ID :::bundleIdentifier:::
+    BUNDLE_ID ${CAST_BUNDLE_ID}
     ICON_BIG :::icon:::
 
     FORMATS ${CAST_FORMATS}
@@ -437,7 +443,7 @@ if(APPLE)
                 endif()
             endif()
 
-            if(CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
+            if(NOT CAST_PROFILE AND CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
                 add_custom_command(TARGET ${PROJECT_NAME}_${CAST_FORMAT} POST_BUILD
 :::install-directory:::
 :::install-copy:::
@@ -467,7 +473,7 @@ elseif(WIN32)
                 endif()
             endif()
 
-            if(CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
+            if(NOT CAST_PROFILE AND CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
                 if(CAST_FORMAT STREQUAL "VST")
                     add_custom_command(TARGET ${PROJECT_NAME}_${CAST_FORMAT} POST_BUILD
 :::install-directory:::
@@ -495,7 +501,13 @@ foreach(CAST_FORMAT ${CAST_FORMATS})
     endif()
 endforeach()
 
-set(CAST_PACK_ARCHIVE "${CMAKE_SOURCE_DIR}/${CAST_PACK_folder}/:::productName::: v${PROJECT_VERSION} ${CAST_PACK_platform}.${CAST_PACK_format}")
+set(CAST_PACK_NAME ":::productName::: v${PROJECT_VERSION} ${CAST_PACK_platform}")
+
+if(CAST_PROFILE)
+    string(APPEND CAST_PACK_NAME " scout")
+endif()
+
+set(CAST_PACK_ARCHIVE "${CMAKE_SOURCE_DIR}/${CAST_PACK_folder}/${CAST_PACK_NAME}.${CAST_PACK_format}")
 
 if(CAST_PACK_format STREQUAL "zip")
     foreach(CAST_FORMAT ${CAST_INSTALLER_FORMATS})

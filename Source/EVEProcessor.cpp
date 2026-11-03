@@ -13,10 +13,6 @@ EVEProcessor::EVEProcessor()
       )
 #endif// !JucePlugin_PreferredChannelConfigurations
 {
-#if JAM_USING_PROFILER
-    profiler.prepare (jam::Profiler::defaultCapacity);
-#endif
-
     const auto settings { layout.getOrCreateSettings() };
 
     layout.populateTree (model, settings);
@@ -30,8 +26,8 @@ EVEProcessor::~EVEProcessor()
     {
         const auto manifestFile { EVETerminalProcessor::getManifestFile() };
 
-        profiler.drain();
-        profiler.writeSamples (
+        profiler->drain();
+        profiler->writeSamples (
             manifestFile, Id::toType (juce::Identifier { ProjectInfo::projectName }));
     }
 #endif

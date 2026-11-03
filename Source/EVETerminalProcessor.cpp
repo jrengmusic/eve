@@ -93,7 +93,7 @@ void EVETerminalProcessor::registerEvents()
     for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited })
         events.add<bool> (id, [this, id, tag = Id::toType (Id::terminal)] (bool value) { state.storeValue (tag, id, static_cast<int> (value)); });
 
-    for (const auto& id : { Id::mouseTracking, Id::cursor })
+    for (const auto& id : { Id::mouseTracking, Id::cursor, Id::promptCount })
         events.add<int> (id, [this, id, tag = Id::toType (Id::terminal)] (int value) { state.storeValue (tag, id, value); });
 
     events.add<const char*, int> (Id::command, [this, tag = Id::toType (Id::terminal)] (const char* name, int size)
@@ -248,7 +248,19 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
     else
 #endif
     {
+#if JAM_USING_PROFILER
+        juce::File manifestFile;
+        const auto* extensions { dynamic_cast<const jam::ENAXClientExtensions*> (&processor) };
+        jassert (extensions != nullptr);
+
+        if (extensions != nullptr)
+            extensions->set (Id::manifestFile, [] (juce::File&) {}, manifestFile);
+
+        const auto profilerTable { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest).getChildWithName (Id::toType (Id::profiler)) };
+        const auto shell { profilerTable.getProperty (Id::toType (Id::shell), juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() })).toString() };
+#else
         const auto shell { juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() }) };
+#endif
         const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
         const auto isIntegrated { ShellIntegration::isShellIntegrated() };
 

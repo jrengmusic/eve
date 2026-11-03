@@ -83,9 +83,7 @@ public:
 private:
     juce::AudioProcessorEditor* createEditor() override;
 
-#if JUCE_DEBUG
     jam::debug::Log::Scope logScope { jam::File::getDebugLog() };
-#endif
     Generated generated;
 
     jam::PluginEditorLayout layout {
@@ -116,7 +114,7 @@ private:
     jam::SharedInstance<jam::StyleManager> styleManager;
 
 #if JAM_USING_PROFILER
-    jam::Profiler profiler;
+    jam::SharedInstance<jam::Profiler> profiler { std::in_place, jam::Profiler::defaultCapacity };
 #endif
 
     EVETerminalProcessor terminalProcessor { *this, model };

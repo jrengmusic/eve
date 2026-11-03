@@ -136,6 +136,7 @@ set(CAST_JUCE_PATCHES
 "${CAST_USER_MODULE_PATH}/patch/juce-plugin-host-type-hook.patch"           # END registered as a known PluginHostType host: HostType END, isEND(), description, host file name detection
 "${CAST_USER_MODULE_PATH}/patch/juce-plugin-window-focus-hook.patch"        # VST2 and AU host plugin windows take keyboard focus and make the plugin view first responder; applies after juce-plugin-transparency-hook.patch
 "${CAST_USER_MODULE_PATH}/patch/juce-mouse-event-hook.patch"                # Host mouse event callback before a peer's components; applies after juce-key-pressed-hook.patch
+"${CAST_USER_MODULE_PATH}/patch/juce-plugin-editor-once-hook.patch"         # VST2 plugin client opens the editor that effEditGetRect created, so the editor is built once; applies after juce-plugin-transparency-hook.patch
 )
 
 if(WIN32)
@@ -259,6 +260,12 @@ message(STATUS "CAST: user modules added from ${CAST_USER_MODULE_PATH}")
 # TARGET — the plugin declaration
 # ==============================================================================
 
+set(CAST_BUNDLE_ID com.jreng.EVE)
+
+if(CAST_PROFILE)
+    string(APPEND CAST_BUNDLE_ID ".scout")
+endif()
+
 juce_add_plugin(${PROJECT_NAME}
     PRODUCT_NAME "EVE"
     COMPANY_NAME "JRENG"
@@ -268,7 +275,7 @@ juce_add_plugin(${PROJECT_NAME}
 
     PLUGIN_MANUFACTURER_CODE JRNG
     PLUGIN_CODE EVE.
-    BUNDLE_ID com.jreng.EVE
+    BUNDLE_ID ${CAST_BUNDLE_ID}
     ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Source/icons/end-icon.png"
 
     FORMATS ${CAST_FORMATS}
@@ -707,7 +714,7 @@ COMMAND codesign --verify --verbose "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_
                 endif()
             endif()
 
-            if(CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
+            if(NOT CAST_PROFILE AND CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
                 add_custom_command(TARGET ${PROJECT_NAME}_${CAST_FORMAT} POST_BUILD
 COMMAND ${CMAKE_COMMAND} -E make_directory "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}"
 COMMAND ditto "$<TARGET_BUNDLE_DIR:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}/$<TARGET_BUNDLE_DIR_NAME:${PROJECT_NAME}_${CAST_FORMAT}>"
@@ -737,7 +744,7 @@ COMMAND "${CAST_SIGNTOOL}" ${CAST_SIGNING_ARGUMENTS} "$<TARGET_FILE:${PROJECT_NA
                 endif()
             endif()
 
-            if(CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
+            if(NOT CAST_PROFILE AND CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
                 if(CAST_FORMAT STREQUAL "VST")
                     add_custom_command(TARGET ${PROJECT_NAME}_${CAST_FORMAT} POST_BUILD
 COMMAND ${CMAKE_COMMAND} -E make_directory "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}"
@@ -765,7 +772,13 @@ foreach(CAST_FORMAT ${CAST_FORMATS})
     endif()
 endforeach()
 
-set(CAST_PACK_ARCHIVE "${CMAKE_SOURCE_DIR}/${CAST_PACK_folder}/EVE v${PROJECT_VERSION} ${CAST_PACK_platform}.${CAST_PACK_format}")
+set(CAST_PACK_NAME "EVE v${PROJECT_VERSION} ${CAST_PACK_platform}")
+
+if(CAST_PROFILE)
+    string(APPEND CAST_PACK_NAME " scout")
+endif()
+
+set(CAST_PACK_ARCHIVE "${CMAKE_SOURCE_DIR}/${CAST_PACK_folder}/${CAST_PACK_NAME}.${CAST_PACK_format}")
 
 if(CAST_PACK_format STREQUAL "zip")
     foreach(CAST_FORMAT ${CAST_INSTALLER_FORMATS})
