@@ -13,7 +13,7 @@ bool ShellIntegration::isShellIntegrated()
 
 juce::File ShellIntegration::getStartDirectory()
 {
-    return juce::File { jam::ParameterManager::getInstance()->getDefaultValueForSettings (jam::Format::toTag (Id::startDirectory), "~") };
+    return juce::File { jam::ParameterManager::getInstance()->getDefaultValueForSettings (jam::Format::toTag (Id::startDirectory), juce::File::getSpecialLocation (juce::File::userHomeDirectory).getFullPathName()) };
 }
 
 void ShellIntegration::addShellScripts (const juce::File& directory)

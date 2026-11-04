@@ -9,7 +9,7 @@
  * `process()` runs the `jam::TerminalProcessor`. The processor decodes the TTY output into the rows of the buffer.
  * A row that leaves the live area stays in the ring of the buffer as a history row. `writePendingData()` moves the history rows into the swap,
  * and it moves the image records of the processor into the swap with them.
- * The processor writes a changed live area to the swap on each `process()` call.
+ * On each `process()` call, the processor writes a changed live area to the swap, unless synchronized output is on.
  * The processor does not decode images. The view reads the bytes of an image from the swap and decodes them.
  * The view pulls through the getter in `userInterfaceGetters`. The getter gives the swap, and the view reads the history lines and the live lines from it.
  * The view sends input bytes through the `terminalInput` event. The event writes the bytes into the input lane when the lane has room for them, and asks for a process.
@@ -115,6 +115,15 @@ public:
      */
     void applyCommands (const std::function<void (const juce::Identifier&)>& callback);
 
+    /**
+     * @brief Copies the text of an image record to the system clipboard.
+     *
+     * The view calls it when the `clipboard` property changes. The call copies nothing when the record holds no bytes.
+     *
+     * @param image  Number of the image record that holds the text.
+     */
+    void copyToClipboard (juce::int64 image);
+
 #if JAM_USING_PROFILER
     /**
      * @brief Returns the manifest file of a profile build.
@@ -124,7 +133,7 @@ public:
 #endif
 
     jam::ViewManager::Getters
-        userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter. It posts the history writer to the serial context of this object, flushes the Model lane, gives the swap, and asks for a process.
+        userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter. The text editor getter posts the history writer to the serial context of this object when synchronized output is off, flushes the Model lane, gives the swap, and asks for a process.
     jam::ViewManager::Events
         chainEvents;///< Events of the chain. The constructor adds the `terminalInput` event. It writes its bytes into the input lane when the lane has room for them, then asks for a process.
 
@@ -138,7 +147,7 @@ private:
     /** @brief Starts the clock with this object as the callback, and asks for a process. */
     void start();
 
-    /** @brief Runs on the tick of the clock. It reads `bypass`. When `bypass` is 0, it writes the input lane to the TTY, then the terminal processor reads and decodes the TTY output until a read does not fill its read space. Each call of the terminal processor writes the changed live area to the swap. The live area has the row count of the current window size. */
+    /** @brief Runs on the tick of the clock. It reads `bypass`. When `bypass` is 0, it writes the input lane to the TTY, then the terminal processor reads and decodes the TTY output until a read does not fill its read space. Each call of the terminal processor writes the changed live area to the swap, unless synchronized output is on. The live area has the row count of the current window size. */
     void process() noexcept;
 
     /** @brief The tick of the clock. It runs `process()`. */
@@ -155,7 +164,11 @@ private:
     /** @brief Does nothing. */
     void audioDeviceStopped() override;
 
-    /** @brief Writes the pending history rows to the swap, and asks for a process when it wrote a line. */
+    /**
+     * @brief Writes the pending history rows to the swap, and asks for a process when it wrote a line.
+     *
+     * The call also takes the pending clipboard image, when one waits, and stores its number in the `clipboard` property of `state`.
+     */
     void handleAsyncUpdate() override;
 
     /**
@@ -170,15 +183,25 @@ private:
     valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
 
     /**
-     * @brief Adds the event setters that copy the terminal state to the Model lane.
+     * @brief Adds the event setters that copy the terminal state to the Model lane, then adds the image events.
      *
-     * Each setter calls `storeValue` on `state`. The bool events store 0 or 1, and `mouseTracking` and `cursor` store an int.
-     * The `preview` event stores the path text. The `previewImage` event releases the previous preview image in the buffer, then stores the number of the new image.
+     * Each setter calls `storeValue` on `state`. The bool events store 0 or 1. They are `applicationCursor`, `bracketedPaste`,
+     * `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited` and `syncOutput`.
+     * The `mouseTracking`, `cursor` and `promptCount` events store an int.
+     * The `preview`, `title`, `foregroundProcess` and `cwd` events store the text.
      * The `command` event writes the name and a zero byte to `commands`, then flushes `commands`. It then increments `commandCount` in `state`.
      */
     void registerEvents();
 
-    /** @brief Adds the text editor getter keyed by the winsize type. The getter posts the history writer to the serial context of this object, flushes the Model lane, gives the swap, and asks for a process. */
+    /**
+     * @brief Adds the image events: `hyperlink`, `previewImage` and `clipboard`.
+     *
+     * The `hyperlink` event does nothing. The `previewImage` event releases the previous preview image in the buffer, then stores the number of the new image.
+     * The `clipboard` event stores the image number in `pendingClipboard`. `handleAsyncUpdate()` then stores it in the Model lane.
+     */
+    void registerImageEvents();
+
+    /** @brief Adds the text editor getter keyed by the winsize type. The getter posts the history writer to the serial context of this object when synchronized output is off, flushes the Model lane, gives the swap, and asks for a process. */
     void registerUserInterfaceGetters();
 
     /** @brief Adds the `terminalInput` event to the chain events. It writes its bytes into the input lane when the lane has room for them, then asks for a process. */
@@ -214,6 +237,18 @@ private:
      */
     void openTTY (int bufferSize, double maximumPeriodMilliseconds, jam::TerminalWinsize winsize);
 
+    /**
+     * @brief Returns the shell that the TTY starts.
+     *
+     * In a profile build, the shell is the `shell` key of the `profiler` table of the manifest.
+     * In other builds, the shell is the `SHELL` variable.
+     * The fallback is the `SHELL` variable, or the default shell of the platform when that variable is not set:
+     * `powershell.exe` on Windows, and `/bin/zsh` on the other platforms.
+     *
+     * @return The shell program.
+     */
+    juce::String getShell() const;
+
     /** @brief Returns the TTY of the platform. */
     static std::unique_ptr<jam::TerminalTTY> createTTY();
 
@@ -228,6 +263,8 @@ private:
         winsizeAttachment;///< Listens to the winsize parameter of `state`. A change calls `restart()`, so the chain prepares again for the new grid only while the clock runs.
     jam::Function::Map<juce::Identifier, void>
         events;///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
+    static constexpr juce::int64 noClipboard { -1 };    ///< Value of `pendingClipboard` that means that no clipboard write waits.
+    std::atomic<juce::int64> pendingClipboard { noClipboard };    ///< Number of the image of a clipboard write that waits for `handleAsyncUpdate()`. The processor stores it with release order, and `handleAsyncUpdate()` takes it with acquire order.
     jam::TerminalFIFO input;///< Input lane from the view to the TTY.
     jam::TerminalFIFO commands;///< Command names from the shell to the view.
     jam::VirtualDevice device {

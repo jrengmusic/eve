@@ -29,8 +29,8 @@ if [[ -n "$EVE_BASH_INJECT" ]]; then
 fi
 
 # Install hooks
-_eve_precmd() { printf '\033]133;D\007'; printf '\033]7;file://%s%s\007\033]133;A\007' "$HOSTNAME" "$PWD"; }
-PS0=$'\033]133;C\007'
+_eve_precmd() { printf '\033]133;D\007'; printf '\033]7;file://%s%s\007\033]133;A\007' "$HOSTNAME" "$(_eve_encode "$PWD")"; }
+PS0='$(_eve_preexec > /dev/tty)'
 PROMPT_COMMAND="_eve_precmd${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 
 _eve_encode() {
@@ -44,6 +44,14 @@ _eve_encode() {
         esac
     done
     printf '%s' "$encoded"
+}
+
+_eve_preexec() {
+    local last_cmd
+    last_cmd=$(HISTTIMEFORMAT= builtin history 1)
+    last_cmd="${last_cmd#*[[:digit:]]*[[:space:]]}"
+    last_cmd="${last_cmd#"${last_cmd%%[![:space:]]*}"}"
+    printf '\033]133;C;cmdline_url=%s\007' "$(_eve_encode "$last_cmd")"
 }
 
 eve() {

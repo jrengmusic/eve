@@ -38,7 +38,6 @@ extern const juce::Identifier profiler;
 extern const juce::Identifier selector;
 extern const juce::Identifier shell;
 extern const juce::Identifier shellIntegration;
-extern const juce::Identifier startDirectory;
 extern const juce::Identifier terminalInput;
 extern const juce::Identifier textEditor;
 

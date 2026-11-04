@@ -18,13 +18,13 @@
 
 ## Current State
 
-**Last Sprint:** JAM is the primary record of EVE sprints (`~/Documents/Poems/dev/jam/carol/SPRINT-LOG.md`, Sprint 176, 2026-10-27). Plan in flight: `~/Documents/Poems/dev/jam/PLAN-terminal-model-lane.md`.
+**Last Sprint:** Cell Width from the Unhinted Advance, Whole-Row Viewport, 1024-Unit Fonts, Ligatures from Config, 2026-11-04 (`carol/SPRINT-LOG.md:39`). Plan in flight: `PLAN-terminal-reports.md`.
 
 **Active ODE:** None.
 
-**Active Debt:** DEBT-20261025T214955 — a custom OSC code carries a CommandId name (`DEBT.md:11-15`).
+**Active Debt:** None.
 
-**Architecture rulings:** `SPEC.md` (Core Principles 7–10, State Model, Architecture Constraints) and `RFC-EVE-terminal-grand-scheme.md` (amendments 2026-10-27 in §0, §3.9, §8). Read them before any change to state, parameters, threads or the clock.
+**Architecture rulings:** `SPEC.md` (Core Principles 7–10, State Model, Architecture Constraints) and `PLAN-Grand-Scheme.md` (amendments 2026-10-27 in §0, §3.9, §8). Read them before any change to state, parameters, threads or the clock.
 
 ---
 
@@ -38,10 +38,7 @@
 |------|------|
 | `Source/EVEProcessor.h/.cpp` | Plugin entry, state serialisation (one APVTS tree with the terminal Model child), MASTER BYPASS parameter, `prepareToPlay` / `releaseResources` told to the terminal chain, `processBlock` audio only, `prepare()` → `prepareToPlay` |
 | `Source/EVETerminalProcessor.h/.cpp` | Terminal chain on its own clock (`jam::VirtualDevice`, the chain is its `juce::AudioIODeviceCallback`): TTY (`$SHELL`), input lane, decoder (`jam::TerminalProcessor`), row ring (`jam::TerminalBuffer`), record (`jam::TerminalSwap`), and the terminal state machine (`jam::Model`, the Model lane) |
-| `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction |
-| `Source/EVEViewRegistration.cpp` | Button registration and dialog config |
-| `Source/EVEViewComponents.cpp` | View component configs; the TextEditor event binding: key and mouse encoding to the input lane, live caret values, TERMINAL mode at start |
-| `Source/EVEViewPanelCallbacks.cpp` | UI scale and winsize callbacks |
+| `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction. `registerButtons` registers the buttons, `registerViewComponents` registers the TextEditor with its event binding (`bindToEvents`), `registerCallbacks` registers the UI scale, clear, preview, message and history capacity callbacks, and `registerTerminalEvents` dispatches the Model row changes (`EVEView.cpp:61-95`, `:123-258`) |
 | `Source/generated/` | CAST output: `Identifiers.*`, `Files.*` (build-time, do not edit) |
 | `Source/layout/` | Layout and style documents: `default-eve.md`, `component.md`, `parameters.md` (automatable host parameters only), `colours.css`, `terminal.css`, `markdown.css`, `mermaid.css`, `style.css`, `SettingsLayout.html`. Each css file gives one table of `eve.md`, and `Source/textEditor.css` gives `## text editor`. `@font-face` rules give `## fonts` |
 | `Source/buttons/`, `Source/icons/` | Button SVGs, app icon |
@@ -53,10 +50,9 @@
 | Document | Role | Status |
 |----------|------|--------|
 | `SPEC.md` | Normative specification (0.0.1) | Present |
-| `RFC-EVE-terminal-grand-scheme.md` | Architecture, evidence, non-negotiables | Present |
+| `PLAN-Grand-Scheme.md` | Architecture, evidence, non-negotiables | Present |
 | `ARCHITECTURE.md` | System architecture | Not present |
 | `project-info.md` | SSOT for build metadata | Present |
-| `HANDOFF.md` | Session handoff: current state and the plan in flight | Present |
 | `carol/SPRINT-LOG.md` | Cross-session work log | Present |
 | `DEBT.md` | Inter-sprint debt ledger | Present |
 

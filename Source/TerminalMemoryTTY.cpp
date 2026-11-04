@@ -11,7 +11,7 @@ bool TerminalMemoryTTY::open (jam::AsyncUpdater::Context context, int bufferSize
 {
     jassert (onBytesReady != nullptr);
 
-    if (stream != nullptr) return true;
+    if (isOpen()) return true;
 
     chunk.setSize (static_cast<size_t> (bufferSize));
     tty->onBytesReady = [this] (int) { triggerAsyncUpdate(); };
@@ -40,6 +40,11 @@ bool TerminalMemoryTTY::open (jam::AsyncUpdater::Context context, int bufferSize
     }
 
     return isRecorded;
+}
+
+bool TerminalMemoryTTY::isOpen() const noexcept
+{
+    return stream != nullptr;
 }
 
 void TerminalMemoryTTY::close()

@@ -36,6 +36,73 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Terminal Reports — Tab Name and Cwd from the Pane, OSC and DEC Reports on the Tick, ENAX Pane UUID, Audit of Four Sprints ✅
+
+**Date:** 2026-11-04
+**Duration:** one session, after the cell width log. The start and end times are not recorded.
+**Scope (ARCHITECT):** `/pay` of `DEBT-20261103T233912`. *"we must add cwd as EVE parameter, AND END also track last focused EVE (pane). so cwd always synced to focused pane. new instance of tab, split, any pane, always inherit cwd from previous focused pane."* *"TAB name priority in order: - title, whatever application send - application name, if it's not sending anything. running application means it's ephemeral, always updated whether the app running / stopped (with OSC 133?) - cwd - plugin name"*. *"ok link fold. but keep the callback stubbed"*. *"END is not routing report to its pane, it TELLS its pane, a parameter value, such as cwd, all event driven"*. `/audit 4 (from the whole session)`. *"add field to ENAX, pane UUID == plugin UUID"*. *"ONLY ASK QUESTION NO READ CANT ANSWER"*. *"no new pattern, no new semantics, follow established pattern verbatim"*. *"why there is hardcoded registerEVE? ENAX plugin is not only EVE"*.
+
+### Agents Participated
+- COUNSELOR: the plan; the triage of each Auditor finding by a read; validation of each return; the doc edits for `end/SPEC.md`, `end/ARCHITECTURE.md`, `PLAN-terminal-reports.md`; this log.
+- Pathfinder (haiku): the Claude Code binary probe; the doxygen pass in three scopes.
+- Librarian: the prior art in Ghostty, kitty, iTerm2, Alacritty; the PSReadLine API.
+- Engineer (sonnet): the plan steps; audit groups T, F, N, E, D, M, R, G, N2. Groups S1, S2 and S3 were stopped and reverted.
+- Auditor (opus): three runs, one per code domain, over the three logged sprints of this session and this sprint.
+
+### Files Modified
+- `jam/cast/terminal.md`, `core.md`, `spell.md`: `OscFunction`, `oscFunctions`, `PrivateMode`, `privateModes`, `ImageFunction`, `imageFunctions` rows; ids `background`, `clipboard`, `cwd`, `foregroundProcess`, `hyperlink`, `syncOutput`, `enax`; strings `enaxPaneUuid`, `enaxStartDirectory`, `enaxTerminalReport`.
+- `jam/jam_terminal/processor/jam_TerminalProcessor.h`, `.cpp`: OSC 0, 2, 7, 8, 11, 52, OSC 133 C and D reports, XTVERSION, DECRQM, DEC 2026 hold. `transitImages` keeps the number of each image in transit. `process` takes the background colour as a calculation input, so no out-parameter remains. `getReports` is the one list of the three report ids.
+- `jam/jam_terminal/document/jam_TerminalSwap.*`, `jam_TerminalImageRecord.cpp`, `jam_AnsiDocument.*`, `jam/jam_core/text/jam_AttributedString.*`: link records take the owner line of each row that holds them. `Link` holds `juce::String`, so a copy is one reference count. `setLinks` and `applyLinkUnderline` are two calls.
+- `jam/jam_data_structures/model/jam_ParameterText.*`: `maxTextLength`; `store` cuts at a codepoint boundary, and it no longer asserts on terminal input.
+- `jam/jam_terminal/tty/*`, `eve/Source/TerminalMemoryTTY.*`: `programName`, `isOpen`.
+- `jam/jam_plugin_bootstrap/enax/jam_ENAXClientExtensions.*`: `paneUuid`, read once at construction. The terminal report and start directory rules carry it. The `Id::enax` report marks the pane. A start directory applies only when it is a directory.
+- `jam/jam_gui/layout/jam_MatrixComponent.*`: `getPanePosition`, `getOppositePane`, `isCrossRow`, `isRotatable`, `applySeamProportions`. `jam/jam_gui/commands/jam_CommandManager.*`: `setInfo`, `addCommands`.
+- `jam/jam_clap/format/jam_ClapPluginFormat.cpp`: flat owned CF handles, no raw `new`, the right factory message.
+- `jam/jam_graphics/fonts/jam_GlyphArrangement.*`, `jam_Typeface.*`, `jam_GlyphRasterizer.*`, `jam/jam_graphics/engine/jam_CpuGraphicsEngine.h`, `jam/jam_terminal/buffers/jam_TerminalBuffer.*`, `jam/jam_style/*`, `jam/jam_gui/widgets/jam_TextEditor.*`: the cell source and the `Lookup` and `Measure` abstractions are deleted, because each had one implementation. The ligature cache moved to `jam::Typeface`. A wide atom with no glyph advances two cells. `lookAndFeelChanged` runs `resized`, so `--kerning` hot reload reaches the winsize. A view at the content end has offset 0. Rasterizer names follow the verb set.
+- `end/Source/plugins/Nexus.*`, `Session.*`, `end/Source/action/ENDActions.h`, `end/Source/ui/ENDView.*`, `EditorView.*`, `TabView.*`, `SessionView.*`: the pane row holds `title`, `foregroundProcess`, `cwd`. `loadingPanes`, `getLoadingPane`, `getPaneRow`, `getFocusedPane`, `getInheritedDirectory`, `isENAX`, `addPluginModule`, `addBundle`, `getDisplayBounds`, `isHorizontal`, `areaOptions`, `splitEdges`.
+- `end/Source/config/ConfigDirectory.h`, new `ConfigDirectory.cpp`: bodies and dynamic initialisation left the header.
+- `eve/Source/EVETerminalProcessor.*`, `EVEView.*`, `ShellIntegration.cpp`, `Source/layout/parameters.md`, `Source/shell/*`, `cast/identifiers.md`: Model rows, the clipboard handoff, `terminalEvents`, `getShell`, `registerImageEvents`, `cmdline_url` in OSC 133 C, the home folder default, `$([char]27)` for `powershell.exe`.
+- `eve/SPEC.md`, `README.md`, `CLAUDE.md`, `end/SPEC.md`, `ARCHITECTURE.md`, `CLAUDE.md`: synced to the code. Deleted: `eve/PLAN-eve-md-cleanup.md`.
+- Doxygen: each new declaration and each stale block in the audited scope.
+
+### Alignment Check
+- [x] BLESSED principles followed: the tick holds numbers, no string; a report is one Model row and one pane row; the owner holds each module.
+- [x] NAMES.md adhered: each new name joins a family. `Id::enax` joins the `enax*` ids.
+- [x] MANIFESTO.md principles applied
+- [ ] Not validated by a compile. Nothing in this sprint after the first runtime test was built.
+- [ ] Doxygen zero-warning check not run: `<leader>bd` for jam, `ninja doxygen` for EVE.
+- [ ] Step 11 not run: the raw byte benchmark needs a build.
+
+### Problems Solved
+- **Claude Code in EVE.** The decoder had no handler for six sequence families. Each now runs through a table row or a small branch set. A hold ends after 1000 ms (Ghostty `termio/Thread.zig:38`), and a repeated `?2026h` does not extend it.
+- **Tab name and cwd.** ARCHITECT confirmed by run: *"so far tab name works, cwd for new pane works"*.
+- **Pane identity.** `enaxTerminalReport` is one global function, so END wrote to the focused pane, and EVE sent nothing while unfocused. A background tab kept `cast` in its name. A read of JUCE, the plugin SDKs, the child process and the peer id found no identity both sides see, except CLAP's per-instance `clap_host_t`, and EVE has no CLAP target. ARCHITECT ruled the ENAX field. `Session::loadPlugin` adds the pane to `loadingPanes` before `createPluginInstanceAsync`, and the callback removes it. JUCE posts one message per load and gives one callback per load, so the head names the instance under construction.
+- **ENAX is not EVE.** Three gates tested the EVE file. An ENAX plugin now reports `Id::enax` in its constructor through the existing channel, and `EditorView::isENAX` reads the pane row. `registerEVE` stays: it lists the default plugin.
+- **Typeface outlived its module.** END's context interns a typeface that a plugin built (`jam_VulkanLowLevelGraphicsContext.cpp:1706`), and JUCE unloads a bundle with retain count 1 (`juce_VSTPluginFormatImpl.h:785-786`). `Nexus::addPluginModule` holds each ENAX module.
+- **A `juce::File` crossed ENAX.** The crash `pointer being freed was not allocated` came from END's static empty holder (`juce_String.cpp:172-177`). ENAX carries C types only.
+- **Audit findings, resolved.** RIS allocation on the tick; link records with no owner; the wrong record for a Kitty chunk after OSC 8; OSC 52 race and leak; a -1 row reading before the mapping; a long title asserting; the `~` default on Windows; shell scripts rewritten on each resize; `--kerning` not reaching the winsize; a dead or remote cwd; `/a:b` cwd; a bare OSC 7 path; PowerShell 5 escapes; the repeated command boilerplate; raw `new`; 1024 in several owners.
+- **Audit findings, rejected, each with its read.** Whole `Pen` on the tick (`jam_AnsiDocument.h:199`). `pendingClipboard` (MANIFESTO permitted copy 2). `:195` reserve test (capacity is the buffer plus the reserve). Fake 1×1 size (named constants, Step 7.3). `:995` narrowing (out of reach). Hold stall (bounded). `links` not pruned, repeated URI, `Format::toType` repeats, `FOO=1 make`, ICH and DCH links, persisted rows (no clause). bash `PS0` (no read). B6 (JUCE's own shape, by ruling). B7, B8 (no path today). B9 (`jam_Model.h:1026`). B12 (no proof). R1 empty holder (`juce_Font.cpp:87`). V7 (twice only). V20, D2, D4, DC2, DC3, T1, T2. L1 (ruling: *"it's MatrixComponent commandId"*). F10 (`jam_MermaidGraphics.cpp:612`). F11 (a state update). F15, F20, F21 (`jam_MarkdownGraphics.cpp:204`). `setInfo` (fills a JUCE struct in place). `jassert` with a positive `if` (`MANIFESTO.md:116-118`).
+- **God object findings rejected.** `TextEditor`, `GlyphArrangement`, `TerminalProcessor`, `Nexus`. CODING: *"NEVER POLLUTE codebase with scattered cpp with small implementation to statisfy 300-30-3 GUIDE"*. MANIFESTO L: *"decomposing it would only relocate the same lines across more files"*. The tables are lookups already, and the bodies share one state. `Nexus`: offload and registration are one job, and `extensions` is a table.
+- **Mistakes owned.** A repeated process query in place of the terminal report. A forced underline in the atom. A hand-rolled report route. A file drop and a drag split missing from the first cwd path. A question to ARCHITECT for new names, and *"you may overrule"* on findings the contract answers. Nested objects with their own `.cpp`, a new pattern: three Engineers ran on it, were stopped, and the tree was repaired from its own evidence. EVE file gates in the audit fixes.
+- **Watchdogs.** One doc sync and one doxygen scope reached 15 minutes and were stopped. Their edits were confirmed by read.
+
+### State for Continuation
+- Run `cast` first: `Id::enax`, `Id::enaxPaneUuid` and `ConfigDirectory.cpp` need it. Then build `jam`, `end`, `eve`. Expect compile errors in the code that no build has seen. The `Link` read sites and `ParameterText` visibility from `jam_terminal` carry the most risk.
+- ARCHITECT tests: frame batching in Claude Code; OSC 52 copy over 64 KiB; OSC 11; OSC 8 underline; a background tab name after a build ends; a new pane in a third-party plugin pane; `--kerning` hot reload.
+- Run `<leader>bd` and `ninja doxygen`, and confirm zero warnings. `doxygen` crashed earlier (`~/Library/Logs/DiagnosticReports/doxygen-2026-11-04-064421.ips:46`).
+- Step 11: run the raw byte benchmark with `scout` against the baseline. `PLAN-terminal-reports.md` stays until then.
+- Held by ruling: link click and selection are stubs; `FORCE_HYPERLINK` stays off; `ls` link marking at `OSC 133 D` (§3.11); the kerning value; `~/.config/dev/` is temporary.
+- `end/Source/config/ConfigDirectory.h:46`, `:52`, `Main.cpp:252`, `Main.h:28`, `jam_ClapPluginFormat.h:109` stay stale, on *"dont change the comment"*.
+
+### Debts Paid
+- `DEBT-20261103T233912` — the live decoder handles every listed sequence through its tables. A link is render only, by ruling.
+- `DEBT-20261103T235332` — closed by ARCHITECT: *"not issue with bundle id. old binary is dead."*
+
+### Debts Deferred
+- None
+
+---
+
 ## Sprint: Cell Width from the Unhinted Advance, Whole-Row Viewport, 1024-Unit Fonts, Ligatures from Config ✅
 
 **Date:** 2026-11-04

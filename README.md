@@ -41,7 +41,7 @@ The specification is [SPEC.md](SPEC.md).
 
 ### Terminal
 
-- Runs `$SHELL` (zsh by default) on macOS and PowerShell on Windows, with shell integration for zsh, bash and PowerShell: OSC 7 (working folder) and OSC 133 A, C, D (prompt and command marks).
+- Runs `$SHELL` (zsh by default) on macOS and PowerShell on Windows, with shell integration for zsh, bash and PowerShell: OSC 7 (working folder) and OSC 133 A, C, D (prompt and command marks). EVE also handles OSC 0 and 2 (title), OSC 8 (hyperlink; a click does nothing yet), OSC 11 (background colour query), OSC 52 (clipboard write), DEC 2026 (synchronized output), XTVERSION and DECRQM. `SPEC.md` has the table.
 - History lines are kept in a record on disk; `HISTORY_CAPACITY` sets how many (10000 by default).
 - Reflow belongs to the view: wrapping follows the view's own width, never the PTY window size.
 - Normal and visual modes with vim keys over the terminal content. The text editor carries its default keys, and a config row overrides a key by its command name.

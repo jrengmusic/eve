@@ -46,6 +46,8 @@ public:
     /** @brief Closes the platform TTY. */
     void close() override;
 
+    bool isOpen() const noexcept override;
+
     /**
      * @brief Reads the next bytes of the record.
      *

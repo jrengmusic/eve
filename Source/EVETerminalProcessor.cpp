@@ -90,7 +90,7 @@ std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY()
 
 void EVETerminalProcessor::registerEvents()
 {
-    for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited })
+    for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited, Id::syncOutput })
         events.add<bool> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (bool value) { state.storeValue (tag, id, static_cast<int> (value)); });
 
     for (const auto& id : { Id::mouseTracking, Id::cursor, Id::promptCount })
@@ -109,7 +109,15 @@ void EVETerminalProcessor::registerEvents()
                                       }
                                   });
 
-    events.add<const char*, int> (Id::preview, [this, tag = jam::Format::toType (Id::terminal)] (const char* path, int size) { state.storeValue (tag, Id::preview, path, size); });
+    for (const auto& id : { Id::preview, Id::title, Id::foregroundProcess, Id::cwd })
+        events.add<const char*, int> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (const char* path, int size) { state.storeValue (tag, id, path, size); });
+
+    registerImageEvents();
+}
+
+void EVETerminalProcessor::registerImageEvents()
+{
+    events.add<juce::int64> (Id::hyperlink, [] (juce::int64) {});
 
     events.add<juce::int64> (Id::previewImage, [this, tag = jam::Format::toType (Id::terminal)] (juce::int64 image)
                              {
@@ -120,6 +128,8 @@ void EVETerminalProcessor::registerEvents()
 
                                  state.storeValue (tag, Id::previewImage, static_cast<int64_t> (image));
                              });
+
+    events.add<juce::int64> (Id::clipboard, [this] (juce::int64 image) { pendingClipboard.store (image, std::memory_order_release); });
 }
 
 void EVETerminalProcessor::applyCommands (const std::function<void (const juce::Identifier&)>& callback)
@@ -155,7 +165,8 @@ void EVETerminalProcessor::registerUserInterfaceGetters()
 {
     userInterfaceGetters[Id::textEditor].add<jam::TerminalSwap*&> (jam::Format::toType (Id::winsize), [this] (jam::TerminalSwap*& output)
                                                                                                     {
-                                                                                                        triggerAsyncUpdate();
+                                                                                                        if (state.getParameter<jam::Parameter<int>> (jam::Format::toType (Id::terminal), Id::syncOutput)->getValue() == 0)
+                                                                                                            triggerAsyncUpdate();
 
                                                                                                         state.flush();
 
@@ -195,8 +206,21 @@ bool EVETerminalProcessor::writePendingData()
 
 void EVETerminalProcessor::handleAsyncUpdate()
 {
+    const auto image { pendingClipboard.exchange (noClipboard, std::memory_order_acquire) };
+
     if (writePendingData())
         device.requestProcess();
+
+    if (image != noClipboard)
+        state.storeValue (jam::Format::toType (Id::terminal), Id::clipboard, static_cast<int64_t> (image));
+}
+
+void EVETerminalProcessor::copyToClipboard (juce::int64 image)
+{
+    const auto text (swap.getImageData (image));
+
+    if (text.getSize() > 0)
+        juce::SystemClipboard::copyTextToClipboard (text.toString());
 }
 
 int EVETerminalProcessor::getHistoryCapacity() const
@@ -273,24 +297,37 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
     else
 #endif
     {
-#if JAM_USING_PROFILER
-        juce::File manifestFile;
-        dynamic_cast<const jam::ENAXClientExtensions&> (processor).set (Id::manifestFile, [] (juce::File&) {}, manifestFile);
+        if (not tty->isOpen())
+        {
+            const auto shell { getShell() };
+            const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
+            const auto isIntegrated { ShellIntegration::isShellIntegrated() };
 
-        const auto profilerTable { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest).getChildWithName (jam::Format::toType (Id::profiler)) };
-        const auto shell { profilerTable.getProperty (jam::Format::toType (Id::shell), juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() })).toString() };
-#else
-        const auto shell { juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() }) };
-#endif
-        const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
-        const auto isIntegrated { ShellIntegration::isShellIntegrated() };
+            if (isIntegrated)
+                ShellIntegration::addShellScripts (directory);
 
-        if (isIntegrated)
-            ShellIntegration::addShellScripts (directory);
+            auto startDirectory { ShellIntegration::getStartDirectory() };
 
-        [[maybe_unused]] const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), shell, isIntegrated ? ShellIntegration::getShellArguments (shell, directory) : juce::String {}, ShellIntegration::getStartDirectory().getFullPathName(), isIntegrated ? ShellIntegration::getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
-        jassert (isOpen);
+            dynamic_cast<const jam::ENAXClientExtensions&> (processor).set (Id::startDirectory, [] (juce::File&) {}, startDirectory);
+
+            [[maybe_unused]] const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), shell, isIntegrated ? ShellIntegration::getShellArguments (shell, directory) : juce::String {}, startDirectory.getFullPathName(), isIntegrated ? ShellIntegration::getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
+            jassert (isOpen);
+        }
     }
+}
+
+juce::String EVETerminalProcessor::getShell() const
+{
+#if JAM_USING_PROFILER
+    juce::File manifestFile;
+    dynamic_cast<const jam::ENAXClientExtensions&> (processor).set (Id::manifestFile, [] (juce::File&) {}, manifestFile);
+
+    const auto profilerTable { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest).getChildWithName (jam::Format::toType (Id::profiler)) };
+
+    return profilerTable.getProperty (jam::Format::toType (Id::shell), juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() })).toString();
+#else
+    return juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() });
+#endif
 }
 
 void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCapacity)
@@ -316,7 +353,9 @@ void EVETerminalProcessor::process() noexcept
     {
         input.writePendingData (*tty);
 
-        while (terminalProcessor.process (*tty, terminalBuffer, swap, *jam::Colours::getInstance(), events)) {}
+        const auto background { state.getParameter<jam::Parameter<int64_t>> (jam::Format::toType (Id::terminal), Id::background)->getValue() };
+
+        while (terminalProcessor.process (*tty, terminalBuffer, swap, *jam::Colours::getInstance(), static_cast<juce::uint32> (background), events)) {}
     }
 }
 

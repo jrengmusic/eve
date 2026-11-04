@@ -7,6 +7,7 @@ EVEView::EVEView (jam::AudioModel& newModel,
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
     , messageOverlay (newModel.getOrCreateComponentState (jam::Format::toTag (Id::message)), [this] { return theme->getMonoFont(); })
 {
+    registerTerminalEvents();
     initialise (layout.getOrCreateSettings());
     addChildComponent (messageOverlay);
     setConstrainer (this);
@@ -19,6 +20,12 @@ void EVEView::resized()
 {
     jam::PluginEditor::resized();
     messageOverlay.setBounds (getLocalBounds());
+}
+
+void EVEView::lookAndFeelChanged()
+{
+    jam::PluginEditor::lookAndFeelChanged();
+    model.state.getChildWithName (jam::Format::toType (Id::terminal)).setProperty (Id::background, juce::var { static_cast<juce::int64> (findColour (juce::ResizableWindow::backgroundColourId).getARGB()) }, nullptr);
 }
 
 void EVEView::focusGained (FocusChangeType)
@@ -45,25 +52,53 @@ void EVEView::setResizing (bool isResizing)
 
 void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
 {
-    if (property == Id::commandCount)
-        getTerminalProcessor().applyCommands ([this] (const juce::Identifier& name) { invokeCommand (name); });
-
-    if (property == Id::preview)
-        setPreview (tree.getProperty (property).toString());
-
-#if JAM_USING_PROFILER
-    if (property == Id::promptCount and static_cast<int> (tree.getProperty (property)) == 1)
-    {
-        repaint();
-
-        if (auto* peer { getPeer() })
-            peer->performAnyPendingRepaintsNow();
-
-        static_cast<EVEProcessor&> (*getAudioProcessor()).set (Id::promptPainted, [] {});
-    }
-#endif
+    if (tree.hasType (jam::Format::toType (Id::terminal)) and terminalEvents.contains (property))
+        terminalEvents.get (property, std::as_const (tree));
 
     jam::PluginEditor::valueTreePropertyChanged (tree, property);
+}
+
+void EVEView::registerTerminalEvents()
+{
+    terminalEvents.add<const juce::ValueTree&> (Id::commandCount, [this] (const juce::ValueTree&)
+    {
+        getTerminalProcessor().applyCommands ([this] (const juce::Identifier& name) { invokeCommand (name); });
+    });
+
+    terminalEvents.add<const juce::ValueTree&> (Id::preview, [this] (const juce::ValueTree& terminal)
+    {
+        setPreview (terminal.getProperty (Id::preview).toString());
+    });
+
+    terminalEvents.add<const juce::ValueTree&> (Id::clipboard, [this] (const juce::ValueTree& terminal)
+    {
+        getTerminalProcessor().copyToClipboard (static_cast<juce::int64> (terminal.getProperty (Id::clipboard)));
+    });
+
+    for (const auto& id : jam::TerminalProcessor::getReports())
+        terminalEvents.add<const juce::ValueTree&> (id, [this, id] (const juce::ValueTree& terminal) { applyTerminalReport (terminal, id); });
+
+#if JAM_USING_PROFILER
+    terminalEvents.add<const juce::ValueTree&> (Id::promptCount, [this] (const juce::ValueTree& terminal)
+    {
+        if (static_cast<int> (terminal.getProperty (Id::promptCount)) == 1)
+        {
+            repaint();
+
+            if (auto* peer { getPeer() })
+                peer->performAnyPendingRepaintsNow();
+
+            static_cast<EVEProcessor&> (*getAudioProcessor()).set (Id::promptPainted, [] {});
+        }
+    });
+#endif
+}
+
+void EVEView::applyTerminalReport (const juce::ValueTree& terminal, const juce::Identifier& id)
+{
+    const auto text { terminal.getProperty (id).toString() };
+
+    static_cast<EVEProcessor&> (*getAudioProcessor()).set (Id::terminalReport, [] (const char*, const char*) {}, static_cast<const char*> (id.getCharPointer().getAddress()), text.toRawUTF8());
 }
 
 void EVEView::initialiseTheme (const juce::ValueTree& settings)
@@ -241,16 +276,14 @@ void EVEView::getAllCommands (juce::Array<juce::CommandID>& commands)
 {
     jam::PluginEditor::getAllCommands (commands);
 
-    for (const auto& [command, name] : map::CommandId::getInstance()->get())
-        commands.add (command);
+    jam::CommandManager::addCommands (commands, *commandId);
 }
 
 void EVEView::getCommandInfo (juce::CommandID commandID, juce::ApplicationCommandInfo& result)
 {
     if (jam::Map::contains (map::CommandId::getInstance()->get(), commandID))
     {
-        const auto name { map::CommandId::getInstance()->get (commandID).toString() };
-        result.setInfo (name, name, {}, result.flags & ~ juce::ApplicationCommandInfo::isDisabled);
+        jam::CommandManager::setInfo (result, commandId->get (commandID).toString());
     }
     else
     {

@@ -35,6 +35,8 @@ public:
 
     void resized() override;
 
+    void lookAndFeelChanged() override;
+
 private:
     /**
      * @brief Gives the keyboard focus to the default component of the editor.
@@ -57,8 +59,9 @@ private:
     /**
      * @brief Reacts to a change of a property in the model tree.
      *
-     * A change of `Id::commandCount` runs the commands in the command FIFO. A change of `Id::preview` sets the visibility of the side preview:
-     * a non-empty path shows it. The base class gets every change.
+     * A change of a property of the `terminal` tree runs the handler of `terminalEvents` for that property, when a handler exists.
+     * The handlers cover `Id::commandCount`, `Id::preview`, `Id::clipboard`, the report properties of `jam::TerminalProcessor::getReports()`,
+     * and, in a profile build, `Id::promptCount`. The base class gets every change.
      *
      * @param tree      Tree that changed.
      * @param property  Property that changed.
@@ -142,11 +145,32 @@ private:
 
     void invokeCommand (const juce::Identifier& name);
 
+    /**
+     * @brief Adds the handlers of the `terminal` tree properties to `terminalEvents`.
+     *
+     * The `commandCount` handler runs the commands of the command FIFO. The `preview` handler sets the side preview from the path.
+     * The `clipboard` handler copies the image text to the system clipboard. Each report property gets a handler that forwards its text through `applyTerminalReport()`.
+     * In a profile build, the `promptCount` handler repaints the view when the count is 1, and it reports `Id::promptPainted` to the processor.
+     */
+    void registerTerminalEvents();
+
+    /**
+     * @brief Sends the name and the text of a report property to the processor.
+     *
+     * The text goes through the `Id::terminalReport` setter of the processor.
+     *
+     * @param terminal  The `terminal` tree that holds the property.
+     * @param id        Report property that changed.
+     */
+    void applyTerminalReport (const juce::ValueTree& terminal, const juce::Identifier& id);
+
     /** Shared instance of the `map::CommandId` map. */
     jam::SharedInstance<map::CommandId> commandId { std::in_place };
 
     /** Overlay that shows the settings message. It shows the message when the message callback runs with a non-empty MESSAGE component property. */
     jam::MessageOverlay messageOverlay;
+
+    jam::Function::Map<juce::Identifier, void> terminalEvents;    ///< Handlers of the `terminal` tree properties, keyed by property identifier. `valueTreePropertyChanged()` runs them.
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEView)

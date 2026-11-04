@@ -34,7 +34,6 @@ namespace Id
     const juce::Identifier selector         { juce::String::fromUTF8 ("selector") };
     const juce::Identifier shell            { juce::String::fromUTF8 ("shell") };
     const juce::Identifier shellIntegration { juce::String::fromUTF8 ("shellIntegration") };
-    const juce::Identifier startDirectory   { juce::String::fromUTF8 ("startDirectory") };
     const juce::Identifier terminalInput    { juce::String::fromUTF8 ("terminalInput") };
     const juce::Identifier textEditor       { juce::String::fromUTF8 ("textEditor") };
 

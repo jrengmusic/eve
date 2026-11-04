@@ -70,12 +70,12 @@ among ours.
    *screen* — and history scrollback is still retained (tmux-like).
 4. **Terminal conformance at processor level** — VT100 spec correctness as the
    foundation, plus the xterm/modern extensions jam_terminal already encodes
-   (SGR truecolor, bracketed paste, progressive keyboard, mouse SGR, OSC 7/8/133),
+   (SGR truecolor, bracketed paste, progressive keyboard, mouse SGR, and the reports in "Terminal reports"),
    and the image envelopes EVE takes over: OSC 1337 (iTerm2 `File=` and EVE's own
    envelope), DCS (Sixel) and APC (Kitty graphics).
 5. **Finder truth is the filesystem** — sidebars and file list read the FS
    directly, keyed off OSC 7-reported cwd. Terminal output text is never parsed.
-6. **Style roles in state; colours at materialization** (RFC §8).
+6. **Style roles in state; colours at materialization** (`PLAN-Grand-Scheme.md` §8).
 7. **Two state lanes, one tree.** ARCHITECT: *"AudioModel for true audio
    parameter lane, as automatable parameter, while Model lane for any event
    driven state machine that is non automatable, real time safe on its own
@@ -135,7 +135,7 @@ among ours.
     - Operations: `command` (`name=` the name of any command registered in EVE's
       command manager: EVE's, the plugin editor's or the text editor's. The
       command runs on the instance that read it, through its text editor's
-      command chain, `EVEView::invokeCommand`, `EVEView.cpp:249-259`), `preview`
+      command chain, `EVEView::invokeCommand`, `EVEView.cpp:321-331`), `preview`
       (`path=` an absolute path; an empty path hides the preview), `image`
       (base64 bytes). The shell integration's `eve` function emits them.
     - State and commands. ARCHITECT: *"all state machine that drives/driven by
@@ -160,7 +160,9 @@ among ours.
     - The tick reads only an image's metadata: its pixel size and its cell box.
       The grid holds the placement `{cell box, image number}`. The bytes go
       through the `images` lane into the record, with the image's encoding
-      (format, pixel size, compression).
+      (format, pixel size, compression). The lane also carries the text of an
+      OSC 52 write and the record of an OSC 8 link
+      (`jam_TerminalProcessor.cpp:995-1012`, `:1257-1265`).
     - Lanes (each `jam::TerminalFIFO`, one writer, one reader): `input`
       (message thread → tick), `images` (tick → the record writer), `commands`
       (tick → message thread).
@@ -173,6 +175,30 @@ among ours.
     space … REFLOW, wrapping or unwrapping are NEVER ever affected by SIGWINCH nor
     winsize. it's always GUI exclusive getLocalBounds() only. winsize is TERMINAL
     DOMAIN."*
+
+## Terminal reports
+
+The tick decodes each report into metadata or a Model row. The dispatch tables are in
+`jam/cast/terminal.md` (`## oscFunctions`, `## shellIntegrationFunctions`,
+`## privateModes`, `## imageFunctions`). The handlers are in `jam_TerminalProcessor.cpp`.
+
+| Report | Table row | Handler | Result |
+|---|---|---|---|
+| OSC 0, OSC 2 | `terminal.md:1329-1330` | `:987-990` | The `title` row takes the text. |
+| OSC 7 | `terminal.md:1328` | `:969-986` | The `cwd` row takes the decoded path. |
+| OSC 8 | `terminal.md:1332` | `:995-1012` | A link record goes through the `images` lane. The link click is a stub (`EVETerminalProcessor.cpp:122`). |
+| OSC 11 `?` | `terminal.md:1331` | `:378-412`, `:991-994` | The reply gives the `background` row as `rgb:`. The view writes that row (`EVEView.cpp:25-29`). |
+| OSC 52 | `terminal.md:1097`, `:1381` | `:1100-1126`, `:1257-1265` | A write of selection `c` goes to the record, and the `clipboard` row names it. A query (`?`) is not handled. |
+| OSC 133 A | `terminal.md:1350` | `:1049` | The `promptCount` row counts up. |
+| OSC 133 C | `terminal.md:1348` | `:1018-1035` | The `isRecording` row turns on. The `foregroundProcess` row takes the first word of the command line. |
+| OSC 133 D | `terminal.md:1349` | `:1036-1048` | The `isRecording` row turns off. The `foregroundProcess` and `title` rows clear. |
+| DEC 2026 | `terminal.md:1310` | `:867-871` | The `syncOutput` row follows the mode. A hold ends after `syncTimeoutMilliseconds` (`jam_TerminalProcessor.h:114`). |
+| XTVERSION (`CSI > q`) | none | `:328-336` | The reply gives the program name. |
+| DECRQM (`CSI ? Pd $ p`) | none | `:320-321`, `:368-376` | The reply covers mode 2026. Every other mode is "not recognised". |
+
+The Model rows are in `Source/layout/parameters.md:24-68`. EVE tells END the `title`,
+`foregroundProcess` and `cwd` rows through the ENAX `terminal-report` callback
+(`EVEView.cpp:78-79`, `:97-102`).
 
 ## Components
 
@@ -214,7 +240,7 @@ layout event only).
    history first (tmux behavior). ED 3 (xterm "clear scrollback") clears the
    *view's* scrollback access but the SSOT retains the session record for the
    session lifetime. Alternate screen: app-owned, redrawn by the app per VT contract
-   (RFC §1 boundary).
+   (`PLAN-Grand-Scheme.md` §1 boundary).
 3. **Scrollback:** block-resident in memory, bounded on disk by
    `HISTORY_CAPACITY`. The processor owns the record, `jam::TerminalSwap`, so
    the record outlives the view. ARCHITECT: *"TextEditor INDEED hold the
@@ -224,12 +250,14 @@ layout event only).
      JUCE pattern, API verbatim? within the adherence into our CONTRACT?"*
      The ring of `jam::TerminalBuffer` carries the history rows. The writer
      drains them and writes each row once to the swap's index and segment
-     files (`jam_TerminalSwap.cpp:99-158`). The vblank getter posts the
-     writer to the processor's own serial context, in every host. ARCHITECT:
+     files (`jam_TerminalSwap.cpp:78-135`, `:147-161`). The vblank getter
+     posts the writer to the processor's own serial context, in every host.
+     The getter skips the post while the `syncOutput` row is on
+     (`EVETerminalProcessor.cpp:168-183`). ARCHITECT:
      *"why vblank must be branched? vblank at all build contract are exactly
      the same"*.
    - The swap keeps the last `HISTORY_CAPACITY` lines. It deletes the index
-     and segment files of older lines (`jam_TerminalSwap.cpp:139-155`).
+     and segment files of older lines (`jam_TerminalSwap.cpp:163-182`).
    - The TextEditor is the receiver. It builds only the blocks the view shows
      (`TerminalSwap::linesPerBlock` lines each) and keeps their line counts. A
      resize or a font change lays out the resident blocks again. ARCHITECT:
@@ -338,6 +366,13 @@ dictate the layout, and what command tell them to be visible."*
   default; `HISTORY_CAPACITY` is 10000 (lines of terminal history that the record keeps); EVE bundles Display Mono and the Nerd Font symbol face, so icons
   render with no system font. ARCHITECT: *"eve should bundle nerd font, just
   like endless with display mono. it should work OOTB"*)
+- `ligatures` (`display` table, bool, default true) switches the ligature glyphs
+  of the mono font (`Source/layout/default-eve.md:19`, `jam_StyleManager.cpp:206-212`).
+- `--kerning` (custom property of the `mono` `@font-face` rule in
+  `Source/layout/style.css:27`) adds the font height times the factor to the
+  mono cell width (`StyleCustom::setMonoFont`, `jam_StyleCustom.cpp:35-48`).
+- Both rows hot reload: the new look and feel reaches `TextEditor::lookAndFeelChanged`,
+  which lays the view out again (`jam_TextEditor.cpp:1066-1070`).
 - Parse error at launch: EVE starts with defaults and shows
   `config error: <file>:<line> — <message>` in the status area; never fails to launch
 
@@ -401,25 +436,29 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   - **Column reflow.** A column grid in history reflows at the TextEditor width
     (the column reflow plan, done and deleted, END `carol/SPRINT-LOG.md:186`). ARCHITECT: *"no hardcode about ls nor eza"*.
 - **Record:** `TerminalSwap` writes each history row once to its index and
-  segment files (`jam_TerminalSwap.cpp:99-158`). It writes the live frame to a
-  two-slot live file through a FIFO (`:64-87`, `:248-277`). `prepare` starts a
-  new live file and drops a ready slot of the old one.
+  segment files (`jam_TerminalSwap.cpp:78-135`). It writes the live frame to a
+  two-slot live file through a FIFO (`:50-71`, `:417-433`). `prepare` starts a
+  new live file and drops a ready slot of the old one (`:25-37`).
 - **Pull:** on each vblank of its display (`juce::VBlankAttachment`), the
   TextEditor calls the view getter. The getter flushes the terminal Model and
   gives the swap. The TextEditor builds the history blocks it shows
   (`TerminalSwap::linesPerBlock` lines each) and the live block, then sets the
   content size, then scrolls to the tail in terminal mode
-  (`jam_TextEditor.cpp:803-884`).
+  (`jam_TextEditor.cpp:55-70`, `:836-914`).
 - **Layout state** (advances, rows, row heights) lives on each line as value
   data.
 - **Geometry:** the TextEditor keeps one `Document::Index` for each resident
   history block and one for the live document, with their glyph runs and
   decoded images. It also keeps the line count of every history block. One
   cursor line space covers the history lines, then the live lines.
-- **Scroll:** the node holds `scrollOffset` (lines from the tail) and
-  `scrollRow` (rows of the bottom line below the view). The view paints up
-  from the bottom line. At offset 0 it follows the tail; at any other offset
-  new output does not move it. The wheel scrolls eased, by rows.
+- **Scroll:** the viewport shows a whole number of rows. `resized` sets the
+  viewport height to the pixel height of the cell rows that fit
+  (`jam_TextEditor.cpp:1023-1039`). The scroll position is the view position of
+  the viewport, in pixels. `getRowOffset` gives the distance from the top of
+  the first visible row to the view top, and the content paints shifted by it
+  (`:1208-1230`, `:1342-1344`). At the tail the offset is 0. In TERMINAL mode,
+  new output moves the view to the tail (`:859-860`). The wheel goes to the
+  mouse encoder first; otherwise the viewport scrolls it (`:1398-1407`).
 - **Read only:** the history is not editable. ARCHITECT: *"return to terminal,
   history should not be editable. read only, copy only"*.
 
@@ -454,13 +493,14 @@ terminal/Model.h:17-28`). ARCHITECT: *"you could learn how endless manage its
 terminal state machine … factually raw bytes test beats all terminal in
 comparison"*.
 
-- **Schema.** `Source/layout/parameters.md`, table `## model` (`:22-52`), columns
+- **Schema.** `Source/layout/parameters.md`, table `## model` (`:24-68`), columns
   `id`, `type`, `max`, `default`, `description`. `jam::ModelLayout` (jam_plugin_bootstrap) reads it,
   the sibling of `jam::ParameterLayout` for `parameters.md`.
 - **Rows.** `applicationCursor`, `bracketedPaste`, `mouseTracking`,
   `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited`,
-  `cursor`, `commandCount`, `preview`, `previewImage` and `winsize`
-  (`parameters.md:27-51`). `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
+  `cursor`, `commandCount`, `promptCount`, `preview`, `previewImage`, `winsize`,
+  `cwd`, `title`, `foregroundProcess`, `syncOutput`, `clipboard` and `background`
+  (`parameters.md:29-67`). `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
   the column change together.
 - **Producer.** The decoder (`jam::TerminalProcessor`) keeps its working state
   and fires one event per value at the end of each drain. The owner's handlers
@@ -576,14 +616,14 @@ An end-user can:
 - [ ] Preview an image and a source file without leaving the keyboard
 - [ ] Resize the window during `yes`-level output flood without losing a line the SSOT retired
 
-## Architecture Constraints (binding, from RFC §8)
+## Architecture Constraints (binding, from `PLAN-Grand-Scheme.md` §8)
 
 - ❌ The tick: ValueTree, Document, mutex, allocation, block, yield, sleep. The
   wait between ticks belongs to the driver. ARCHITECT: *"audio thread STILL
   LOCK FREE, processBlock never blocked as PROCESSOR"*
 - ❌ Widget-owned content; paint-path writes
 - ❌ Wrapped grid as truth; baked colours in state; ANSI beyond the two edges
-- ❌ Terminal mental model from training data — RFC §0/§1 govern
+- ❌ Terminal mental model from training data — `PLAN-Grand-Scheme.md` §0/§1 govern
 - ❌ Terminal state as a host parameter: `parameters.md` rows are automatable only
 - ❌ `setValueNotifyingHost` or any lock on the clock. ARCHITECT: *"using
   setValueNotifyingHost is smell"*
