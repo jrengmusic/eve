@@ -36,6 +36,63 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Cell Width from the Unhinted Advance, Whole-Row Viewport, 1024-Unit Fonts, Ligatures from Config ✅
+
+**Date:** 2026-11-04
+**Duration:** one session, after the keyboard focus log. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"[1] font kerning looks too tight. what option do we have to adjust the spacing for each characters, slightly spaced out? is our calculation wrong? ... ideally we have baseline 0 kerning, this baseline could then overriden via config"*; *"[2] ... look at top most row. there's remants of previous history sometimes left on top ... we should just always snap to cell height, so no cutoff. and no remnants of normal screen at alternate"*; *"config should be wired, AFTER we have correct calculation"*; *"we actually have new fonts to be built /Users/jreng/Documents/Poems/dev/fonts/ all of it now is 1024 base, not 1003 anymore ... build with ggwp"*; *"issue now: no ligatures renderd"*; *"IIUC the spec also ligatures is config driven, so it must be hot reload"*.
+
+### Agents Participated
+- COUNSELOR: reads of the metric path, the row path, the FreeType load path, the config overlay and the old ligature code; design; validation of each Engineer return; this log.
+- Engineer (sonnet): the cell width, kerning and row snap edits; the ggwp build and install; the ligature code and config row.
+- Pathfinder (haiku): the font tables of the old `DisplayMonoBook.ttf`; the git trace of the deleted ligature code.
+- Auditor: not run. ARCHITECT: *"do not audit until i explicitly say so"*.
+
+### Files Modified (15 total, and 12 built fonts)
+- `jam/jam_graphics/fonts/jam_GlyphRasterizer.cpp:505` — the cell measure loads with `FT_LOAD_NO_HINTING`, so `ceil26Dot6ToPx` (`:537`) rounds the real advance up.
+- `jam/jam_style/jam_StyleCustom.cpp:35-48` — `setMonoFont` adds the kerning once to `monoMetrics.cellWidth`. The mono `Fonts` table carries factor 0, so `getFontMeasure` (`jam_GlyphArrangement.cpp:221`) does not add it again. `monoFonts.add` stays before `getOrCreateMetrics`, because the add registers the typeface (`jam_Typeface.cpp:465-467`).
+- `jam/jam_gui/widgets/jam_TextEditor.h:432-434`, `jam_TextEditor.cpp:720`, `:1028-1034`, `:1203-1218`, `:1229`, `:1333` — the viewport holds whole rows through `Cell::Rectangle::fromPixel` and `toPixel`. `getRowOffset` gives the distance from the view top to its row top. `Content::paint`, `applyMouse` and `keepCursorVisible` use it.
+- `jam/jam_graphics/fonts/jam_GlyphArrangement.h:204`, `:218`, `:489-493`, `:661-665`, `:681` — `ligatureFeature`, `Fonts::hasLigatures`, the three ligature declarations, the three constants, the `ligatures` cache.
+- `jam/jam_graphics/fonts/jam_GlyphArrangement.cpp:57-59`, `:275-298`, `:413-472` — `Fonts::add` reads the feature; `addCellEntries` tries a ligature first; `isLigatureCandidate`, `getOrCreateLigature`, `findLigatureGlyph`.
+- `jam/jam_style/style_manager/jam_StyleManager.cpp:206-214` — `setAppearance` reads the `ligatures` row and tells `setMonoFont` through `FontOptions::withFeatureEnabled`.
+- `jam/cast/style.md:39` — `Id::ligatures`.
+- `jam/resources/fonts/` — the six Display and Display Mono fonts, rebuilt with ggwp. All report 1024 units per em. Display goes from 102 to 111 glyphs. Display Mono goes from 1443 to 118 glyphs.
+- `eve/Source/layout/default-eve.md:19-20` — `ligatures` row of `## display`, type `bool`, value `true`.
+- Outside the repos: `fonts/display/DisplayBook.ttf` and its two siblings, `fonts/display-mono/`, `fonts/display-serif/`, `fonts/display-serif-mono/`, three weights each. All 12 builds exited 0. The Serif fonts have no consumer, so they stay beside their manifests.
+
+### Alignment Check
+- [x] BLESSED principles followed: one cell width owner; no shadow scroll state, because `getRowOffset` derives on demand; `getClusterGlyph` stays the one shape.
+- [x] NAMES.md adhered: `getOrCreateLigature` joins `getOrCreateFallback`; `findLigatureGlyph` joins the `find*Glyph` family; `getRowOffset` joins `getRowTop`.
+- [x] MANIFESTO.md principles applied
+- [ ] New declarations hold no doxygen yet, per CAROL.md Code Hygiene. The pass waits for the audit.
+- [ ] No Auditor run, on ARCHITECT's word.
+
+### Problems Solved
+- **Cell too narrow.** `measureMaxCellWidth26Dot6` loaded glyphs hinted. The font has no bytecode, so FreeType autohints it (`ftobjs.c:969`) and rounds the advance (`afloader.c:567`). Display Mono gave 7 for a design advance of 7.36 at size 12. The cell is now 8. The new font has the same ratio, 628/1024.
+- **`--kerning` was half wired.** It widened each cell (`jam_GlyphArrangement.cpp:221`), but `setWinsize` used the plain `cellWidth` (`jam_TextEditor.cpp:1053`), and a wide character got one share. It now lives once in `monoMetrics.cellWidth`.
+- **Top row remnant and cut-off.** The row count floors the view height. Terminal mode anchors the content to the bottom (`jam_TextEditor.cpp:861`), so a strip smaller than one row sat at the top. `Content::paint` draws history above the live rows, so the strip showed the last history row on both screens. The viewport now holds whole rows, and the leftover sits empty below the grid.
+- **Scroll snap by paint offset.** A view position snap in `visibleAreaChanged` would stick on a small trackpad delta: the wheel starts from the view position (`jam_Viewport.cpp:49`, `:54`). So the view position stays pixel exact, and `Content::paint` draws from the row top.
+- **Ligatures were deleted.** Commit `e78e5776c` (Sprint 163) removed `tryLigature` and `findLigatureGlyph` as *"ligature and composite lanes deleted"*. The restored lane keeps the old rules: 3 cells then 2, narrow ASCII, one style, one glyph from the shape. The new parts are the `Fonts` gate, the JUCE `liga` feature as the carrier, and a cache that also holds misses. ARCHITECT confirmed nvim renders them.
+- **Config row.** `ConfigDocument::addTables` rejects a disk table whose headers differ from the default (`jam_ConfigDocument.cpp:490`), so a `## fonts` column would fail every existing disk copy, and agents never change the version (`SPEC.md:547`). The row went to `## display`. Hot reload needs no new code: `fileChanged` → `registerStyle` → `setAppearance` → `sendLookAndFeelChange` → `TextEditor::lookAndFeelChanged` → `setBlocks`.
+- **Prompt ligatures.** A typed `->` stays two glyphs, because `zshrc:131` and `:142` give `-` and `>` two colours, and the rule needs one style (`jam_GlyphArrangement.cpp:424`). ARCHITECT: *"correct. echo or quoted works."*
+- **Mistakes owned.** The first scroll snap proposal, corrected before code. The `@font-face --ligatures` recommendation, withdrawn on `jam_ConfigDocument.cpp:490`. The first font read stepped `hmtx` by 2 bytes, so its side bearings looked like advances. Only the 615 value stood.
+
+### State for Continuation
+- **Cell width is held open.** ARCHITECT: *"now visually the kerning too spaced out"*, then *"hold that thought"* for the fonts. Options on record: `--kerning: -0.0417` at `eve/Source/layout/style.css:27` gives 7.5 (15 device px at 2x), or a scale-aware baseline, which changes the contract at `jam_GlyphRasterizer.h:255`. No decision yet.
+- **Prompt ligature rule is unchanged.** The colour check at `jam_GlyphArrangement.cpp:424` stays, because ARCHITECT did not rule to change it.
+- Hot reload of `ligatures` and `--kerning` is not reported as tested. Add the `ligatures` row to `~/.config/dev/eve.md` and flip it.
+- Check the Display Mono glyph drop from 1443 to 118 against what the fonts must hold. ARCHITECT said the fonts add glyphs. A missing character now takes a fallback font.
+- Doxygen after the audit: `jam_GlyphArrangement.h:13`, `:48` still say that `hb_shape` serves grapheme clusters only; the new declarations need blocks. `SPEC.md` has no `ligatures` line, and writing it is gated.
+- The old fonts are backed up only in the session scratchpad, and git holds them too.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
+---
+
 ## Sprint: Keyboard Focus Follows Pane Focus; MatrixComponent Owns the Pane Focus Commands ✅
 
 **Date:** 2026-11-04
@@ -246,107 +303,6 @@
 - None
 
 ---
-
-## Sprint: Resize Is One Final Stop, the Active Prompt Anchors at Home, Column Grids Reflow in History ✅
-
-**Date:** 2026-10-31
-**Duration:** multi-session, 2026-10-30 → 2026-10-31
-**Plan:** `PLAN-column-reflow.md` (rulings 1–8, Steps 1–4). The resize and prompt work ran on rulings in chat. SPEC.md State Model → Resize now records them.
-
-### Read First (next COUNSELOR)
-1. `SPEC.md` State Model → **Resize**. It holds the final-stop coalesce, the active prompt anchor and the column reflow rulings.
-2. `PLAN-column-reflow.md`. Steps 2 and 3 describe the code as built: writer-side `gridStart`, chunked tail, open lanes.
-3. This entry, **State for Continuation**. It lists the open work in order.
-4. The entry below this one: the handoff of the terminal protocol sprint. That sprint is committed (`326387d`) but never logged.
-
-### Agents Participated
-- COUNSELOR — design discussion, rulings, PLAN, SPEC, validation of each Engineer return, audit triage.
-- Engineer (sonnet) — every code change, the audit fix batches A–D and their corrections, the doxygen pass.
-- Pathfinder (haiku) — reads of the JUCE FlexBox, the terminal sources of other emulators, git status.
-- Auditor (opus) — one sweep after the steps: 41 findings.
-
-### Problems Solved
-1. **Active prompt anchor on resize.**
-   - ARCHITECT: *"clear: draw active prompt at 0"*; *"ONE FUNCTION, the parameter is where"*.
-   - `TerminalProcessor::reset` puts the cursor at home (`setCursor ({}, terminalBuffer)`). The `pendingBytes = 0` line is gone. `prepare` asserts `pendingBytes <= maximumBlockSize`.
-   - zsh redraws its prompt by relative cursor-up from its own model, and oh-my-posh bakes `--terminal-width`. The fix is in the user's zshrc: `TRAPWINCH() { omp_repaint_prompt }` (`~/.config/zsh/zshrc:181`, inside the OMP block).
-2. **Resize is one final stop.**
-   - ARCHITECT: *"why dont we make resize always coalesce, FINAL STOP only. - resize > pixel > cell > winsize always UNIDIRECTIONAL"*; *"what about Component::Listener? EVEView orchestrate"*.
-   - `jam::AudioStandaloneApp::MainWindow::resizeStart` / `resizeEnd` forward to the editor's constrainer (`jam_AudioStandaloneApp.cpp:74-84`).
-   - `EVEView` is a `juce::ComponentBoundsConstrainer`. It calls `setConstrainer (this)` before `setScaling()`. `resizeStart` / `resizeEnd` call `setResizing (bool)`, which writes `Id::isResizing` to each TextEditor's component state.
-   - `TextEditor::setWinsize` computes cells from `getTerminalBounds()` (the viewport less the scroll bar). It writes only while `isResizing` is false and only a valid winsize. `bindToModel` sets `isResizing` false.
-   - `TextEditor::resized` always reserves the status-bar row. ARCHITECT: *"sole author of ALL is Window size"*.
-3. **Column grids reflow in history.** ARCHITECT: *"i just need ls, eza, whatever column on terminai history always layout symetrical, beautifully, deterministically, without ever losing any performance."*
-   - Block mark: OSC 133 C increments `TerminalProcessor::outputBlock` and starts recording. `addTextCell` marks its row while recording. `TerminalBuffer` keeps one block per ring slot (`outputBlocks`). `writeRow` stores `outputBlock` and `gridStart` as int64 after the placements.
-   - Recognition at the writer: `TerminalSwap::writeFromTerminalBuffer` computes the cell starts of each row and its `gridStart` (`getGridStart`, pure). A reader-side look-back was O(L²) per lane, so it moved.
-   - Lane read: `addLines` = `addRangeLines` (crosses index files) → `removeGridHead` → `addGridTail` / `addGridLines` (one chunked read) → root `Id::size` → root `Id::end` when open → `AnsiDocument::addGrids`.
-   - Open lane: a lane whose first or last line carries the swap's `previousGridStart` gets root `Id::end` = swap end. `TextEditor::addLanes` builds it again when the swap end moves.
-   - Layout: one line per grid. Gutters are `AttributedChar::flexGap` atoms. The codepoint holds the entry order index (overflow asserts). `TextEditor::setGridRows` places the entries with `juce::FlexBox` (column, wrap, `withOrder`, the gutter as right margin), with the smallest row count that fits.
-   - ARCHITECT on width: *"make it equal space between column? then the reminder could be added to EOL as whitespace if it not zero"*. On one rule: *"no need original form. if the layout is most deterministic with ONE SSOT layout reflow rule"*.
-   - Caret, selection and hit-test read the entry positions (`getGridCellBounds`, `getGridCell`, `getCellWidth`).
-4. **Crash after `ls`.** `Document::Element::add` returns a pointer into `properties`. A later `add` can reallocate it. `addGrid` adds every property first, then takes `get` references.
-5. **Clock contract (audit #2).** The winsize attachment started a stopped clock and doubled the start inside `setStateInformation`'s `restart`. The attachment is `restart()` again. `prepare()` starts unconditionally (SPEC Core Principle 9). The Model `winsize` row defaults to 80 × 24 (`22518101216067584` = `TerminalWinsize { 80, 24, 0, 0 }.pack()`), so `audioDeviceAboutToStart` asserts a valid winsize.
-
-### Audit (41 findings) — DCF triage
-- **Resolved:**
-  - Batch A (EVE): winsize default, `preview` / `previewImage` descriptions (`parameters.md:41-45`), dead `winsize` cell in `component.md:8`, clock contract.
-  - Batch B (document): `minimumGutter` scope, gap → gutter names, `addGridRows` → `addGridLines`, overflow assert, `Id::left` / `Id::top` at creation, no default-value `get`s, single tail read, open-lane `Id::end`.
-  - Batch C (gui, core, bootstrap): `applyLayout` / `getLayoutRight` (const) / `getNumRows` (by value), `setEntryPositions` set-only, `rowTolerance`, `getCellWidth`, `getGridCell` (#9), no pessimistic checks, `isResizing` reset in `bindToModel`, `applyToCodepoints` via `getCodepoint`, no `getEditor` null check, open-lane rebuild.
-  - Batch D (processor, buffer): one mark site in `addTextCell` (`jam_TerminalProcessor.cpp:371-372`), `outputBlockBytes` + `gridStartBytes`.
-  - COUNSELOR corrections of Engineer returns: the `setRow` lambda grew `addTextRun` to 43 lines (MANIFESTO L), so the mark went to `addTextCell` (33 lines now). `[&]` capture in `getGridCell` (MANIFESTO E). Double `find` in `addLanes`. `isGridComplete` mutated the document (Verb Contract), so `Id::end` has one site in `addLines`.
-  - #5, #39 by doc updates: PLAN Steps 2–3, SPEC Resize and Feature 5.
-- **Doxygen pass (post-audit).** Headers only, per the `doxygen-writer` skill:
-  - eve: `EVETerminalProcessor.h`, `EVEView.h`.
-  - jam: `jam_TextEditor.h`, `jam_AttributedString.h`, `jam_AudioStandaloneApp.h`, `jam_TerminalProcessor.h`, `jam_TerminalBuffer.h`, `jam_TerminalSwap.h`, `jam_AnsiDocument.h`.
-  - `jam_PluginEditor.h` had no stale block.
-  - Doxygen did not run, so the 0-warning check is open (State for Continuation, item 1).
-- **Rejected, with the read:**
-  - #3 winsize persistence: it is a Model row by design; the valid default answers the assert.
-  - #6 Preview code removal: ARCHITECT *"NO PREVIEW COMPONENT. dont fucking undo the working implementation"*. Only the docs changed.
-  - #7: ruling 8 was ruled with that case known.
-  - #11, #12: document → buffers is the same direction as `TerminalSwap`.
-  - #13b/c: function reuse; creation permits multiple passes (MANIFESTO E, Complete at Creation).
-  - #14: `Id::tokens` holds layout units on every line, same role.
-  - #16: the sibling `setTableRows` lives in TextEditor.
-  - #19–#22: L ladder; a split only for line count is wrong decomposition. `addTextRun` stays at 33 lines: wrap, clamp and cell dispatch are one cluster write.
-  - #25, #31, #37, #40: no clause broken on read.
-  - #26: sibling `jam::Window` has the same shape.
-  - #27: ARCHITECT ruled `registerCallbacks`.
-  - #35: option (a) by ruling (*"sole author of ALL is Window size"*).
-  - #38: ARCHITECT `/go`.
-  - #41: construction order is required.
-  - #32, part: `addRangeLines` is a real responsibility (index-file crossing).
-
-### Files Modified
-- eve: `Source/EVETerminalProcessor.h/.cpp`, `Source/EVEView.h/.cpp`, `Source/EVEViewComponents.cpp`, `Source/EVEViewPanelCallbacks.cpp`, `Source/layout/component.md`, `Source/layout/parameters.md`, `SPEC.md`, `PLAN-Grand-Scheme.md`, new `PLAN-column-reflow.md`, `carol/SPRINT-LOG.md`.
-- jam: `jam_terminal/processor/jam_TerminalProcessor.h/.cpp`, `jam_terminal/buffers/jam_TerminalBuffer.h/.cpp`, `jam_terminal/document/jam_TerminalSwap.h/.cpp`, `jam_terminal/document/jam_AnsiDocument.h/.cpp`, `jam_core/text/jam_AttributedString.h/.cpp`, `jam_gui/widgets/jam_TextEditor.h/.cpp`, `jam_plugin_bootstrap/standalone/jam_AudioStandaloneApp.h/.cpp`, `jam_plugin_bootstrap/view/jam_PluginEditor.h/.cpp`, `cast/gui.md` (`isResizing`), `cast/terminal.md` (`outputBlock`, `gridStart`), `generated/jam_Gui.*`, `generated/jam_Terminal.*`.
-- Outside the repos: `~/.config/zsh/zshrc:181`.
-- The jam tree (`git status --short`, 2026-10-31) also holds changes that this sprint's record does not name: `jam_opentype/document/*` (eleven `.cpp` files deleted and folded into `jam_OpenTypeDocument.cpp` / `jam_OpenTypeWriter.cpp`), `jam_opentype/jam_opentype.cpp`, `jam_gui/buttons/*`, `jam_gui/menu/jam_Menu.*`, `jam_gui/registry/jam_Registry.h`, `jam_Traits.h`, `jam_gui/widgets/jam_FrequencyTextBox.*`, `jam_PresetSelector.h`, `jam_VariComponent.h`, `jam_Preview.*`, `jam_data_structures/model/jam_AudioModel.*`, `jam_data_structures/parameter/jam_ParameterManager.*`. Confirm their origin before the commit.
-
-### Alignment Check
-- [x] BLESSED principles followed
-- [x] NAMES.md adhered
-- [x] MANIFESTO.md principles applied
-- [ ] Build not run after the audit fixes and the doxygen pass. Agents never build. ARCHITECT builds.
-
-### State for Continuation
-1. **Build — ARCHITECT.** `cast cast/spell.md --debug`. Every audit fix and the doxygen pass are unbuilt. The tree already holds regenerated `generated/jam_Terminal.*` (+2 lines) and `generated/jam_Gui.*` (+1 line). Check that they hold `outputBlock`, `gridStart` and `isResizing`. Then regenerate doxygen and check 0 warnings.
-2. **Runtime checks — ARCHITECT.**
-   - `ls` / `eza` grid: resize narrower and wider; click and select inside the grid (new `getGridCell`).
-   - A grid that crosses a 256-line lane edge while the command still prints (open-lane rebuild).
-   - Window resize: one `SIGWINCH` at the final stop; the prompt stays at home.
-   - First launch with no saved state: the 80 × 24 default winsize, then the first layout winsize.
-3. **KANJUT** — `cast --sync` for the `jam_PluginEditor` change.
-4. **Windows** — the resize coalesce is untested there.
-5. **Link detection** — the PTY drops OSC 8 (`jam_Terminal.h:1970-1976`). Not started.
-6. **Side panel / Preview** (grand scheme §3.11) and the GIF bug — open. No Preview component exists now (SPEC Feature 5).
-7. **Previous sprint** — the terminal protocol sprint (entry below, commit `326387d`) is not logged. Its receipt and `carol debt clear DEBT-20261025T214955` wait for ARCHITECT's word.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
 
 ## Handoff to COUNSELOR: EVE terminal protocol — one envelope, one path; measure and decode; Preview foundation
 
