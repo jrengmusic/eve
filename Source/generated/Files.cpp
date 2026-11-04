@@ -32,7 +32,7 @@ namespace files
     const juce::String settingsLayout             { juce::String::fromUTF8 ("SettingsLayout.html") };
     const juce::String parametersLayout           { juce::String::fromUTF8 ("parameters.md") };
     const juce::String profileReport              { juce::String::fromUTF8 ("profile.md") };
-    const juce::String markdownSettingsDirectory  { juce::String::fromUTF8 (".config/end") };
+    const juce::String markdownSettingsDirectory  { juce::String::fromUTF8 (JUCE_STRINGIFY (CAST_CONFIG_DIRECTORY)) };
     const juce::String markdownSettingsFileName   { juce::String::fromUTF8 ("eve.md") };
     const juce::String standaloneSettingsFileName { juce::String::fromUTF8 ("EVE.settings") };
     const juce::String upNormal                   { juce::String::fromUTF8 ("up_normal.svg") };

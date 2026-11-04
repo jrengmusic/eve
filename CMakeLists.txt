@@ -341,6 +341,7 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
     VMA_VULKAN_VERSION=1002000                                           # Vulkan version for Vulkan Memory Allocator
     "$<$<CONFIG:Debug>:DEBUG=1>"                                         # Debug configuration
     "$<$<CONFIG:Release>:NDEBUG=1>"                                      # Release configuration
+    "CAST_CONFIG_DIRECTORY=.config/$<IF:$<CONFIG:Debug>,dev,end>"        # Config root relative to home, by build type
     "$<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN=1>"                    # Exclude rarely used Windows headers
     "$<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS=1>"                # C runtime deprecation warnings off
     "$<$<PLATFORM_ID:Windows>:WINVER=_WIN32_WINNT_WIN10>"                # Windows API version, same as JUCE

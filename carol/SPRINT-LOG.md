@@ -36,6 +36,60 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Shift+Enter Is a Terminal Key Row; Debug END and EVE Use the Dev Config Root ✅
+
+**Date:** 2026-11-04
+**Duration:** one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"why i cant shift+enter to create new line in this claude code?"*; *"we need to shift the config to ~/.config/dev/ so this running instance wont conflict with we're working on check @DEBT.md"*; *"this should not be hardcoded to TextEditor, as plain TextEditor newline should be just simply enter. shift+enter newline only for TERMINAL mode"*; *"why harcodes? isnt SSOT? fix it"*; *"dont change the comment. config/dev/ only always temporary"*; *"after plan and execution, do not audit until i explicitly say so"*.
+
+### Agents Participated
+- COUNSELOR: reads of the key encoders, the key sheet, the host key hook, the Kitty and Ghostty sources, the nvim doc, the Claude Code binary, the cast read path; validation of each changed line; this log.
+- Pathfinder (haiku): plan and config root read, Claude Code binary commands.
+- Engineer (sonnet): the two implementations. The first file set had eight files, the second had three.
+- Auditor: not run. ARCHITECT: *"do not audit until i explicitly say so"*.
+
+### Files Modified (11 total)
+- `jam/cast/terminal.md:1851`, `:1914`, `:1970`, `:2008`, `:2046` — one `newline` row in `TextEditorCommandId`, `textEditorKeys mac`, `textEditorKeys windows`, `textEditorModes`, `textEditorLayers`: key `shift+return`, mode `terminal`. The tables are positional, so each one takes a row.
+- `jam/cast/gui.md:51` — `Id::newline`.
+- `jam/cast/spell.md:134-136` — the three key lookup tables grow from 23 to 24.
+- `jam/jam_gui/widgets/jam_TextEditor.cpp:464-468` — `Id::newline` action beside `paste`. It writes `Chars::newline` through `terminalInput`.
+- `end/project-info.md:369`, `eve/project-info.md:379` — `configDirectory` DEFINES row. `CAST_CONFIG_DIRECTORY` is `.config/dev` for Debug and `.config/end` otherwise.
+- `end/Source/config/ConfigDirectory.h:75` — `configDirectoryName` reads the define.
+- `eve/cast/files.md:31` — `markdown settings directory` reads the define. The cell has no format, so the macro stays raw (`cast/Source/Model.cpp:975-985`). The value column of the table is wider.
+- `jam/jam_clap/format/jam_ClapPluginFormat.h:37`, `:135`, `jam/jam_clap/format/jam_ClapPluginFormat.cpp:161`, `:167`, `:257-266` — the `inHousePath` literal is gone. The host passes `hostPluginsDirectory` through the constructor.
+- `end/Source/plugins/Nexus.cpp:80` — END passes `ConfigDirectory::Config::getPath (Id::plugins).getFullPathName()`.
+
+### Alignment Check
+- [x] BLESSED principles followed: one root switch in the `DEFINES` lane, each root path read from one owner, a key as a data row.
+- [x] NAMES.md adhered: `hostPluginsDirectory` joins the `host*` family; `CAST_CONFIG_DIRECTORY` joins `CAST_PLUGINS_HASH`.
+- [x] MANIFESTO.md principles applied
+- [ ] Not validated by a compile. No cast and no build ran.
+- [ ] No Auditor run, on ARCHITECT's word.
+
+### Problems Solved
+- **Shift+Enter submitted.** With no key row, terminal mode called `TerminalKeyboard::map` with `keyboardFlags` at 0 (`jam_TextEditor.cpp:511-516`), which returns `carriageReturn` for Return (`jam_TerminalKeyboard.cpp:172-183`, `:218`). Claude Code reads `0xd` as `return` and `0xa` as `enter`, a line break (binary lines 51593976-51593978, 51599945). Old endless wrote `\n` from a `newline = "shift+return"` binding (`default_keys.lua:102`, `MainComponentActions.cpp:65`). The new row has the same shape, and only terminal mode matches it (`jam_CommandManager.cpp:65-70`).
+- **Convention.** No read shows a standard for this key. Kitty legacy mode sends `0xd` for Shift+Enter (`keyboard-protocol.rst:530`). Ghostty sends `\x1b[27;2;13~` (`function_keys.zig:199`). nvim negotiates `CSI > 3 u` or `CSI > 4 ; 2 m` (`tui.txt:185-195`). Claude Code's own setup binds ESC CR in VS Code and Zed (binary lines 51600164-51600174).
+- **Ctrl+J gave nothing, Ctrl+Shift+J gave a new line.** The peer offers each key to END first (`jam/patch/juce-key-pressed-hook.patch:21-23`, `Nexus.cpp:7-13`, `ENDView.cpp:57-59`). `~/.config/end/keys.md:75` binds `ctrl+j` to `join down`. `ctrl+shift+j` has no row, so EVE's `mapCtrl` sends `0xa` (`jam_TerminalKeyboard.cpp:75-78`).
+- **Mistakes owned.** A first Pathfinder prompt read far past the question. A claim that Ctrl+J gives a new line came from `mapCtrl` alone. A claim that Shift+Enter cannot be a key row missed `jam_PluginEditor.cpp:328`. Each one was corrected in the chat.
+
+### State for Continuation
+- Nothing is cast or compiled. The generated files and `CMakeLists.txt` of `jam`, `end` and `eve` are stale until the next `cast`. Check these three things first:
+  1. `eve/Source/generated/Files.cpp` gives `juce::String::fromUTF8 (JUCE_STRINGIFY (CAST_CONFIG_DIRECTORY))`.
+  2. `CMakeLists.txt` of `end` and `eve` holds the `configDirectory` row with its `$<IF:...>` quoted.
+  3. `JUCE_STRINGIFY` gives `.config/dev` in Debug and `.config/end` in Release.
+- ARCHITECT tests Shift+Enter in Claude Code in hosted EVE, and in a plain TextEditor mode. The second must not change.
+- A Debug END makes `~/.config/dev/`. ARCHITECT: *"config/dev/ only always temporary"*.
+- Comments stay stale on ARCHITECT's word *"dont change the comment"*: `ConfigDirectory.h:46`, `:52`, `Main.cpp:252`, `Main.h:28`, `jam_ClapPluginFormat.h:108`. `jam_ClapPluginFormat.h:28-30` has no `@param` for the new parameter.
+- The negotiated layer is not built. `TerminalKeyboard` encodes `CSI 13;2u` (`:172-179`), but `jam_TextEditor.cpp:516` passes no flags and `applyCsiSequence` drops `CSI >`. If it is built, the key row wins over it, because `invokeKey` runs first (`:511`). This belongs to `DEBT-20261103T233912`.
+- `DEBT-20261103T235332` stays in the ledger. This sprint did not touch it. ARCHITECT: *"i have already backup old binary to endless repo"*.
+- `eve/CLAUDE.md:59` lists `HANDOFF.md` as present, and `:42-44` list three `Source/EVEView*.cpp` files. None of these four files exists.
+
+### Debts Paid
+- `DEBT-20261103T235331` — a Debug END and EVE use `~/.config/dev/`, a Release build uses `~/.config/end/`, with one switch in the `DEFINES` lane of each project.
+
+### Debts Deferred
+- None
+
 ## Sprint: Closing with fzf Open No Longer Hangs; Version Reset; fzf and btop on the Transparent Contract ✅
 
 **Date:** 2026-11-04

@@ -16,13 +16,6 @@
 
 ---
 
-## DEBT-20261103T235331
-
-**Observation:** Every END build and every EVE build use one config root, `~/.config/end`: `ConfigDirectory.h:75` for END and `eve/cast/files.md:31` for EVE. Every END path derives from that root (`Nexus.cpp:84`, `:163`, `Main.cpp:254`). ARCHITECT: *"at least i could build release, running it from Applications/"*; *"then we route dev-end-eve to ~/.config/dev/ ?"*.
-**Divergence:** A dev END offloads its plugins over the files of the daily END (`Nexus.cpp:161-188`). Dev and daily EVE read one `eve.md`, which hot-reloads (`SPEC.md:533`), so a table change in a dev build shows errors in the daily EVE.
-**Expectation:** A dev build of END and EVE uses `~/.config/dev/`, and a Release build uses `~/.config/end/`, with one switch at both sites. The daily driver stays apart from the build under development.
-
----
 
 ## DEBT-20261103T233912
 

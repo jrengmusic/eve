@@ -376,6 +376,8 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
 | ndebug                                    | `$<$<CONFIG:Release>:NDEBUG=1>`                                | Release configuration                          |
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
+| configDirectory                           | `CAST_CONFIG_DIRECTORY=.config/$<IF:$<CONFIG:Debug>,dev,end>`  | Config root relative to home, by build type    |
++-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
 | win32LeanAndMean                          | `$<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN=1>`              | Exclude rarely used Windows headers            |
 +-------------------------------------------+----------------------------------------------------------------+------------------------------------------------+
 | crtSecureNoWarnings                       | `$<$<PLATFORM_ID:Windows>:_CRT_SECURE_NO_WARNINGS=1>`          | C runtime deprecation warnings off             |
