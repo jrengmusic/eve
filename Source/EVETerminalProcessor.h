@@ -102,8 +102,18 @@ public:
     /** @brief Takes the message manager lock, then flushes the Model lane to its tree. */
     void flush();
 
-    /** @brief Returns the FIFO of the command names that the shell sent. Each name ends with a zero byte. The view reads it. */
-    jam::TerminalFIFO& getCommands() noexcept;
+    /**
+     * @brief Delivers each complete command name in the command FIFO to a callback.
+     *
+     * The shell writes the command names to the FIFO. Each name ends with a zero byte.
+     * The ring can split a name between two pending blocks.
+     * The call joins the parts of a split name.
+     * The call skips an empty name.
+     * The call runs @p callback once for each complete name.
+     *
+     * @param callback  Receives the name of each complete command.
+     */
+    void applyCommands (const std::function<void (const juce::Identifier&)>& callback);
 
 #if JAM_USING_PROFILER
     /**

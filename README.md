@@ -70,7 +70,7 @@ cast cast/spell.md --debug
 
 `project-info.md` is the source of the build metadata; `CMakeLists.txt` is generated from it.
 
-On first launch, EVE writes its config to `~/.config/end/eve.md`: display settings, key bindings, settings, window chrome, and its theme — a `## colours` palette of named colours and one `light | dark` table per component, the 16 ANSI terminal colours, metrics and fonts. Every key is plain lower-case words. The binary carries the defaults; a valid copy on disk overlays them row by row. A file with an error keeps the defaults and shows the error in EVE's overlay.
+On first launch, EVE writes its config to `~/.config/end/eve.md`: display settings, key bindings, settings, window chrome, and its theme — a `## colours` palette of named colours, one `light | dark` table per component, a `## terminal` table of the 16 ANSI colours plus index 16, which is blank for a transparent background, and the fonts. Markdown metrics are rows of `## markdown`. Every key is plain lower-case words. The binary carries the defaults; a valid copy on disk overlays them row by row. A file with an error keeps the defaults and shows the error in EVE's overlay.
 
 | Feature | Status |
 |---------|--------|

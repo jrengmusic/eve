@@ -28,7 +28,7 @@ namespace files
  * resolved against the binary-data / asset search path at load time.
  */
 
-    const juce::String viewLayout                 { juce::String::fromUTF8 ("ViewLayout.md") };
+    const juce::String viewLayout                 { juce::String::fromUTF8 ("default-eve.md") };
     const juce::String settingsLayout             { juce::String::fromUTF8 ("SettingsLayout.html") };
     const juce::String parametersLayout           { juce::String::fromUTF8 ("parameters.md") };
     const juce::String profileReport              { juce::String::fromUTF8 ("profile.md") };

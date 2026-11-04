@@ -8,7 +8,7 @@
 |-------|-------|
 | **Name** | EVE |
 | **Type** | JUCE Audio Plugin — Effect (Fx) |
-| **Version** | 0.1.0 (`CMakeLists.txt:62`) |
+| **Version** | 0.0.1 (`CMakeLists.txt:62`) |
 | **Stack** | C++17, JUCE 8.0.14, JAM framework, Vulkan renderer |
 | **Formats** | Standalone, VST3, AU (`CMakeLists.txt:67`) |
 | **Platforms** | macOS 11.0+ (x86_64 + arm64), Windows (MSVC) |
@@ -43,7 +43,7 @@
 | `Source/EVEViewComponents.cpp` | View component configs; the TextEditor event binding: key and mouse encoding to the input lane, live caret values, TERMINAL mode at start |
 | `Source/EVEViewPanelCallbacks.cpp` | UI scale and winsize callbacks |
 | `Source/generated/` | CAST output: `Identifiers.*`, `Files.*` (build-time, do not edit) |
-| `Source/layout/` | Layout and style documents: `ViewLayout.md`, `component.md`, `parameters.md` (automatable host parameters only), `model.md` (the terminal state machine, the Model lane), `style.css`, `SettingsLayout.html` |
+| `Source/layout/` | Layout and style documents: `default-eve.md`, `component.md`, `parameters.md` (automatable host parameters only), `colours.css`, `terminal.css`, `markdown.css`, `mermaid.css`, `style.css`, `SettingsLayout.html`. Each css file gives one table of `eve.md`, and `Source/textEditor.css` gives `## text editor`. `@font-face` rules give `## fonts` |
 | `Source/buttons/`, `Source/icons/` | Button SVGs, app icon |
 
 ---

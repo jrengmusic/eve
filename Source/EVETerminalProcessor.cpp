@@ -100,8 +100,6 @@ void EVETerminalProcessor::registerEvents()
                                   {
                                       const auto numBytes { size + static_cast<int> (sizeof (char)) };
 
-                                      jassert (numBytes <= commands.getFreeSpace());
-
                                       if (size > 0 and numBytes <= commands.getFreeSpace())
                                       {
                                           commands.write (name, static_cast<size_t> (size));
@@ -124,7 +122,34 @@ void EVETerminalProcessor::registerEvents()
                              });
 }
 
-jam::TerminalFIFO& EVETerminalProcessor::getCommands() noexcept { return commands; }
+void EVETerminalProcessor::applyCommands (const std::function<void (const juce::Identifier&)>& callback)
+{
+    juce::String cut {};
+
+    commands.applyPendingData ([&callback, &cut] (const char* data, int size)
+    {
+        const char* const end { data + size };
+
+        while (data < end)
+        {
+            const char* const terminator { std::find (data, end, '\0') };
+
+            if (terminator == end)
+                cut += juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (end) };
+            else
+            {
+                const auto name { cut + juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (terminator) } };
+
+                cut = juce::String {};
+
+                if (name.isNotEmpty())
+                    callback (juce::Identifier { name });
+            }
+
+            data = juce::jmin (terminator + 1, end);
+        }
+    });
+}
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
 {
@@ -250,11 +275,7 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
     {
 #if JAM_USING_PROFILER
         juce::File manifestFile;
-        const auto* extensions { dynamic_cast<const jam::ENAXClientExtensions*> (&processor) };
-        jassert (extensions != nullptr);
-
-        if (extensions != nullptr)
-            extensions->set (Id::manifestFile, [] (juce::File&) {}, manifestFile);
+        dynamic_cast<const jam::ENAXClientExtensions&> (processor).set (Id::manifestFile, [] (juce::File&) {}, manifestFile);
 
         const auto profilerTable { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest).getChildWithName (jam::Format::toType (Id::profiler)) };
         const auto shell { profilerTable.getProperty (jam::Format::toType (Id::shell), juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() })).toString() };

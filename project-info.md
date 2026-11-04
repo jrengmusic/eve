@@ -35,7 +35,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +------------------+-------+--------------------------+-----------+--------------------------------------------------+
 | legalCompanyName | @char | @legalCompanyName        | toLiteral | Full legal company name.                         |
 +------------------+-------+--------------------------+-----------+--------------------------------------------------+
-| versionString    | @char | 0.1.0                    | toLiteral | Product version string.                          |
+| versionString    | @char | 0.0.1                    | toLiteral | Product version string.                          |
 +------------------+-------+--------------------------+-----------+--------------------------------------------------+
 | versionNumber    | int   | 0x100                    |           | Product version, JUCE hex encoding.              |
 +------------------+-------+--------------------------+-----------+--------------------------------------------------+

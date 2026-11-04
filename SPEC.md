@@ -522,7 +522,7 @@ later sprints implement it.
 | Paste | | | `cmd+v` / `ctrl+shift+v` |
 
 The default keys belong to the command's state owner. The text editor commands
-and their keys, modes and layers are jam tables (`jam/cast/gui.md`); zoom and
+and their keys, modes and layers are jam tables (`jam/cast/terminal.md`); zoom and
 settings are the plugin editor's (`jam/cast/plugin_bootstrap.md`). The first key
 of a Copy or Paste cell is macOS, the second Windows, so `ctrl+c` still sends
 `\x03`. Paste sends the clipboard to the shell, wrapped in the bracketed-paste
@@ -541,14 +541,24 @@ END also tells EVE its keyboard focus through the `focus` host parameter; EVE ta
 keyboard focus when it turns on (`PluginEditor::addCallbacks`).
 
 **Config.** `eve.md` follows END's contract. The binary carries the defaults
-(`ViewLayout.md` plus the binary css, written by `PluginEditorLayout::getDefaultSettings`);
+(`default-eve.md` plus the binary css, written by `PluginEditorLayout::getDefaultSettings`);
 a valid disk copy overlays them row by row (`ConfigDocument::addTables`,
 `Model::setValuesFrom`). The front-matter version gates a rewrite of an older file
 (`ConfigDocument::getOrCreateDefaultFile`); agents never change a version. Every key
-is lower-case words; the reader formats it when it creates the row. Theme tables use
-`light | dark` columns over a named `## colours` palette; `## terminal` holds ANSI
-0–15. A validation or column error goes to `EVEView::messageOverlay`, the default
-stays, and nothing asserts on the disk file.
+is lower-case words; the reader formats it when it creates the row. One css file gives
+one table, named by the file (`Css::getValueTree`), and its `@font-face` rules give
+`## fonts`. `## colours` holds the named palette. The other theme tables use
+`light | dark` columns over that palette; an empty
+`dark` cell means the same as `light`. A validation or column error goes to
+`EVEView::messageOverlay`, the default stays, and nothing asserts on the disk file.
+
+**ANSI colours.** The cast table `AnsiColours` (`jam/cast/terminal.md`) gives the default
+of all 256 indexes (`map::defaultAnsiColours`). `jam::StyleTerminal` tells these defaults
+to the LookAndFeel, then applies `## terminal`, so a row of that table overrides a
+default. `## terminal` holds indexes 0–16; a row for any other index is an unknown key.
+Index 16 is blank: alpha 0, so a cell with that background fills nothing, and a glyph
+with that foreground takes the default text colour. An application asks for a
+transparent background with index 16. Index 0 stays `BUNKER`, so only index 16 is blank.
 
 ## Success Criteria
 

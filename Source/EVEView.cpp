@@ -46,7 +46,7 @@ void EVEView::setResizing (bool isResizing)
 void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
 {
     if (property == Id::commandCount)
-        applyCommands();
+        getTerminalProcessor().applyCommands ([this] (const juce::Identifier& name) { invokeCommand (name); });
 
     if (property == Id::preview)
         setPreview (tree.getProperty (property).toString());
@@ -56,17 +56,10 @@ void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Ident
     {
         repaint();
 
-        auto* peer { getPeer() };
-        jassert (peer != nullptr);
-
-        if (peer != nullptr)
+        if (auto* peer { getPeer() })
             peer->performAnyPendingRepaintsNow();
 
-        const auto* extensions { dynamic_cast<const jam::ENAXClientExtensions*> (getAudioProcessor()) };
-        jassert (extensions != nullptr);
-
-        if (extensions != nullptr)
-            extensions->set (Id::promptPainted, [] {});
+        static_cast<EVEProcessor&> (*getAudioProcessor()).set (Id::promptPainted, [] {});
     }
 #endif
 
@@ -168,7 +161,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
     registration.styles = [] (jam::Registry& r)
     {
-        r.registerStyle<jam::StyleCustom> (Id::textEditor);
+        r.registerStyle<jam::StyleTerminal> (Id::textEditor);
     };
 
     registration.makeContent = [] (jam::Registry& r)
@@ -237,6 +230,13 @@ void EVEView::initialiseView()
     addAndMakeVisible (view.get());
 }
 
+juce::ValueTree EVEView::getViewDefaultKeys() const
+{
+    auto keys { jam::TextEditor::getDefaultKeys() };
+    static_cast<EVEProcessor&> (*getAudioProcessor()).set (Id::keys, [] (juce::ValueTree&) {}, keys);
+    return keys;
+}
+
 void EVEView::getAllCommands (juce::Array<juce::CommandID>& commands)
 {
     jam::PluginEditor::getAllCommands (commands);
@@ -260,7 +260,7 @@ void EVEView::getCommandInfo (juce::CommandID commandID, juce::ApplicationComman
 
 void EVEView::paintOverChildren (juce::Graphics& g) { transition.paint (g, getLocalBounds()); }
 
-EVETerminalProcessor& EVEView::getTerminalProcessor()
+EVETerminalProcessor& EVEView::getTerminalProcessor() const
 {
     return static_cast<EVEProcessor&> (*getAudioProcessor()).getTerminalProcessor();
 }
@@ -295,33 +295,4 @@ void EVEView::invokeCommand (const juce::Identifier& name)
                 defaultComponent->invoke (juce::ApplicationCommandTarget::InvocationInfo { command->commandID }, false);
         }
     }
-}
-
-void EVEView::applyCommands()
-{
-    juce::String cut {};
-
-    getTerminalProcessor().getCommands().applyPendingData ([this, &cut] (const char* data, int size)
-    {
-        const char* const end { data + size };
-
-        while (data < end)
-        {
-            const char* const terminator { std::find (data, end, '\0') };
-
-            if (terminator == end)
-                cut += juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (end) };
-            else
-            {
-                const auto name { cut + juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (terminator) } };
-
-                cut = juce::String {};
-
-                if (name.isNotEmpty())
-                    invokeCommand (juce::Identifier { name });
-            }
-
-            data = juce::jmin (terminator + 1, end);
-        }
-    });
 }

@@ -20,7 +20,7 @@ resolved against the binary-data / asset search path at load time.
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+
 | type    | name                          | format  | value                      | format    | description                                         |
 +=========+===============================+=========+============================+===========+=====================================================+
-| @string | view layout                   | toCamel | ViewLayout.md              | toLiteral | Virgin settings, seeded to eve.md.                  |
+| @string | view layout                   | toCamel | default-eve.md             | toLiteral | Virgin settings, seeded to eve.md.                  |
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+
 | @string | settings layout               | toCamel | SettingsLayout.html        | toLiteral | Settings dialog layout.                             |
 +---------+-------------------------------+---------+----------------------------+-----------+-----------------------------------------------------+

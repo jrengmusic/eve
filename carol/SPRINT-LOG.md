@@ -36,6 +36,114 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Closing with fzf Open No Longer Hangs; Version Reset; fzf and btop on the Transparent Contract ✅
+
+**Date:** 2026-11-04
+**Duration:** one session, after the eve.md cleanup log. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"closing app while fzf opened, crash"*; *"closing END while EVE terminal opened fzf still HANGS"*; *"perhaps we need better clean up, when Processor dtor"*; *"eve version should be reset to 0.0.1"*; *"also fix btop also not transparent"*; *"delete zip inside Source/plugins/"*; *"add missing handlers for claude code to eve DEBT.md"*; *"9/10 add to DEBT"*.
+
+### Agents Participated
+- COUNSELOR: reads of the close path, the triage, `project-info.md`, `CLAUDE.md`, `end/.gitignore`, `zshrc`, `btop.conf`, `DEBT.md`, the one-line race fix, this log.
+- Pathfinder (haiku): `sample` of the hung END, git history reads.
+- Engineer (sonnet): the `close()` reorder, the zip delete.
+
+### Files Modified (7 total)
+- `jam/jam_terminal/tty/native/jam_TerminalTTY_posix.cpp:281-311` — `close()` kills the child, closes the read source and the master, and only then waits for the child. Nothing reads the master after `device.stop()`, so the old wait on an open master never returned.
+- `jam/jam_terminal/tty/native/jam_TerminalTTY_posix.cpp:232` — the read handler also resumes a cancelled source, so a 0-byte event cannot leave the cancel wait blocked.
+- `eve/project-info.md:38`, `eve/CLAUDE.md:11` — version `0.0.1`.
+- `end/.gitignore:36` — the unpacked plugin folder follows the version.
+- `~/.config/zsh/zshrc:98` — fzf `bg:16`, the blank index. `~/.config/btop/btop.conf:8` — `theme_background = false`.
+- `eve/DEBT.md` — `DEBT-20261103T233912`, `DEBT-20261103T235331`, `DEBT-20261103T235332`.
+- Deleted: `end/Source/plugins/EVE v0.0.1 macOS.zip` (END's toolchain builds it again, `end/project-info.md:106`).
+
+### Alignment Check
+- [x] BLESSED principles followed — the TTY owns its cleanup order; no Processor destructor code, per CODING.md RAII rule.
+- [x] NAMES.md adhered — `isChildRunning` joins the `is` family.
+- [x] MANIFESTO.md principles applied
+- [ ] Not audited: this work came after the sprint's one Auditor pass.
+
+### Problems Solved
+- **Hang on close with fzf open.** `sample` of the hung END: 806 of 806 main-thread samples in `__wait4` under `close()`, through `~EVETerminalProcessor`, with the shell in state `U`. ARCHITECT named the cleanup; the fix reorders it. ARCHITECT confirmed: *"no more hangs with fzf"*.
+- **Why the blank colour had no effect.** fzf sent `bg:#090D12`, an opaque true colour; `bg:16` uses index 16. btop's theme colours have no index form (`nord.theme:4`), and its own files state that a transparent background needs an empty background (`nord.theme:12`), so `btop.conf:7-8` is its route.
+- **Mistakes owned.** A first race fix at `:232` from reading alone, before a stack existed; it was not the cause of the hang. A stale claim that EVE must build before END, when END's toolchain builds it (`end/project-info.md:106`). Three hand-offs of `zshrc:98` that ARCHITECT's ruling already covered.
+
+### State for Continuation
+- ARCHITECT has not yet reported fzf and btop as transparent after these edits. Test in a new shell and a restarted btop. `printf '\e[48;5;16m text \e[0m\n'` tests EVE alone.
+- `btop` differs from the ruling *"that exact colour set as fzf and btop bg colour"*, for the reason above. Read `btop.conf:7-8`.
+- `doxygen` crashed at 06:44:21 with a bus error (`~/Library/Logs/DiagnosticReports/doxygen-2026-11-04-064421.ips:46`). `docs/xml` is stale for `getIndexedColourId`. Check the next regeneration.
+- `kuassa` C++ is regenerated and not compiled.
+- `eve/CLAUDE.md:21`, `:25` name an old plan and a paid debt.
+- nvim gaps are in no ledger: cursor shape `CSI Ps SP q`, the `CSI ?u` and `CSI >` key modes, `?1004` focus events (`jam_TerminalProcessor.cpp:288`, `:299`, `jam/cast/terminal.md:1286-1297`).
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261103T235332` — move old `END.app` into the endless repo before the first Release install (ARCHITECT: *"9/10 add to DEBT"*).
+- `DEBT-20261103T235331` — route dev END and EVE to `~/.config/dev/` (ARCHITECT: *"9/10 add to DEBT"*).
+- `DEBT-20261103T233912` — live decoder handlers for Claude Code (ARCHITECT: *"add missing handlers for claude code to eve DEBT.md"*).
+
+---
+
+## Sprint: eve.md Cleanup — One Table per Css File, AnsiColours in Cast, Index 16 Is Blank ✅
+
+**Date:** 2026-11-04
+**Duration:** one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** `PLAN-eve-md-cleanup.md`. *"this sprint i want to focus on cleaning up eve.md"*; *"markdown/mermaid will be absorbed from whelmed as eve native markdown/mermaid renderer, so those related colour definition stays."*; *"we should just rename it to default-eve.md"*; *"should not be harcoded to module. either the SSOT comes from css or table generated static by cast"*; *"ANSIColours?"*; blank colour design: *"eve set a colour, an ansi colour that terminal understand"*, *"that colour set to blank, 0 alpha, nothing to paint, transparent"*, *"that exact colour set as fzf and btop bg colour"*, *"jam::TerminalGraphics must true to its contract, no hacking no shortcut, no circus of anything to just deliver per terminal spec"*; index *"16"*.
+
+### Agents Participated
+- COUNSELOR: PLAN, every validation read, the triage of the audit, `SPEC.md`, `README.md`, `CLAUDE.md`, one line in `jam_StyleTerminal.cpp`, this log.
+- Pathfinder (haiku): discovery reads, cast and rename inventory, style and config read path, the doxygen pass.
+- Engineer (sonnet): cast tables, `StyleTerminal`, css split, audit fixes, every cast run.
+- Auditor (opus): one pass, 14 findings.
+
+### Files Modified (29 total, generated output excluded)
+**jam:**
+- `cast/terminal.md:123` — `## TerminalIndexed` is `## AnsiColours`; rows `colourN`, `ansi colourN colour id`; new `colour` column with the default ARGB word of all 256 indexes; `Id::terminal` row moved in from `cast/gui.md`, because `jam_terminal` sits below `jam_gui`.
+- `cast/style.md:577-832` — `ansiColourNColourId`, `ansi colourN colour id`; keys `0x1`–`0x100` unchanged.
+- `cast/spell.md:1784-1789`, `:2276-2286` — `AnsiColours` bimap; new `defaultAnsiColours` lookup table.
+- `jam_terminal/style/jam_StyleTerminal.h`, `.cpp` (new) — sets all 256 defaults at construction; `setAppearance` applies the `terminal` sheet, then the component sheet. Shape of `StyleMarkdown::setAppearance`.
+- `jam_terminal/jam_terminal.h:39`, `:114-115`, `jam_terminal.cpp:54-55` — includes and the order prose.
+- `jam_terminal/document/jam_AnsiDocument.h:221-229` — `getIndexedColourId` public; `jam_AnsiDocument.cpp:701-716` — `map::AnsiColours`.
+- `jam_markdown/document/jam_ConfigDocument.cpp:203-204` — a property table with a `dark` column always holds a DARK child; `:422-431` `hasReference`; `jam_ConfigDocument.h:96`, `:215-218` doc.
+- `jam_web/css/jam_Css.cpp:204`, `:1966-1967` — `compare`, not `==` or `!=` on strings.
+- `resources/textEditor.css` — 512 indexed rows deleted.
+
+**kuassa:** `user_modules/cast/style.md` — same 256 rows as jam.
+
+**eve:**
+- `Source/layout/colours.css`, `terminal.css`, `markdown.css`, `mermaid.css` (new); `Source/layout/style.css`, `Source/textEditor.css` — one css file for one table; 21 palette names; 17 `terminal` rows; 480 forwarding rows and 350 duplicate dark rows gone.
+- `Source/layout/ViewLayout.md` renamed `default-eve.md`; `cast/files.md:23`.
+- `Source/EVEView.cpp:171` — `registerStyle<jam::StyleTerminal>`.
+- `SPEC.md` Config and ANSI colours; `README.md:73`; `CLAUDE.md:46`; `PLAN-eve-md-cleanup.md`.
+
+### Alignment Check
+- [x] BLESSED principles followed — cast is the one source of the 256 defaults; no new path in `jam::TerminalGraphics`.
+- [x] NAMES.md adhered — `AnsiColours` is ARCHITECT's word; `defaultAnsiColours`, `StyleTerminal`, `hasReference` join existing families.
+- [x] MANIFESTO.md principles applied
+- [ ] Doxygen not regenerated; ARCHITECT regenerates and reads the warning count. `docs/xml` is stale for `getIndexedColourId`.
+
+### Problems Solved
+- **Why eve.md had 2155 lines.** `getDefaultSettings` writes the whole css tree. `textEditor.css` held 240 hex rows and 240 forwarders to them, because `addAppearance` stores only a `var()` name. All 240 are fixed values with one reader.
+- **Layout.** One sheet is one css file (`jam_Css.cpp:2206`), so the split needed no translation layer. `colours.css` uses the path that `toDocument`, `getTypeName` and `getColourValue` already had.
+- **Transparent background with black intact.** ARCHITECT's design: EVE sets one ANSI index to blank, and the application asks for that index. Paint already fills nothing at alpha 0 (`jam_GlyphArrangement.h:136`). No code path changed.
+- **Audit.** 14 findings. Resolved: 1 (regression: a disk `dark` cell had no effect), 2, 4, 5, 6, 7, 8, 9, 10, 13, 14 `ConfigDocument`, 14 `Css` strings. Rejected: 3 (the PLAN names a set, not an order), 11 (`setMonoFont` replaces a complete state), 12 (Decision 6 and `end/PLAN-end-eve-config.md:243`), 14 `Css:1764-1767` (a copy in creation), 14 `end/CLAUDE.md:44` (no CONTRACT clause).
+- **Mistakes owned.** A question that `end/PLAN-end-eve-config.md:45` had answered; `defaultColorRegisters` offered as a sibling with no read of its semantics; an `addGlyph` rule against EVE's contract, withdrawn; a claim that a glyph at index 16 goes blank, when it takes the default text colour (`jam_GlyphArrangement.cpp:598`); a stale `Id::toType` in a pasted sibling, the one build error.
+
+### State for Continuation
+- Builds: `cast cast/spell.md` in jam and kuassa/user_modules, `cast cast/spell.md --debug` in eve: exit 0, 0 errors, 0 warnings. After the build, the doxygen pass changed comment text only. END and kuassa C++ are not built; run cast there and build.
+- ARCHITECT's test: delete `~/.config/end/eve.md` first (version stays `0.0.1`). Read the new tables. `printf '\e[48;5;16m text \e[0m'` shows no fill.
+- App side, MACHINIST: `~/.config/zsh/zshrc:98` `bg:#090D12` becomes `bg:16`. btop: a `.theme` file with background `#000000`, and `truecolor = false` (`btop.conf:5`, `:10`). The btop source is not on disk, so the first run shows which index btop sends.
+- Regenerate doxygen (`ninja doxygen`; jam `<leader>bd`).
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
+---
+
 ## Sprint: Resize Is One Final Stop, the Active Prompt Anchors at Home, Column Grids Reflow in History ✅
 
 **Date:** 2026-10-31
@@ -377,207 +485,4 @@ jam (`git -C jam status --short`, 2026-10-30):
 - None
 
 ---
-
-## Sprint: EVE Launch in Subseconds — Terminal Round Trip on the JUCE Plugin Contract; Style Is the Sole Raster Author ✅
-
-**Date:** 2026-10-21
-**Duration:** multi-session, 2026-10-19 → 2026-10-21 (jam Sprint 170 is the framework record; KANJUT Sprint 148)
-**Plan:** `PLAN-launch.md` (Part A, Part B v3 V0–V9, Part C C0–C3, Audit 2 resolution, rulings 1–67, Step R)
-
-### Agents Participated
-- COUNSELOR — plan, rulings record, every delegation brief, validation of each Engineer return by own reads, visual validation of the captures, PLAN/RFC amendments, log.
-- Pathfinder (haiku) — code and manifest reads, git history of `lookAndFeelChanged`, kernel submodule set difference, capture sweeps, timing runs.
-- Engineer (sonnet) — implementation, cast builds, `cast --sync`, KANJUT manifest mirror, doxygen pass.
-- Auditor (opus) — Audit 2, once; findings resolved or rejected with reads (PLAN "Audit 2 — resolution").
-
-### Decisions (ARCHITECT, verbatim, this segment)
-1. *"the sole author should be Style since the SSOT is css-settings. so css carried by binary as default, write to disk as settings (exactly like other settings contract), settings always win, when a project did not "open" the parameter as settings, Style always return the default carried css. eve should have settings for rasterisation, embolden, etc it's the contract carried from old end (endless)"*; *"EVE using its own eve.md"*.
-2. *"both StyleTheme are identical. it's kernel module. both framework should be synced with cast --sync. be careful with the design. don't break JFS. IIUC JFS is the example of rasterisation/embolden default value carried by css, but never write to Settings. the contract Holds"*.
-3. *"StyleManager should be GlyphAtlas agnostic whenever Vulkan not included as deps"*; *"LookAndFeel communicate to GlyphAtlas. Window is responsible for rendering engine, PluginEditor should not ever know about Vulkan"*; Vulkan contract unchanged (*"why the fuck do you think you need to change all Vulkan contract?"*).
-4. *"history capacity same Settings contract: ViewLayout.md to eve.md, 10k row"*.
-5. *"if it changes toInt signature just create overload. toInt without flag always nearest"*.
-
-### Files Modified (EVE)
-- `Source/EVETerminalProcessor.h/.cpp` — new: the JFS chain shape (ruling 37); `load` maps the harness `readOnly`, parses, paints once into `terminal::GraphicsContext`; `prepare` sizes the live lane by the winsize and the history lane by the winsize plus `HISTORY_CAPACITY` rows (`:20-31`).
-- `Source/EVEAudioProcessor.h` — deleted (renamed to `EVETerminalProcessor`).
-- `Source/EVEProcessor.h/.cpp` — chain member `terminalProcessor`, `prepareToPlay` / `process` / `setStateInformation` drive it.
-- `Source/EVEView.h/.cpp`, `EVEViewComponents.cpp`, `EVEViewPanelCallbacks.cpp` — the View tells the harness `File` and the winsize; it never touches the engine.
-- `Source/layout/ViewLayout.md` — `## settings` rows `RASTERIZER freetype`, `GAMMA 2.2`, `CONTRAST 0.0`, `EMBOLDEN false`, `HISTORY_CAPACITY 10000` (version unchanged, 0.0.2).
-- `cast/identifiers.md` — `historyCapacity` row; `Source/generated/Identifiers.*` regenerated by cast.
-- `Source/layout/style.css`, `component.md`, `ViewLayout.md` — harness and terminal rows.
-- `CLAUDE.md`, `project-info.md` — stale panel/about text removed.
-- `RFC-EVE-terminal-grand-scheme.md` — amended (§0–§3.10; §3.10 raster configuration and history capacity).
-- `PLAN-launch.md` — new; rulings 1–67, Step R and its state.
-
-### Alignment Check
-- [x] BLESSED principles followed — one author per value (Style), settings win over the CSS default, no shadow defaults in the theme, no atlas call in StyleManager, Vulkan contract unchanged.
-- [x] NAMES.md adhered — `historyCapacity` from ARCHITECT's words; `liveCapacity`, `getFontsStyleValue`, `applyCoverage` join existing families; settings keys are `Id::toTag` of existing ids.
-- [x] MANIFESTO.md principles applied — creation clause for the parse (A04); lock-free FIFOs; materialisation at load, paint reads only.
-
-### Problems Solved
-- Launch: Release, warm, from exec — editor +257 ms, first window paint +706 ms, history pulled +893 ms (PNG write `Z_BEST_SPEED`, `PNG_FILTER_NONE`: encode 220 → 62 ms for 51 images).
-- Widen reflow: `TextEditor::resized()` (JUCE `updateVisibleArea` fires `visibleAreaChanged` only on a changed visible area).
-- Raster configuration had three authors (VulkanEngine constructor, StyleTheme hard defaults, PluginEditor pokes): Style is now the sole author through `StyleManager::getFontsStyleValue`; the LookAndFeel tells the atlas.
-- A05: one capacity sized both lanes; now history and live are sized separately.
-
-### State for Continuation
-- Builds through cast, 0 errors, 0 warnings: EVE `--debug` and `--no-sign`; jfs `--debug` and `--no-sign`; kuassa `cast cast/spell.md`. Doxygen 0 warnings: jam, KANJUT, EVE (nvim `Doxyfile.project` template; EVE's CMake has no `doxygen` target).
-- `~/.config/end/eve.md` and `~/Library/Application Support/EVE.settings` were deleted and re-seeded by the Debug run (ruling 55); the seed carries the new `## settings` rows (`eve.md:63-71`). A host session saved before this sprint restores a state without `HISTORY_CAPACITY` (`AudioModel::setState` replaces the whole state, `jam_AudioModel.cpp:177-181`); `prepare` asserts `historyRows > 0`.
-- Visual validation (Debug, fresh seed): f0, f03, f45, f6, f99 render text, code, lists, rules, links, logos and mermaid correctly.
-- The Release launch was not measured again after Step R; the timing scripts need the ephemeral `launch` lines (`timing.sh:13`).
-
-### Debts Paid
-- `DEBT-20261016T214137` — EVE opens in subseconds (first window paint +706 ms Release, warm); the terminal round trip runs on the JUCE plugin contract.
-
-### Debts Deferred
-- None
-
----
-
-## Handoff to COUNSELOR: EVE launch in subseconds (DEBT-20261016T214137) — terminal I/O on the JFS/TETRIS topology [CONSUMED — superseded by the sprint above]
-
-**From:** COUNSELOR
-**Date:** 2026-10-20
-**Status:** Consumed
-
-### Context
-Objective: *"EVE opens in subseconds, grand total, like jfs; find and remove every bottleneck on the launch path."* Run mode: *"no gate until /log"*. Part A (launch path) is mostly done in the working tree. The first-load still blocks the message thread: Debug stages were source `setRows` 1160 ms, `endFrame` 1652 ms, `AnsiDocument::parse` 1427 ms, destination `setRows` 1491 ms, `setContentSize`/repaint 544 ms. ARCHITECT then directed a redesign of the terminal I/O on the audio-plugin topology (JFS = `jreng-filter-strip`, TETRIS contract). The design is complete and recorded in `PLAN-launch.md` Part B (rulings 16–29 verbatim, steps B1–B8, all points resolved).
-
-### Completed
-- Part A in the working tree (not built after the last changes): ImageLoader content memo, file/memory sources, encode chain mirroring decode, SIMD unpremultiply; `applyTo` deleted → `Css::getValueTree`; settings-from-disk contract restored (D3 struck); TextEditor `load`, materialise at layout; `GraphicsEngine (juce::OutputStream&)`; `Typeface` removed from the terminal engine; `style.css` `--TextEditor--backgroundColourId`; jam_terminal keeps `jam_style`.
-- Auditor item 13 fixed: every libpng `setjmp` is in a `noexcept` frame with trivial locals (`readPngHeader`, `readPngRows`, `writePngRows`; `jam_ImageLoader.cpp:444-456`, `:475-507`, `:654-675`), JUCE pattern `juce_PNGLoader.cpp:389-404`.
-- KANJUT DSP contract restored: `kuassa/user_modules/codebase-for-dummies/docs/TETRIS.md` (947 lines, sha256 `12281fe0…6208`, from `9571d363`); ARCHITECT also placed a copy at `kuassa/user_modules/TETRIS.md`.
-- `PLAN-launch.md` rewritten: Part A status + Part B design.
-
-### Remaining
-- Part B steps B1–B8 (`PLAN-launch.md`): `TerminalFIFO` (juce::OutputStream over juce::AbstractFifo), `AnsiBuffer` + GraphicsEngine on TETRIS verbs `prepare`/`process`/`reset` (delete `beginFrame`/`endFrame`, all draw scratch allocated in `prepare`), `TerminalProcessor` (chain member), `EVEAudioProcessor` as the chain, `EVEProcessor::prepareToPlay`/`process` drive it, AnsiDocument append path `addLines`, ViewEditor owns AnsiDocument and pulls (Analyzer timer shape), TextEditor reflow over stored advances (resize currently does not reflow: `visibleAreaChanged` only calls `setContentSize`, `jam_TextEditor.cpp:59-63`).
-- Part A leftovers: Steps 2, 5, 6, 7, 9, 10 status must be checked against the working tree.
-- Open Auditor items: 3, 6, 8, 9, 15, 20, 29, 32.
-- Remove the ephemeral `launch` timestamp lines (`jam_AudioStandaloneApp.cpp`, `EVEViewComponents.cpp`, `jam_TextEditor.cpp`, `jam_TerminalGraphicsEngine.cpp`).
-- Build/measure by ARCHITECT; @Auditor once; doxygen pass (stale blocks above `createPngReadState` and `readPngRowsToImage` in `jam_ImageLoader.cpp`); log; `carol debt clear DEBT-20261016T214137`.
-
-### Key Decisions
-- Topology identical to JFS (ARCHITECT: *"ISOMORPHIC, ANALOGOUS, IDENTICAL topology on how Audio Plugin designed. JFS is the example"*). `processBlock` is the clock and drains the bytes. TETRIS layers: plugin processor → chain → members; allocation only in `prepare` (*"Processor IS ALLOCATE"*).
-- AnsiDocument is the append-only scrollback SSOT on the message thread, owned by ViewEditor, cleared only by `clear`, never by SIGWINCH/resize (*"why reparsing? FUCK NO…"*). AnsiDocument = parse, reflow, metadata; TextEditor = materialise; Processor = transport.
-- TerminalGraphics sends bytes, is thread agnostic: Component-driven on the message thread for a TUI and for this sprint's harness; a chain processor for the real terminal.
-- Names ruled: `TerminalProcessor`, `TerminalFIFO`, `AnsiBuffer`, TETRIS verbs only. `TerminalProcessor` is NOT YAGNI (*"EVE is actual terminal emulator… you bypass the foundation, you will writing WRONG MENTAL MODEL"*).
-- One viewport screen (winsize) per send; ring sized by the winsize; ring capacity ≠ scrollback cap.
-
-### Files Modified
-- `jam/jam_graphics/image_formats/jam_ImageLoader.h/.cpp` — content memo, encode chain, setjmp frames.
-- `jam/jam_graphics/fonts/jam_SimdBlend.h` — SIMD unpremultiply.
-- `jam/jam_gui/widgets/jam_TextEditor.h/.cpp` — load, materialise at layout, image registration.
-- `jam/jam_terminal/graphics/jam_TerminalGraphicsEngine.h/.cpp` — OutputStream sink, no Typeface.
-- `jam/jam_terminal/jam_terminal.h` — dependencies.
-- `jam/jam_web/css/jam_Css.h/.cpp` — `applyTo` deleted, `getValueTree` overloads.
-- `jam/jam_markdown/document/jam_MarkdownDocument.cpp` — `isImage` without decode.
-- `jam/jam_plugin_bootstrap/*` — settings tree names.
-- `eve/Source/EVEViewComponents.cpp` — harness chain (to be replaced by Part B).
-- `eve/Source/layout/style.css` — TextEditor background colour.
-- `eve/PLAN-launch.md` — Part B.
-- `cast/Source/Help.cpp`, `stamp/Source/Main.cpp` — Css API callers.
-- `kuassa/user_modules/codebase-for-dummies/docs/TETRIS.md` — restored.
-
-### Open Questions
-- None in the plan. ARCHITECT's standing instruction: never ask what the discussion or the code answers; execute.
-
-### Next Steps
-- Read `PLAN-launch.md` Part B and `kuassa/user_modules/TETRIS.md`. Start B1 (`TerminalFIFO`): owner APIs read — `juce::AbstractFifo` (`juce_AbstractFifo.h:92-112`, `:154-204`, scoped `read`/`write` `:292`, `:314`), `juce::OutputStream` pure virtuals (`juce_OutputStream.h:66`, `:75`, `:81`, `:95`), non-seekable sibling `GZIPCompressorOutputStream::setPosition` → `jassertfalse; return false;` (`juce_GZIPCompressorOutputStream.cpp:163-167`). Delegate B1–B8 to Engineer with no build; ARCHITECT builds.
-
----
-
-## Sprint: No Panel, Settings on cmd+, — EVE on the Optional-Panel Bootstrap and the Settings Vocabulary ✅
-
-**Date:** 2026-10-19
-**Duration:** one long session (jam Sprint 169 is the primary record: decisions, design, audit triage, violations)
-**Plan:** `PLAN-optional-panel-settings.md` (approved; last step the log)
-
-### Decisions (ARCHITECT)
-1. *"without PanelLayout.html, determinisitically Panel should not be created at all"*; **"Delete About"**; Settings *"created with keyboard shortcut"*, **"cmd+,"**.
-2. *"stick to EVERYTHING using 'Settings', only diverge with markdown vs xml"*; lane type **"SettingsDocument<FormatDocumentType>"**.
-
-### Files Modified
-- Deleted: `Source/layout/PanelLayout.html`, `AboutLayout.html`, `Source/images/JRENG_logo.png`, `Source/buttons/settings_{normal,over,down}.svg`, `cast/lookuptables.md`, `Source/generated/LookupTables.h`.
-- `cast/files.md`: `panel layout`, `about layout`, `settings normal/over/down` rows out; `config directory` → `markdown settings directory`, `default config` → `markdown settings file name`.
-- `cast/identifiers.md`: `animationStrip`, `buttonDialog`, `developer`, `jreng`, `jrengLogo` rows and `## tags` out. `cast/spell.md`: lookup-table and tags blocks out. `project-info.md`: `images` glob row out, `html` description.
-- `Source/EVEView.h/.cpp`: `initialisePanels`, `attachAboutDialog` out; `getOrCreateSettings`; `initialiseTheme (settings)`.
-- `Source/EVEViewPanelCallbacks.cpp`: only the `UIScale` callback. `EVEViewRegistration.cpp`: settings ButtonSVG, ButtonLogo, ButtonDialog out. `EVEViewComponents.cpp`: AnimationStrip, ScrambledText, `aboutBox` content out.
-- `Source/EVEProcessor.h/.cpp`: `jam::SettingsDocument<jam::ConfigDocument>`, `files::markdownSettingsDirectory`, `files::markdownSettingsFileName`.
-- `Source/layout/ViewLayout.md`: `## keys` row `settings | string | cmd+,`; version `0.0.2`.
-- `PLAN-optional-panel-settings.md`: new.
-
-### State for Continuation
-- Build `cast cast/spell.md --debug`: `EXIT=0`, 0 errors, 0 warnings. ARCHITECT runs EVE Standalone: no panel row; `cmd+,` opens Settings; APPEARANCE / UI_SCALE write to `~/.config/end/eve.md` (re-seeded by version 0.0.2).
-- `CLAUDE.md` Source/layout row still lists `PanelLayout.html` and `AboutLayout.html`.
-- Next (ARCHITECT): the TextEditor state machine with ValueTree.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
-## Sprint: One Atom, One Style Word, Both Lanes on One SSOT — CMYK Mermaid, Display-Scale Diagrams ✅
-
-**Date:** 2026-10-17
-**Duration:** one long session (jam Sprint 168 is the primary record: decisions, design, audit triage, violations)
-**Plan:** `~/.claude/plans/playful-greeting-locket.md` (approved; ARCHITECT *"proceed until /log"*)
-
-### Decisions (ARCHITECT)
-1. *"BOTH lane must be IDENTICAL, ANALOGOUS, ISOMORPHIC, even implemented with the EXACT SSOT method"*; **"One style word per run"**; **"Font alias sets size"**; **"Each font use is a role"**.
-2. *"mermaid.css colour scheme need to converge with terminal.css … cast --help css is the CMYK scheme"*; *"i dont like the white bg for railroad, should be inverted"*; version **"0.0.1"**.
-
-### Files Modified
-- `Source/EVEViewComponents.cpp`:
-  - `StyleMarkdown { Id::toType (Id::style), appearance }` is built once with its told sheet.
-  - The engine is told `setColorMode`; the pixel scale is the TextEditor scale × `Displays::getDisplayForRect (…)->scale` (precondition asserted).
-  - Wire true colours are registered on the TextEditor's LookAndFeel before `setDocument`; `setIndexedColours` is gone; `getOrCreateMonoMetrics`.
-- `Source/layout/style.css`:
-  - 646 `--MermaidDiagram--…ColourId` rows (323 per appearance block, both blocks identical, EVE's pattern) map jam's mermaid scheme to CMYK through `--terminalIndexed11/13/14/15/233`. Fill brightness follows jam's own label pairing; each label takes its contrast from its fill.
-  - 71 `--MermaidDiagram--…FontId` slots point at `var(mono)`; `var(--terminalIndexedN)` replaces `--terminalPaletteN`.
-- `Source/layout/ViewLayout.md:2`: `version: 0.0.1`.
-- `markdown/markdown.md`: HELP.md appended (harness).
-
-### State for Continuation
-- Run `cast` for jam and eve before the build (new jam `.cpp` manifest rows). ARCHITECT builds and checks the mermaid diagrams, headings, decorations and images in the TextEditor.
-- Open rulings are listed in jam Sprint 168 (eve-side: the round-trip harness duplication with cast, `std::tmpfile` on Windows, `__FILE__` harness path, stale `CLAUDE.md` / `SPEC.md` lines).
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
-## Sprint: Terminal LLGC Round Trip — TextEditor as the Harness ✅
-
-**Date:** 2026-10-16
-**Duration:** one session (jam Sprint 167 is the primary record: decisions, design, audit triage, violations)
-**Plan:** `~/.claude/plans/playful-greeting-locket.md` (approved; last step the log)
-
-### Decisions (ARCHITECT)
-1. **"One chain in EVE"**; **"TextEditor only"**; *"delete llgc parity. This sprint IS the llgc parity with TextEditor as the harness"*.
-2. **"Images and mermaid"**; **"Diagram is an Image"**; *"terminal.css, but config contract is IDENTICAL"*.
-
-### Files Modified
-- `Source/EVEViewComponents.cpp`:
-  - `getCapturedBytes` (`std::tmpfile`, positive nesting) and `getTerminalFrame` (the `cast --help` chain on `markdown/markdown.md`, inline images on).
-  - The TextEditor registration, its config (`AnsiDocument::parse (data, size)` into `TextEditor::setDocument`) and `registerStyle<jam::StyleCustom> (Id::terminal)`.
-  - The `MarkdownComponent` and `StyleMarkdown` registrations are deleted, and the URL is now `Id::companyWebsite`.
-- `Source/layout/component.md`: one row, `textEditor` with style `terminal`. `Source/layout/ViewLayout.md:2`: version 0.0.2.
-- `project-info.md`: `jam_terminal` user module; `@terminal-style` alias; `## binary` row `terminalStyleSheet`.
-- `cast/identifiers.md`: `terminal`, `textEditor`. `cast/files.md`: `harness` (`markdown.md`).
-- Generated by cast: `CMakeLists.txt`, `Source/generated/Identifiers.*`, `Files.*`.
-- `tests/llgc_parity/`: deleted.
-
-### State for Continuation
-- Builds: `cast cast/spell.md --debug` 0 errors, 0 warnings (after the doxygen pass and the KANJUT sync).
-- ARCHITECT runs EVE Standalone. The window shows the TextEditor with `markdown.md` through the terminal round trip. The first launch replaces `~/.config/end/eve.md` with the default (version 0.0.2).
-- `tests/ansi_fixpoint` calls APIs that jam no longer declares.
-- `CLAUDE.md` still lists `tests/llgc_parity` and the TextEditor-era layout.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
 

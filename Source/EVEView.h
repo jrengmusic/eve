@@ -78,6 +78,18 @@ private:
     void initialiseView() override;
 
     /**
+     * @brief Returns the default keys of the text editor for the view commands.
+     *
+     * The keys come from jam::TextEditor::getDefaultKeys().
+     * The processor then runs the `Id::keys` rule of its ENAX client extensions on the keys.
+     * Under END, that rule removes the `normal` and `prefix` rows.
+     * Under any other host, the rule is not registered, so the keys stay unchanged.
+     *
+     * @return The default key sheet of the text editor.
+     */
+    juce::ValueTree getViewDefaultKeys() const override;
+
+    /**
      * @brief Adds the id of every command of the editor: the commands of the plugin editor and the commands of `map::CommandId`.
      * @param commands  Array that receives the ids.
      */
@@ -111,7 +123,7 @@ private:
     /** @brief Clears the screen and the saved lines of the terminal. */
     void clear();
 
-    EVETerminalProcessor& getTerminalProcessor();
+    EVETerminalProcessor& getTerminalProcessor() const;
 
     /**
      * @brief Sets the visibility of the side preview from a path. A non-empty path shows the side preview, and an empty path hides it.
@@ -127,14 +139,6 @@ private:
 
     /** @brief Returns `true` when the model says that the side preview is visible. */
     bool isPreviewVisible() const;
-
-    /**
-     * @brief Runs each command that the shell wrote to the command FIFO.
-     *
-     * The names are terminated by a null byte. A name that spans two pending blocks is joined before it is matched.
-     * A name that the command manager has no command for is ignored.
-     */
-    void applyCommands();
 
     void invokeCommand (const juce::Identifier& name);
 

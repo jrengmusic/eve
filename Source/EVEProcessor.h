@@ -88,10 +88,10 @@ private:
 
     jam::PluginEditorLayout layout {
         jam::PluginEditorLayout::create<jam::SettingsDocument<jam::ConfigDocument>> (
-            *this,
             BinaryData::fetcher,
             files::viewLayout,
-            files::viewLayout)
+            files::viewLayout,
+            [this] (const auto& fallback) { set (Id::engine, fallback); })
     };
 
     jam::ParameterManager parameterManager {
