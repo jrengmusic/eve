@@ -36,6 +36,55 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Keyboard Focus Follows Pane Focus; MatrixComponent Owns the Pane Focus Commands ✅
+
+**Date:** 2026-11-04
+**Duration:** one session, after the Shift+Enter log. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"keyboard focus is not following pane focus. this is contract violations. i need to click the pane although it already focused (the outline shows) after creating new split. all must be event driven, not manually manage the state maching"*; *"SSOT, navigating with prefix + hjkl, clicking, moving focus after split, etc must be exact ONE commandId, feasible?"*; *"then the design is wrong. if focus management is MatrixComponent responsibility, then it's MatrixComponent commandId, END only tell"*.
+
+### Agents Participated
+- COUNSELOR: reads of the focus path, the plugin load order, the JUCE command target chain, the cast module table; validation of each changed line; the module table row move; this log.
+- Engineer (sonnet): `EditorView` change, the move of the commands to `MatrixComponent`.
+- Auditor: not run. ARCHITECT: *"do not audit until i explicitly say so"*.
+
+### Files Modified (12 total)
+- `end/Source/ui/EditorView.cpp:163-183` — the plugin-loaded event writes the row's `Id::focus` into the plugin's `focus` parameter, through the one write site that `Id::focus` uses. No new state and no helper.
+- `jam/cast/gui.md:55-58`, `:226` — `Id` rows `paneDown`, `paneLeft`, `paneRight`, `paneUp`; new `MatrixCommandId` table, ids from `0x4900001`.
+- `jam/cast/spell.md:950-961` — `map::MatrixCommandId` in `jam_Gui.h`, a copy of the `TextEditorCommandId` row.
+- `jam/user-modules-info.md:988` — `commands/jam_CommandManager.h` moves above `layout/jam_OwnedComponent.h`. This table gives the include order of the generated `jam_gui.h`.
+- `jam/jam_gui/layout/jam_MatrixComponent.h:18-19`, `:100-106`, `:141`, `:220-221` — `juce::ApplicationCommandTarget` base, its four overrides, `focusPane`, `matrixCommandId`, `commandManager`.
+- `jam/jam_gui/layout/jam_MatrixComponent.cpp:10`, `:16`, `:341-379` — both constructors register the commands; `perform` looks up the direction and calls `focusPane`, which ends in `setFocusedChild`.
+- `end/cast/bimaps.md`, `end/cast/identifiers.md` — the four pane focus rows are deleted.
+- `end/Source/ui/ENDView.h`, `end/Source/ui/ENDView.cpp:31`, `:70-73` — `registerFocusActions` is deleted; `getNextCommandTarget` returns `getActiveTabView()`; `setKeyPresses` runs after `newSession`.
+- `end/Source/ui/TabView.h`, `end/Source/ui/TabView.cpp` — `focusPane` is deleted.
+
+### Alignment Check
+- [x] BLESSED principles followed: `setFocusedChild` stays the one focus write; the owner of the panes owns the commands; END tells through the target chain.
+- [x] NAMES.md adhered: `MatrixCommandId` joins `TextEditorCommandId`; `focusDirections` keeps its existing name as a dispatch noun (Rule 8).
+- [x] MANIFESTO.md principles applied
+- [ ] Not validated by a clean compile. The last build gave one error, fixed after that build, and no build ran after the fix.
+- [ ] No Auditor run, on ARCHITECT's word.
+
+### Problems Solved
+- **A new split had the outline but no keyboard focus.** `split` runs `childAdded`, then `setFocusedChild` (`jam_MatrixComponent.cpp:342`), which writes the row's `Id::focus` (`jam_OwnerComponent.cpp:111`). At that time `editor` is null, so the old write site dropped the event. The plugin loads asynchronously (`Session.cpp:91-93`), and `Id::name` then builds the editor (`Session.cpp:115`). No focus write followed, so EVE's `focus` parameter stayed 0. A second `setFocusedChild` would do nothing, because `ValueTree` sends no event for an unchanged value (`juce_ValueTree.cpp:144-145`).
+- **Command ownership.** One `commandId` for every focus path is not possible: a command carries no argument (`juce_ApplicationCommandManager.h:219`, `ENDView.cpp` `perform`), and each key row maps to one command (`jam_CommandManager.cpp:28`). ARCHITECT's design holds: `MatrixComponent` owns four commands, and click and split were already inside it (`jam_OwnerComponent.cpp:94`, `jam_MatrixComponent.cpp:342`).
+- **`CommandManager` unknown at `jam_MatrixComponent.h:221`.** The include order of `jam_gui.h` comes from `jam/user-modules-info.md`, so `cast` overwrote the hand edit.
+- **Mistakes owned.** A code edit before ARCHITECT's *"discuss first"*. A layer argument against a JAM command id, which `TextEditorCommandId` refuted. A plan step that edited generated `jam_gui.h` when the source is `user-modules-info.md`.
+
+### State for Continuation
+- Build `jam` through `cast` first. Check that `jam_gui.h` gives `commands/jam_CommandManager.h` above `layout/jam_OwnedComponent.h`, and that `map::MatrixCommandId` has its four enum names.
+- ARCHITECT tests these: a new split takes keys with no click; the first pane of a new tab takes keys; prefix + hjkl moves focus, and keys follow; the same after a tab switch.
+- `setKeyPresses` now runs inside the `callAsync` of the `ENDView` constructor (`ENDView.cpp:31`). A key sheet row of a pane command is skipped if it runs before a `TabView` exists (`jam_CommandManager.cpp:14`). `ENDView.cpp:445` sets it again on a config event.
+- The command chain has a loop: `ENDView` goes to the active `TabView`, and `TabView` goes to its parent target, `ENDView`. `getTargetForCommand` asserts on the loop only for a command that no target owns (`juce_ApplicationCommandTarget.cpp:111`). Every registered command has an owner, so this path does not run.
+- The new `MatrixComponent` declarations have no doxygen. They wait for the comment pass.
+- The state of the three previous checks in the Shift+Enter log is partly known: `cast` ran, and the build reached `jam_MatrixComponent.h`. Shift+Enter and the dev config root are not reported as tested.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
 ## Sprint: Shift+Enter Is a Terminal Key Row; Debug END and EVE Use the Dev Config Root ✅
 
 **Date:** 2026-11-04
@@ -408,135 +457,4 @@ jam (`git -C jam status --short`, 2026-10-30):
 ### Next Steps
 - Start at Remaining item 1, when ARCHITECT reports the Step 14 run. Fix each runtime failure from a read, per CAROL.md Failure Protocol.
 - Log when ARCHITECT says "log sprint".
-
-## Sprint: TextEditor nvim Parity — the Harness Is an Editable Buffer; History in the TextEditor, Live in the Processor ✅
-
-**Date:** 2026-10-24
-**Duration:** multi-session, 2026-10-23 → 2026-10-24
-**Plan:** `PLAN-texteditor-nvim-parity.md` (Steps 0–12, Amendments A and B, the B corrections, the Audit B triage). jam Sprint 171 is the primary record.
-
-### Decisions (ARCHITECT, verbatim)
-1. *"vim core features parity first then. so we have interactivity, correct design by contract of TextEditor state machine with juce::ValueTree. and the harness file just become another file to load and edit."*
-2. *"TextEditor state machine, (juce::ValueTree) will be attached to EVEProcessor APVTS"*.
-3. *"eve terminal "NORMAL" screen is actually always in TextEditor INSERT mode"*.
-4. *"scrollback budget always cap from settings"*; *"what scollback budget? not scrollback capacity?"*.
-5. *"decouple. Processor is live buffer, TextEditor will hold history at least that's how the terminal designed. so SIGWINCH never ever destroy history content."*
-
-### Agents Participated
-- COUNSELOR — plan and amendments, briefs, validation by read, audit triage, SPEC/RFC amendments, log.
-- Engineer (sonnet) — code, builds, sync, doxygen. Pathfinder (haiku) — reads, inventory. Auditor (opus) — three audits.
-
-### Files Modified (10 tracked + 1 new)
-- `Source/EVETerminalProcessor.h/.cpp`:
-  - `load` and its print helpers are deleted.
-  - The `Id::textEditor` getter `(AnsiDocument&, const std::function<void (AnsiDocument&, bool, int)>&)` pulls into the view's history document and gives the live document and the capacity.
-  - `getHistoryCapacity()` reads the `HISTORY_CAPACITY` setting from the current state tree at use (`jam::Model::getChildWithID (…).getProperty`). It builds no `juce::Value`, and it survives `replaceState`.
-  - The constructor takes the model only.
-- `Source/EVEProcessor.h` — `terminalProcessor { model }`.
-- `Source/EVEView.h/.cpp`:
-  - The `harness` member and the constructor `load` tell are deleted.
-  - The constructor grabs keyboard focus in `callAsync` (END pattern, `ENDView.cpp:28-42`).
-  - `focusGained` forwards focus to `createKeyboardFocusTraverser()->getDefaultComponent (this)`, the TextEditor (endless pattern, `Display.cpp:212`).
-- `Source/EVEViewComponents.cpp` — file-static `getHarness()`, and a captureless `registerConfig<jam::TextEditor> (Id::textEditor, Id::toTag (Id::winsize), …)` that calls `load (getHarness())`.
-- `Source/layout/ViewLayout.md`:
-  - the `## normal`, `## insert` and `## visual` key sheets;
-  - the `HISTORY_CAPACITY` description: *"the swap keeps this many lines in memory"*.
-- `SPEC.md`:
-  - Feature 2.3: the TextEditor owns the history and its swap.
-  - State Model: ownership, pull, edits.
-  - Feature 6: the scrollback cap is `HISTORY_CAPACITY`.
-- `RFC-EVE-terminal-grand-scheme.md` — the §3.9 amendments: the swap, the Codec, the decouple, the capacity through the pull.
-- `CLAUDE.md`. `PLAN-texteditor-nvim-parity.md` (new).
-
-### Alignment Check
-- [x] BLESSED principles followed
-- [x] NAMES.md adhered
-- [x] MANIFESTO.md principles applied
-
-### Problems Solved
-- The config lambda captured the view inside the shared Registry, where the first holder wins. The config is captureless, and the capacity comes through the pull.
-- Runtime crash: `jassert (historyRows > 0)` in `prepare`. A `juce::Value` member bound at construction found no settings node yet. It would also point to a replaced tree after `replaceState`. The capacity is now read at use.
-
-### State for Continuation
-- `cast cast/spell.md --debug`: 0 errors, 0 warnings.
-- Runtime:
-  - A whatdbg trace launch (25 s) has no stop.
-  - Keys sent through the OS reach `TextEditor::keyPressed`: `j`, Escape, `j`, `x`, `u`, `i`, Return, Backspace. A temporary `debug::Log` proved it, and the log was then removed.
-  - An AppleScript quit gives `exit=0`, with no assertion, no leak and no crash report.
-  - ARCHITECT confirmed the keyboard works. The status row is now a separate row below the text.
-  - A trackpad-scroll assert in `jam::TextEditor::paintRows` (a visible line with no runs) is fixed. The runs were rebuilt from a stale view area. jam Sprint 171 has the detail.
-- No interactive check of the editor has run yet. The plan's Verification list covers it. Delete `~/.config/end/eve.md` first, so the key sheets seed.
-- The chain (`prepare`, `setWinsize`, FIFO sizing) stays for the TTY sprint (Design 6). A window size change does not resize the FIFOs.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
----
-
-## Sprint: Reflow at the Window Width — TextEditor Is the Only Renderer; the Harness Prints from the AST ✅
-
-**Date:** 2026-10-21
-**Duration:** one session, 2026-10-21 (context compacted once)
-**Plan:** `PLAN-reflow.md` (Steps 0–10 and the execution state; also `~/.claude/plans/giggly-dancing-pike.md`)
-
-### Decisions (ARCHITECT, verbatim)
-1. *"css width is necessary to set baseline, a default "config". but without it reflow at Component side should just always adhere to whatever available space from juce::Component::getLocalBounds().getWidth()"*; `maxLineWidth`: **"Unset means bounds"**.
-2. *"mermaid diagram, images, tables, follow exactly the same logic … images could simply use AffineTransform or juce::Rectangle API to fit"*.
-3. *"in EVE reflow should always the FINAL materialiser, the renderer, the COMPONENT. the TextEditor"*; *"ideally TextEditor just call ReflowDocument API to reflow ANYTHING, SSOT"*.
-4. *"Table should wrap each column"*; *"each table column can be treated exactly like whole component "column""*; **"only real table"**; *""one line" is the data. but rendered reflow adding/removing lines"*.
-5. Table mark **"OSC 133 marker"**; mark writer **"Print from the AST"**; decorations **"Layout properties"**.
-6. *"all "terminal" concern always at Processor (audio thread) hot path? lock free"*.
-7. Names: `lineStart, E`; `columnStart, F`; `fill, G`. Quote bar: *"just make consistent. what's the established pattern?"* — a quote bar is a fill (`jam_MarkdownGraphics.cpp` `addQuoteBars`), so no bar key.
-
-### Agents Participated
-- COUNSELOR — plan, rulings record, every delegation brief, validation of each Engineer return by own reads, audit triage (30 resolved, 14 rejected with reads), visual validation of the captures, doxygen read-through and three corrections, log.
-- Pathfinder (haiku) — code reads, whatdbg traces and samples, Release timing runs, capture sweeps, read-only git.
-- Engineer (sonnet) — Steps 1–8, audit fixes in three batches, builds, ephemeral timing lines and their removal, doxygen pass.
-- Auditor (opus) — one sprint audit (40 findings).
-
-### Files Modified (28 tracked + 1 new)
-- EVE:
-  - `Source/EVETerminalProcessor.h/.cpp` — `load` parses, calls `addLines`, and prints the AST into engine rows inside `suspendProcessing` (`:50-89`). No `MarkdownComponent`, no `GraphicsContext`. Per line: `getNumRows`, `addRows`, `addRow`, `setAtom`, `addCells`, `addImage`, `getDiagramImage`, `getNumObjects`, `addMarkers`. `prepare` sizes history from `engine.getNumBytes()`.
-  - `Source/layout/style.css` — `maxLineWidth` deleted (R1: unset means bounds).
-  - `PLAN-reflow.md` — new.
-- jam:
-  - `cast/terminal.md`, `cast/core.md`, `cast/markdown.md`; generated `jam_Terminal.h`, `jam_Core.*`, `jam_Markdown.*` — `ShellIntegration` rows `lineStart E`, `columnStart F`, `fill G`; `indent` moved to core.
-  - `jam_terminal/graphics/jam_TerminalEncoder.h/.cpp` — `appendOscCommand`, `appendShellIntegration`, `appendLineStart`, `appendColumnStart`, `appendFill`; `appendImageArgument` is one template plus the Colour overload; `appendOscIntroducer` folded into `appendOscCommand`.
-  - `jam_terminal/document/jam_AnsiDocument.h/.cpp` — OSC 133 `E`/`F`/`G` decode into `Id::indent`, column child lines (with their images) and `Id::fill` children. Arguments are checked at the entry; `getShellIntegrationProperties` table; `addSegments` builds the cell-line segments once.
-  - `jam_terminal/graphics/jam_TerminalGraphicsEngine.h/.cpp` — `MarkerPlacement` / `addMarkerPlacement`; `appendRowSpan` writes markers in the row text; `getNumBytes()` of the prepared rows; `getNumBase64Bytes`.
-  - `jam_gui/widgets/jam_TextEditor.h/.cpp` — reflow at the visible width minus the indent; per-column reflow (`setTableRows`); images fitted `onlyReduceInSize` (`setImageRows`), also in columns; fills painted; runs built at layout for visible lines only (`addVisibleRuns`); `setLane`, `getContentWidth`.
-  - `jam_style/jam_StyleCustom.h/.cpp` — `getLineIndent` reads `Id::indent` cells × cell width.
-  - `jam_markdown_graphics/style/jam_StyleMarkdown.h/.cpp` — `getLineWidth (availableWidth)` caps at `maxLineWidth` only when the sheet has it; `getBlock` / `getType` public.
-  - `jam_markdown_graphics/graphics/jam_MarkdownGraphics.h/.cpp` — `getPills`, `getPill`, `getFills`, `hasFill` public; the only author of line fills.
-  - `jam_markdown_graphics/component/jam_MarkdownComponent.cpp` — `getLineWidth` through `StyleMarkdown`; diagram raster through `MermaidGraphics::getImage`.
-  - `jam_mermaid_diagram/diagram/jam_MermaidGraphics.h/.cpp` — `getImage`, the one mermaid raster.
-
-### Alignment Check
-- [x] BLESSED principles followed — one reflow (`ReflowDocument::setRows`), one fill author (`MarkdownGraphics::getFills`), one mermaid raster; no allocation on the audio-thread path (SPEC.md:255); paint builds nothing (ruling 6).
-- [x] NAMES.md adhered — new names approved or from established families (`getFills` beside `getPills`, `setAtom` in the `AttributedString::set` family, `appendShellIntegration` in the `append*` family).
-- [x] MANIFESTO.md principles applied — creation at load (the print); marks complete at decode; materialisation at layout.
-
-### Problems Solved
-- Column cap: the old lane laid out the harness at `maxLineWidth 100em` and ended each row with `\n`, so TextEditor could split lines but never join them. Now one row is one logical line of any length, and TextEditor reflows at its bounds (1600 wide: a 147-character line on one row).
-- `std::bad_variant_access` at the first pull: `addCoveredImages` read `Id::height` of `Id::fill` children; fixed with `isTag (Id::image)`.
-- Audit: 40 findings; 30 resolved, 14 rejected with reads (PLAN-reflow.md, Step 10). One acceptance (#4) was wrong at first: `getType` / `getBlock` were private; the build failed and they were made public.
-
-### State for Continuation
-- Builds through cast, 0 errors, 0 warnings: EVE `--debug` and `--no-sign`. Doxygen 0 warnings, jam and eve (scratch Doxyfiles from the nvim templates; EVE's CMake has no `doxygen` target). Debug trace: `END outcome=timeout stops=0`.
-- Launch is not lower than Step 0 (processor → first painted 749–807 ms). Measured costs (Release): the image round trip ~290 ms (picture ~97, PNG encode ~90, base64 + PNG decode ~101), advances ~55 ms (PLAN-reflow.md Step 9).
-- Open, not shown to be caused by this sprint: Han ideographs blank at `markdown/markdown.md:481`, `:483`; full-width line `:489` blank; grid cell `:471-472` joins two bullets.
-- Per-column wrap with long cell text is not exercised by the harness.
-- Tooling: the whatdbg sampler fails with `timeout must be >= 0` (`~/.carol/skills/whatdbg-trace/sample.lua:51-52`, clock read twice; `trace.lua:190` clamps).
-- Process: three Engineer edits used Python writers without backup (TextEditor, AnsiDocument, AnsiDocument.h doxygen); every changed region was read in full, no damage. The Auditor left background work; it was stopped at log time.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
----
 
