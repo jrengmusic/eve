@@ -29,6 +29,7 @@ namespace Id
     const juce::Identifier commandCount     { juce::String::fromUTF8 ("commandCount") };
     const juce::Identifier deviceClock      { juce::String::fromUTF8 ("deviceClock") };
     const juce::Identifier historyCapacity  { juce::String::fromUTF8 ("historyCapacity") };
+    const juce::Identifier previewComponent { juce::String::fromUTF8 ("previewComponent") };
     const juce::Identifier previewWidth     { juce::String::fromUTF8 ("previewWidth") };
     const juce::Identifier profiler         { juce::String::fromUTF8 ("profiler") };
     const juce::Identifier selector         { juce::String::fromUTF8 ("selector") };

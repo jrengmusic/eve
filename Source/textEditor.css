@@ -4,6 +4,8 @@
     --TextEditor--backgroundColourId: var(--blank);
     --TextEditor--textColourId: var(--crystal);
     --TextEditor--highlightColourId: var(--endCodeHighlight);
+    --TextEditor--linkLabelBackgroundColourId: var(--crystal);
+    --TextEditor--linkLabelTextColourId: var(--blank);
     --TextEditorStatusBar--backgroundColourId: var(--endCodeHighlight);
     --TextEditorStatusBar--textColourId: var(--crystal);
     --CaretComponent--caretColourId: var(--crystal);

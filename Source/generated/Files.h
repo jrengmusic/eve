@@ -45,6 +45,7 @@ namespace files
     extern const juce::String zshIntegration;            ///< zsh EVE hooks.
     extern const juce::String bashIntegration;           ///< bash EVE hooks.
     extern const juce::String powershellIntegration;     ///< PowerShell EVE hooks.
+    extern const juce::String shellCommand;              ///< Command that scripts run to reach EVE.
 
 /**______________________________END OF NAMESPACE______________________________*/
 }// namespace files

@@ -46,6 +46,7 @@ namespace files
     const juce::String zshIntegration             { juce::String::fromUTF8 ("zsh_integration.zsh") };
     const juce::String bashIntegration            { juce::String::fromUTF8 ("bash_integration.bash") };
     const juce::String powershellIntegration      { juce::String::fromUTF8 ("powershell_integration.ps1") };
+    const juce::String shellCommand               { juce::String::fromUTF8 ("eve") };
 
 /**______________________________END OF NAMESPACE______________________________*/
 }// namespace files

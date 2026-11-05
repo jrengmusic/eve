@@ -7,6 +7,11 @@ EVEView::EVEView (jam::AudioModel& newModel,
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
     , messageOverlay (newModel.getOrCreateComponentState (jam::Format::toTag (Id::message)), [this] { return theme->getMonoFont(); })
 {
+    auto markdownState { model.getOrCreateComponentState (jam::Format::toTag (Id::markdown)) };
+
+    markdownState.setProperty (Id::mode, static_cast<int> (map::EditorMode::panel), nullptr);
+    markdownState.setProperty (Id::value, false, nullptr);
+
     registerTerminalEvents();
     initialise (layout.getOrCreateSettings());
     addChildComponent (messageOverlay);
@@ -20,6 +25,18 @@ void EVEView::resized()
 {
     jam::PluginEditor::resized();
     messageOverlay.setBounds (getLocalBounds());
+
+    if (not panels.isEmpty())
+    {
+        const auto& left { getPanel (leftPanel) };
+        const auto& right { getPanel (rightPanel) };
+
+        if (left.isPanelShowing())
+            view->setBounds (view->getBounds().withTrimmedLeft (view->getLocalArea (this, left.getBounds()).getWidth()));
+
+        if (right.isPanelShowing())
+            view->setBounds (view->getBounds().withTrimmedRight (view->getLocalArea (this, right.getBounds()).getWidth()));
+    }
 }
 
 void EVEView::lookAndFeelChanged()
@@ -37,9 +54,16 @@ void EVEView::focusGained (FocusChangeType)
     }
 }
 
+bool EVEView::keyPressed (const juce::KeyPress& key)
+{
+    auto markdownState { model.getOrCreateComponentState (jam::Format::toTag (Id::markdown)) };
+
+    return commandManager->invokeKey (key, markdownState);
+}
+
 void EVEView::resizeStart() { setResizing (true); }
 
-void EVEView::resizeEnd() { setResizing (false); }
+void EVEView::resizeEnd() { setResizing (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing()); }
 
 void EVEView::setResizing (bool isResizing)
 {
@@ -55,19 +79,17 @@ void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Ident
     if (tree.hasType (jam::Format::toType (Id::terminal)) and terminalEvents.contains (property))
         terminalEvents.get (property, std::as_const (tree));
 
+    if (property == Id::mode)
+        setPanelsVisible (static_cast<int> (tree.getProperty (Id::mode)) == map::EditorMode::list);
+
     jam::PluginEditor::valueTreePropertyChanged (tree, property);
 }
 
 void EVEView::registerTerminalEvents()
 {
-    terminalEvents.add<const juce::ValueTree&> (Id::commandCount, [this] (const juce::ValueTree&)
+    terminalEvents.add<const juce::ValueTree&> (Id::numCommands, [this] (const juce::ValueTree&)
     {
         getTerminalProcessor().applyCommands ([this] (const juce::Identifier& name) { invokeCommand (name); });
-    });
-
-    terminalEvents.add<const juce::ValueTree&> (Id::preview, [this] (const juce::ValueTree& terminal)
-    {
-        setPreview (terminal.getProperty (Id::preview).toString());
     });
 
     terminalEvents.add<const juce::ValueTree&> (Id::clipboard, [this] (const juce::ValueTree& terminal)
@@ -75,13 +97,15 @@ void EVEView::registerTerminalEvents()
         getTerminalProcessor().copyToClipboard (static_cast<juce::int64> (terminal.getProperty (Id::clipboard)));
     });
 
+    terminalEvents.add<const juce::ValueTree&> (Id::url, [this] (const juce::ValueTree&) { setPanelFile(); });
+
     for (const auto& id : jam::TerminalProcessor::getReports())
         terminalEvents.add<const juce::ValueTree&> (id, [this, id] (const juce::ValueTree& terminal) { applyTerminalReport (terminal, id); });
 
 #if JAM_USING_PROFILER
-    terminalEvents.add<const juce::ValueTree&> (Id::promptCount, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add<const juce::ValueTree&> (Id::numPrompts, [this] (const juce::ValueTree& terminal)
     {
-        if (static_cast<int> (terminal.getProperty (Id::promptCount)) == 1)
+        if (static_cast<int> (terminal.getProperty (Id::numPrompts)) == 1)
         {
             repaint();
 
@@ -166,6 +190,8 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
         r.registerComponent<juce::Label> (Id::label);
         r.registerComponent<jam::Selector> (Id::selector);
         r.registerComponent<jam::TextEditor> (Id::textEditor);
+        r.registerComponent<jam::PreviewComponent> (Id::previewComponent);
+        r.registerComponent<jam::MarkdownComponent> (Id::markdown);
 
         r.registerConfig<jam::Selector> (Id::selector,
                                          jam::Format::toTag (Id::appearance),
@@ -180,6 +206,13 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                                          {
                                              selector->addItemList (map::UIScaleMap::getInstance()->get());
                                          });
+
+        r.registerConfig<jam::MarkdownComponent> (Id::markdown,
+                                                  [] (jam::MarkdownComponent* markdown)
+                                                  {
+                                                      markdown->setVisible (false);
+                                                      markdown->setWantsKeyboardFocus (true);
+                                                  });
     };
 
     registration.events = [] (jam::Registry& r)
@@ -197,6 +230,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
     registration.styles = [] (jam::Registry& r)
     {
         r.registerStyle<jam::StyleTerminal> (Id::textEditor);
+        r.registerStyle<jam::StyleMarkdown> (Id::markdown);
     };
 
     registration.makeContent = [] (jam::Registry& r)
@@ -224,17 +258,40 @@ void EVEView::registerCallbacks()
                                                     static_cast<EVEView&> (c).clear();
                                                 });
 
-    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::preview),
+    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::openFile),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).openFile();
+                                                });
+
+    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::markdown),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).openMarkdown();
+                                                });
+
+    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::dismiss),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).setMarkdownVisible (false);
+                                                });
+
+    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::markdown),
                                                 [] (juce::Component& c)
                                                 {
                                                     auto& editor { static_cast<EVEView&> (c) };
-                                                    editor.setPreviewVisible (not editor.isPreviewVisible());
-                                                });
+                                                    const auto isVisible { static_cast<bool> (editor.model.getOrCreateComponentProperty (jam::Format::toTag (Id::markdown), Id::value).getValue()) };
 
-    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::preview),
-                                                [] (juce::Component& c)
-                                                {
-                                                    static_cast<EVEView&> (c).resized();
+                                                    editor.applyToMarkdown ([isVisible] (jam::MarkdownComponent& markdown)
+                                                    {
+                                                        markdown.setVisible (isVisible);
+
+                                                        if (isVisible)
+                                                            markdown.grabKeyboardFocus();
+                                                    });
+
+                                                    if (not isVisible)
+                                                        editor.grabKeyboardFocus();
                                                 });
 
     registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::message),
@@ -303,19 +360,191 @@ void EVEView::clear()
     getTerminalProcessor().clear();
 }
 
-void EVEView::setPreview (const juce::String& path)
+juce::String EVEView::getOpenCommand (const juce::File& file) const
 {
-    setPreviewVisible (path.isNotEmpty());
+    const auto table { styleManager->getConfig (jam::Format::toType (Id::openWith)) };
+    const auto extension { file.getFileExtension() };
+    const auto key { file.isDirectory() ? jam::Format::toType (Id::directory)
+                                        : jam::Format::toType (juce::Identifier { extension.isEmpty() ? file.getFileName() : extension }) };
+
+    return table.getProperty (key, table.getProperty (jam::Format::toType (Id::any))).toString();
 }
 
-void EVEView::setPreviewVisible (bool isVisible)
+void EVEView::openFile()
 {
-    model.getOrCreateComponentProperty (jam::Format::toTag (Id::preview), Id::value).setValue (isVisible);
+    const auto terminal { model.state.getChildWithName (jam::Format::toType (Id::terminal)) };
+    const juce::URL url { terminal.getProperty (Id::url).toString() };
+
+    if (url.isLocalFile())
+    {
+        jam::TerminalProcessor::applyToDecodedText (jam::TerminalProcessor::getUriPath (url.toString (false).toRawUTF8()), [this, &terminal] (std::string_view path)
+        {
+            openFile (path, terminal);
+        });
+    }
+    else
+    {
+        url.launchInDefaultBrowser();
+    }
 }
 
-bool EVEView::isPreviewVisible() const
+void EVEView::openFile (std::string_view path, const juce::ValueTree& terminal)
 {
-    return static_cast<bool> (model.getOrCreateComponentProperty (jam::Format::toTag (Id::preview), Id::value).getValue());
+    const juce::File file { juce::String::fromUTF8 (path.data(), static_cast<int> (path.size())) };
+    const auto value { getOpenCommand (file) };
+    const auto* command { value.isEmpty() ? nullptr : commandManager->getCommandForName (juce::Identifier { value }) };
+    const auto isBusy { static_cast<bool> (terminal.getProperty (Id::isRecording)) or static_cast<bool> (terminal.getProperty (Id::alternateScreen)) };
+    const auto hasControlByte { std::any_of (path.begin(), path.end(), [] (char byte) { return static_cast<unsigned char> (byte) < static_cast<unsigned char> (Chars::space); }) };
+
+    if (file.exists())
+    {
+        if (command != nullptr) commandManager->invokeDirectly (command->commandID, false);
+        else if (value.isEmpty() or isBusy or hasControlByte) file.startAsProcess();
+        else
+        {
+            invokeCommand (Id::terminal);
+            getTerminalProcessor().applyOpenCommand (value.toRawUTF8(), path);
+        }
+    }
+    else
+    {
+        messageOverlay.showMessage (Id::failNoOpenFile + file.getFileName().quoted (Chars::singleQuote));
+    }
+}
+
+void EVEView::openMarkdown()
+{
+    const auto file { getUrlFile() };
+    const juce::MemoryMappedFile source { file, juce::MemoryMappedFile::readOnly };
+
+    if (source.getData() != nullptr)
+    {
+        applyToMarkdown ([&source, &file] (jam::MarkdownComponent& markdown)
+        {
+            markdown.setDocument (jam::MarkdownDocument::parse (std::string_view { static_cast<const char*> (source.getData()), source.getSize() }, file.getFullPathName()));
+        });
+
+        setMarkdownVisible (true);
+    }
+}
+
+void EVEView::setMarkdownVisible (bool isVisible)
+{
+    model.getOrCreateComponentProperty (jam::Format::toTag (Id::markdown), Id::value).setValue (isVisible);
+}
+
+void EVEView::selectionChanged()
+{
+    const auto& tree { static_cast<const juce::FileTreeComponent&> (*getPanel (leftPanel).getContent()) };
+
+    if (tree.getNumSelectedFiles() > 0)
+        model.state.getChildWithName (jam::Format::toType (Id::terminal)).setProperty (Id::url, juce::URL { tree.getSelectedFile() }.toString (false), nullptr);
+}
+
+void EVEView::fileClicked (const juce::File&, const juce::MouseEvent&) {}
+
+void EVEView::fileDoubleClicked (const juce::File&) { openFile(); }
+
+void EVEView::browserRootChanged (const juce::File&) {}
+
+juce::SidePanel& EVEView::getPanel (int index) const
+{
+    return static_cast<juce::SidePanel&> (*panels.at (index));
+}
+
+juce::File EVEView::getTreeRoot() const
+{
+    const auto display { styleManager->getConfig (jam::StyleManager::getDisplaySheet()) };
+    const auto depth { static_cast<int> (display.getChildWithName (jam::Format::toType (Id::treeDepth)).getProperty (Id::value)) };
+    juce::File root { model.state.getChildWithName (jam::Format::toType (Id::terminal)).getProperty (Id::cwd).toString() };
+
+    for (int level { 0 }; level < depth; ++level)
+        root = root.getParentDirectory();
+
+    return root;
+}
+
+juce::File EVEView::getUrlFile() const
+{
+    const auto url { model.state.getChildWithName (jam::Format::toType (Id::terminal)).getProperty (Id::url).toString() };
+    juce::File file;
+
+    jam::TerminalProcessor::applyToDecodedText (jam::TerminalProcessor::getUriPath (url.toRawUTF8()), [&file] (std::string_view path)
+    {
+        file = juce::File { juce::String::fromUTF8 (path.data(), static_cast<int> (path.size())) };
+    });
+
+    return file;
+}
+
+void EVEView::addPanels()
+{
+    const auto display { styleManager->getConfig (jam::StyleManager::getDisplaySheet()) };
+    const auto getPanelWidth { [this, &display] (const juce::Identifier& row)
+    {
+        return juce::roundToInt (static_cast<float> (getWidth()) * static_cast<float> (display.getChildWithName (jam::Format::toType (row)).getProperty (Id::value)));
+    } };
+    auto tree { std::make_unique<juce::FileTreeComponent> (directoryList) };
+
+    tree->addListener (this);
+    panels.add (std::make_unique<jam::FilePreview> (model.getOrCreateComponentState (jam::Format::toTag (Id::preview))));
+
+    applyToMarkdown ([this] (jam::MarkdownComponent& markdown)
+    {
+        panels.at (filePreview)->setLookAndFeel (&markdown.getLookAndFeel());
+    });
+
+    panels.add (std::make_unique<juce::SidePanel> (juce::String {}, getPanelWidth (Id::treeWidth), true, tree.release(), true));
+    panels.add (std::make_unique<juce::SidePanel> (juce::String {}, getPanelWidth (Id::previewWidth), false, panels.at (filePreview).get(), false));
+
+    for (const auto index : { leftPanel, rightPanel })
+    {
+        auto& panel { getPanel (index) };
+
+        panel.setTitleBarHeight (0);
+        juce::Desktop::getInstance().removeGlobalMouseListener (&panel);
+        panel.onPanelShowHide = [this] (bool) { resized(); };
+        addChildComponent (panel);
+    }
+
+    directoryThread.startThread();
+}
+
+void EVEView::setPanelsVisible (bool isVisible)
+{
+    if (isVisible and panels.isEmpty())
+        addPanels();
+
+    if (not panels.isEmpty())
+    {
+        if (isVisible)
+        {
+            setResizing (true);
+            directoryList.setDirectory (getTreeRoot(), true, true);
+        }
+
+        getPanel (leftPanel).showOrHide (isVisible);
+        getPanel (rightPanel).showOrHide (isVisible);
+        resized();
+        setResizing (isVisible);
+        setPanelFile();
+    }
+}
+
+void EVEView::setPanelFile()
+{
+    const juce::URL url { model.state.getChildWithName (jam::Format::toType (Id::terminal)).getProperty (Id::url).toString() };
+
+    if (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing() and url.isLocalFile())
+    {
+        const auto file { getUrlFile() };
+
+        if (file.exists())
+        {
+            static_cast<juce::FileTreeComponent&> (*getPanel (leftPanel).getContent()).setSelectedFile (file);
+            static_cast<jam::FilePreview&> (*panels.at (filePreview)).setFile (file);
+        }
+    }
 }
 
 void EVEView::invokeCommand (const juce::Identifier& name)

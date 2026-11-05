@@ -124,6 +124,17 @@ public:
      */
     void copyToClipboard (juce::int64 image);
 
+    /**
+     * @brief Types an open command with a file path into the shell, then submits the line.
+     *
+     * The line is the command, one space, the path quoted for the shell of this processor, and a carriage return.
+     * The call sends the line through addInput().
+     *
+     * @param command  Command text of the open command.
+     * @param path     Decoded file path to open.
+     */
+    void applyOpenCommand (std::string_view command, std::string_view path);
+
 #if JAM_USING_PROFILER
     /**
      * @brief Returns the manifest file of a profile build.
@@ -133,7 +144,7 @@ public:
 #endif
 
     jam::ViewManager::Getters
-        userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter. The text editor getter posts the history writer to the serial context of this object when synchronized output is off, flushes the Model lane, gives the swap, and asks for a process.
+        userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter and a `previewComponent` getter. The `previewComponent` getter, keyed by `images`, gives the swap only. The text editor getter posts the history writer to the serial context of this object when synchronized output is off, flushes the Model lane, gives the swap, and asks for a process.
     jam::ViewManager::Events
         chainEvents;///< Events of the chain. The constructor adds the `terminalInput` event. It writes its bytes into the input lane when the lane has room for them, then asks for a process.
 
@@ -187,25 +198,42 @@ private:
      *
      * Each setter calls `storeValue` on `state`. The bool events store 0 or 1. They are `applicationCursor`, `bracketedPaste`,
      * `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited` and `syncOutput`.
-     * The `mouseTracking`, `cursor` and `promptCount` events store an int.
+     * The `mouseTracking`, `cursor` and `numPrompts` events store an int.
      * The `preview`, `title`, `foregroundProcess` and `cwd` events store the text.
-     * The `command` event writes the name and a zero byte to `commands`, then flushes `commands`. It then increments `commandCount` in `state`.
+     * The `command` event writes the name and a zero byte to `commands`, then flushes `commands`. It then increments `numCommands` in `state`.
      */
     void registerEvents();
 
     /**
-     * @brief Adds the image events: `hyperlink`, `previewImage` and `clipboard`.
+     * @brief Adds the image events: `hyperlink`, `clipboard` and `previewBox`.
      *
-     * The `hyperlink` event does nothing. The `previewImage` event releases the previous preview image in the buffer, then stores the number of the new image.
+     * The `hyperlink` event does nothing.
      * The `clipboard` event stores the image number in `pendingClipboard`. `handleAsyncUpdate()` then stores it in the Model lane.
+     * The `previewBox` event stores its value in the `previewBox` property of `state`.
      */
     void registerImageEvents();
 
-    /** @brief Adds the text editor getter keyed by the winsize type. The getter posts the history writer to the serial context of this object when synchronized output is off, flushes the Model lane, gives the swap, and asks for a process. */
+    /**
+     * @brief Adds the text editor getter keyed by the winsize type, and the `previewComponent` getter keyed by the images type.
+     *
+     * The text editor getter posts the history writer to the serial context of this object when synchronized output is off, flushes the Model lane, gives the swap, and asks for a process.
+     * The `previewComponent` getter gives the swap only.
+     */
     void registerUserInterfaceGetters();
 
-    /** @brief Adds the `terminalInput` event to the chain events. It writes its bytes into the input lane when the lane has room for them, then asks for a process. */
+    /** @brief Adds the `terminalInput` event to the chain events. The event passes its bytes and its size to `addInput()`. */
     void registerChainEvents();
+
+    /**
+     * @brief Writes bytes into the input lane, then asks the device for a process.
+     *
+     * The size must fit the free space of the input lane. An assert checks it.
+     * When the size fits, the call writes the bytes, flushes the lane, and requests a process.
+     *
+     * @param bytes  Bytes to write.
+     * @param size   Number of bytes.
+     */
+    void addInput (const char* bytes, int size);
 
     /** @brief Returns the history capacity that the `historyCapacity` component of the model holds. */
     int getHistoryCapacity() const;

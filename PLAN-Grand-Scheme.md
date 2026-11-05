@@ -949,6 +949,90 @@ ARCHITECT's vision, verbatim. Each line is a ruling.
   3. *"side panel / preview component design, and its event handling"*.
 - ARCHITECT: *"winsize planning must be discussed first, i still need to elaborate."*
 
+> **[AMENDED 2026-11-05 — the parts, ARCHITECT verbatim]** This amendment replaces the
+> order of work above. ARCHITECT, on the order: *"i actually think Preview should be the
+> first to implement CORRECTLY, and wire thorugh the whole terminal protocol. for example
+> the goal to be able to render image to fzf preview widget (back to terminal in visual
+> cell layout), but with Component widget on top. in parity with kitty with imgcat, fzf
+> with chafa etc. this is must be designed correctly, and we can have exact target to
+> compare with whatever CLI uses (terminal protocol), this also open seam for our SKiT API
+> to access via shell script. so it's not hardcoded to anything, but universal and
+> generic"*. The plans run in this order: `PLAN-1-preview-protocol.md`,
+> `PLAN-2-open-and-gesture.md`, `PLAN-3-file-list.md`, `PLAN-4-markdown-panel.md`,
+> `PLAN-5-open-mode.md`, `PLAN-6-list-mode.md`.
+>
+> **Preview.**
+> - *"rendering as our own Preview sidepanel actually trivial, already done couple of times
+>   in the past ... but we have never successfully implement the correct ISOMORPHIC
+>   ABSTRACTION to layout back to terminal cell."*
+> - *"TextEditor only reserve the layout, still the integration must be seamless, must be
+>   REALLY FAST, could be done in parallel"*.
+> - *"we literally could materialise anywhere, anytime, and overlay back to whatever
+>   protocol, to whatever "layout", our own Preview side panel, terminal protocol rendering,
+>   etc it does not matter."*
+> - *"as UI/UX user always saw it being rendered on terminal, but as a system it's always
+>   decoupled, we always process/read/write/materialise/render image on message thread,
+>   LITERALLY."*
+> - *"although our TerminalGraphics actually have capabilities to render bytes back as
+>   pixel. those seam still must be working, but not as our Preview path. I want to enforce
+>   the architecture fully widget wise on juce::Component native contract. no poking layers.
+>   TerminalGraphics lane are final alternatives only when it was proven to be only way"*.
+> - *"PreviewComponent is SSOT for SKiT protocol"*; *"native eve image protocol is iTerm2"*.
+>   ARCHITECT replaces the second quote: *"those rulings from understanding that we need the
+>   bytes. still we have always bidirectional read/write decode/encode to widely adopted
+>   terminal image protocol, that's SKiT is all about. not reinventing new pattern but extend
+>   it, able to receive if any CLI asks for specific protocol such as Sizel, Kitty or iTerm2.
+>   but at the point where we could handle better, a more BLESSED approach, we always
+>   implement the best, the fastest, most efficient and most effective approach. since we have
+>   control end-to-end. the whole stack, encapsulated."*; *"why not just the file as metadata?
+>   suffice? isnt that better and fit the contract? why would we need the bytes?"*.
+> - fzf: *"there's a pattern, an isomorphic abstraction. for fzf to tell chafa as its preview.
+>   we dont use chafa, exactly why EVE have skit with its preview component"*.
+> - *"for any CLI that send bytes of images of any protocol their chosen, we politely
+>   "hijack", get the file image only (materialise pixels), create juce::Image render on
+>   PreviewComponent layout EXACTLY in cell as the CLI would expect. this includes animated
+>   gif"*.
+>
+> **Open.**
+> - *"the open file must be a registered command, so clicking, jump open, or pressing enter
+>   on highlighted at LIST mode will call the exact SSOT method of `open file`"*.
+> - *"everything is EVENT DRIVEN, by juce::ValueTree, state changes trigger a registered
+>   command"*.
+> - *"registrable callback isnt not new pattern, we use no `handlers` we have
+>   commandManager"*.
+> - *"even endless could freely add any open with by extension to its config"*.
+> - Busy shell: *"Use the system default app"*. Rows: *"Free rows: change jam"*.
+> - *"fixing VISUAL mode triggered by mouse selection / drag. current state is too
+>   sensitive. small click can immediately trigger to enter VISUAL from TERMINAL, we probably
+>   need to set threshold, for example dragging in range of 2 or more cell then start VISUAL
+>   and select"*.
+>
+> **Modes and panels.**
+> - *"we need to add another mode to TextEditor, this is exclusive for "terminal modal",
+>   LIST mode and OPEN mode (from `ls`)"*.
+> - *"user can enter OPEN (jump) mode, this is similar to vim jump flash (?) so each file
+>   gets one character as keyboard shortcut to jump and open immediately, and open the
+>   file"*.
+> - *"LIST mode UI/UX is identical with using Finder/Explorer. LEFT side of TextEditor opened
+>   side panel with tree explorer showing couple of levels hiearchy up and down (parent and
+>   children), probably with user configurable depth. RIGHT side showing preview with
+>   PreviewComponent."*
+> - *"Both LEFT and RIGHT side panel is EVE native features, juce::Component pure gui ...
+>   although we are not touching any terminal even not TextEditor at all. L/R side panal are
+>   siblings of TextEditor. only show when user enter LIST mode, hence TextEditor content
+>   automatically reflow. when user exit LIST mode, Panels hidden, text unwrap back
+>   automatically"*.
+>
+> **Contract for this work.**
+> - *"no new semantics, no magic strings allowed anywhere, no handroll state management, no
+>   manual arithmetic, no new pattern, use framework API to its fullest extent, follow
+>   established pattern verbatim"*.
+> - *"framework API(s) are rich jam first then juce. you probably only need to use it OOTB.
+>   if there's genuienely no abstract as SSOT you can use, extend the existing."*
+> - *"we only use juce::String as Input or final Output materialisation to communicate with
+>   juce's API. otherwise we always use std::string/string_view everywhere. since juce::String
+>   is always allocate, and could becomes slow"*.
+
 ## 4. Ecosystem — EVE and END
 
 ### 4.1 Roles

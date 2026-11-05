@@ -48,11 +48,10 @@ The specification is [SPEC.md](SPEC.md).
 
 ### Shell API
 
-The shell integration adds an `eve` function. It speaks EVE's envelope, `ESC ] 1337 ; EVE ; <operation> ; <args> BEL`:
+The shell integration adds an `eve` command to `PATH`, so a script or a child process can run it. It speaks EVE's envelope, `ESC ] 1337 ; EVE ; <operation> ; <args> BEL`:
 
 - `eve command <name>` — runs an EVE command, the same command a key binding runs.
-- `eve preview <file>` — records the file as the preview path; `eve preview` clears it. EVE has no Preview column now.
-- `eve image <file>` — sends the image bytes to EVE.
+- `eve preview <file> [argument]` — shows the image file at the cursor. No image bytes cross the terminal. The argument is one iTerm2 argument string, such as `width=20` or `width=20;height=10`. In an fzf preview command, `eve preview {}` fills the preview box. `eve preview` with no file shows nothing.
 
 ### Formats and platforms
 

@@ -74,7 +74,11 @@ among ours.
    and the image envelopes EVE takes over: OSC 1337 (iTerm2 `File=` and EVE's own
    envelope), DCS (Sixel) and APC (Kitty graphics).
 5. **Finder truth is the filesystem** — sidebars and file list read the FS
-   directly, keyed off OSC 7-reported cwd. Terminal output text is never parsed.
+   directly, keyed off OSC 7-reported cwd. The filesystem decides what is a file.
+   Terminal output text is only the candidate for that test. No rule names a
+   program. ARCHITECT: *"when ls "active", OSC 133 D after last called ls, mark
+   "openable" file with underscore, hyperlink"*; *"must be SSOT, UNIVERSAL, GENERAL,
+   not hardcoded to specific pattern"*; *"no hardcode about ls nor eza"*.
 6. **Style roles in state; colours at materialization** (`PLAN-Grand-Scheme.md` §8).
 7. **Two state lanes, one tree.** ARCHITECT: *"AudioModel for true audio
    parameter lane, as automatable parameter, while Model lane for any event
@@ -129,25 +133,54 @@ among ours.
 11. **One envelope, one path.** ARCHITECT: *"this is our open seam to transport,
     communicate, open API via shell scripting hence, any CLI … can use the exact
     consistent ONE path protocol"*. The envelope is
-    `ESC ] 1337 ; EVE ; <operation> ; <key=value;…> [ : <base64> ] BEL|ST`,
+    `ESC ] 1337 ; EVE ; <operation> ; <key=value;…> [ : <payload> ] BEL|ST`,
     beside iTerm2's `ESC ] 1337 ; File=<args> : <base64> BEL`. ARCHITECT:
     *"change the marker "END" to "EVE""*.
     - Operations: `command` (`name=` the name of any command registered in EVE's
       command manager: EVE's, the plugin editor's or the text editor's. The
       command runs on the instance that read it, through its text editor's
       command chain, `EVEView::invokeCommand`, `EVEView.cpp:321-331`), `preview`
-      (`path=` an absolute path; an empty path hides the preview), `image`
-      (base64 bytes). The shell integration's `eve` function emits them.
+      (`path=` an absolute path, with `width=` and `height=` in cells; an empty path
+      shows nothing). The `eve` command emits them. Shell integration puts it on
+      `PATH`, so any child process can run it.
     - State and commands. ARCHITECT: *"all state machine that drives/driven by
       terminal "command" should be registered as non-automatable parameter to
       Model"*; *"all operations/methods from/to terminal registered to
       CommandManager as SSOT callback"*; *"CommandManager functions could be
       triggered by events from Parameter, assigned keyboard shortcut,
       anything"*. A command goes through the `commands` lane and the
-      `commandCount` Model row to `CommandManager::invokeDirectly` on the
+      `numCommands` Model row to `CommandManager::invokeDirectly` on the
       message thread. The `preview` path is a Model row.
-    - The EVE `image` operation: ARCHITECT *"keep for now, but NOT for native
-      Preview (Component)."*
+    - The `preview` operation is the native image signal. ARCHITECT: *"this also
+      open seam for our SKiT API to access via shell script. so it's not hardcoded
+      to anything, but universal and generic"*; *"why not just the file as metadata?
+      suffice? isnt that better and fit the contract? why would we need the
+      bytes?"*; *"what actually signal a CLI send? that should be registered
+      parameter. downstream we only react to layout, to paint, etc"*; *"we only want
+      images for preview"*. The sender gives the file, and no image byte crosses the
+      terminal. The tick stores two Model rows: `preview`, the path, and
+      `previewBox`, the cursor plus `width=` and `height=` in cells. Under fzf the
+      width and the height are `FZF_PREVIEW_COLUMNS` and `FZF_PREVIEW_LINES`, and the
+      default is `100%`. The `images` tree is the one Model of every visible image,
+      native and third party: the TextEditor writes it, because `getCellBounds` is
+      the one cell map. ARCHITECT: *"Preview only. more precisely PreviewComponent"*;
+      *"One component for everything ... paint must be always in a single call"*. The
+      view table owns one `jam::PreviewComponent`, and the TextEditor hosts it as a
+      child of its content: *"juce::Component hierarchy is decoupled from
+      ownership"*. The content paints fills, then the PreviewComponent, then the text
+      in `paintOverChildren`, so text shows over the image. The isomorphism with the
+      TextEditor: `jam::ImageDocument` is the AST of one file, built once, as
+      `AnsiDocument` is, and the decoded frames are its materialisation, as `runs`
+      are. An empty path, or a file that does not decode, gives no frames. An erase sequence that touches the box, or a screen change, ends the
+      box. This 2026-11-05 ruling replaces *"keep for now, but NOT for native Preview
+      (Component)."*
+    - SKiT is two-way. ARCHITECT: *"we have always bidirectional read/write
+      decode/encode to widely adopted terminal image protocol, that's SKiT is all
+      about. not reinventing new pattern but extend it, able to receive if any CLI
+      asks for specific protocol such as Sizel, Kitty or iTerm2. but at the point
+      where we could handle better, a more BLESSED approach, we always implement
+      the best, the fastest, most efficient and most effective approach. since we
+      have control end-to-end. the whole stack, encapsulated."*
     - Readback. ARCHITECT: *"not for everything … still under UNIDIRECTIONAL
       contract. for example File Tree widget, might need to send set cwd command
       to terminal."* The GUI writes to the terminal through the input lane only.
@@ -171,6 +204,10 @@ among ours.
       protocol, we only take over terminal bytes and render them on actual GUI
       widget, at message thread, with currently exist widely adopted terminal
       image protocol, our default is iTerm2."*
+    - Widget only. ARCHITECT: *"I want to enforce the architecture fully widget wise
+      on juce::Component native contract. no poking layers. TerminalGraphics lane are
+      final alternatives only when it was proven to be only way"*. A terminal image
+      shows on the `jam::PreviewComponent` at its cell box. `TerminalGraphics` is not this path.
 13. **Reflow is the view's.** ARCHITECT: *"winsize dicated by Viewport available
     space … REFLOW, wrapping or unwrapping are NEVER ever affected by SIGWINCH nor
     winsize. it's always GUI exclusive getLocalBounds() only. winsize is TERMINAL
@@ -186,10 +223,10 @@ The tick decodes each report into metadata or a Model row. The dispatch tables a
 |---|---|---|---|
 | OSC 0, OSC 2 | `terminal.md:1329-1330` | `:987-990` | The `title` row takes the text. |
 | OSC 7 | `terminal.md:1328` | `:969-986` | The `cwd` row takes the decoded path. |
-| OSC 8 | `terminal.md:1332` | `:995-1012` | A link record goes through the `images` lane. The link click is a stub (`EVETerminalProcessor.cpp:122`). |
+| OSC 8 | `terminal.md:1332` | `:995-1012` | A link record goes through the `images` lane. A click writes the `url` row and invokes the `openFile` command. |
 | OSC 11 `?` | `terminal.md:1331` | `:378-412`, `:991-994` | The reply gives the `background` row as `rgb:`. The view writes that row (`EVEView.cpp:25-29`). |
 | OSC 52 | `terminal.md:1097`, `:1381` | `:1100-1126`, `:1257-1265` | A write of selection `c` goes to the record, and the `clipboard` row names it. A query (`?`) is not handled. |
-| OSC 133 A | `terminal.md:1350` | `:1049` | The `promptCount` row counts up. |
+| OSC 133 A | `terminal.md:1350` | `:1049` | The `numPrompts` row counts up. |
 | OSC 133 C | `terminal.md:1348` | `:1018-1035` | The `isRecording` row turns on. The `foregroundProcess` row takes the first word of the command line. |
 | OSC 133 D | `terminal.md:1349` | `:1036-1048` | The `isRecording` row turns off. The `foregroundProcess` and `title` rows clear. |
 | DEC 2026 | `terminal.md:1310` | `:867-871` | The `syncOutput` row follows the mode. A hold ends after `syncTimeoutMilliseconds` (`jam_TerminalProcessor.h:114`). |
@@ -287,6 +324,14 @@ layout event only).
   tail, `v`/drag select, `y` yank. ARCHITECT: *"` is bind key to enter TERMINAL modal
   mode. ` + ], TERMINAL modal mode is TextEditor NORMAL"*; *"return to terminal,
   history should not be editable. read only, copy only"*.
+- Mouse: a press sets the cursor and the anchor. A drag enters VISUAL only at 2 cells
+  from the anchor. A release in another mode opens the link under the cursor. A program
+  that enabled mouse reports takes the mouse first. ARCHITECT: *"dragging in range of 2
+  or more cell then start VISUAL and select"*.
+- Link click: the TextEditor writes the target to the `url` row and invokes the
+  `openFile` command by name. The TextEditor knows no table. ARCHITECT: *"the open file
+  must be a registered command, so clicking, jump open, or pressing enter on highlighted
+  at LIST mode will call the exact SSOT method of `open file`"*.
 
 ### Feature 4: Finder Layer
 
@@ -294,45 +339,82 @@ layout event only).
 No OSC 7 received → Tree/FileList show the session start directory and a status
 line: `cwd tracking unavailable — install shell integration`.
 
-**Tree (left dock):**
-1. Shows directory tree rooted at filesystem root, expanded and centered on cwd
-2. Vim navigation: `j`/`k` move, `h` collapse/parent, `l` expand/enter, `gg`/`G`
-   top/bottom, `/` filter-as-you-type within visible tree, `Enter` = cd the
-   terminal (`writes `cd '<path>'\n` to PTY`), `o` = reveal in FileList
-3. Live: FS watcher refreshes the visible nodes on change
+**File list:** the last output block is the file list. ARCHITECT: *"when user run `ls`
+on active prompt, the last block of the list will serves as the file list"*; *"when ls
+"active", OSC 133 D after last called ls, mark "openable" file with underscore,
+hyperlink"*.
+1. After OSC 133 D, each entry of the last output block that names a real file gets a
+   link and an underline. The filesystem decides, against the `cwd` row. No rule names
+   a program.
+2. A grid entry is one candidate. Any other line is one candidate, then each of its
+   words. A range that holds an OSC 8 link stays as it is.
+3. The next command removes the links. A click opens the entry through `openFile`.
+4. A click on a directory takes the `directory` row of `## open with`: `cd`.
 
-**FileList:**
-1. Finder-style listing of the selected directory: name, size, modified (columns
-   sortable by clicking header; default name-ascending, dirs first)
-2. `Enter`/double-click on dir → descend; on file → open (below)
-3. `p` or single-click → show in Preview
-4. Dotfiles hidden by default; `zh` toggles (vim-style)
+**OPEN mode:** ARCHITECT: *"user can enter OPEN (jump) mode, this is similar to vim jump
+flash (?) so each file gets one character as keyboard shortcut to jump and open
+immediately"*; *"this is exclusive for "terminal modal", LIST mode and OPEN mode"*.
+1. `` ` `` then `o` shows one label, `a` to `z`, on each visible link.
+2. A label key opens its link through `openFile`, and the mode returns to TERMINAL.
+3. `space` moves to the next page of labels. A key that is not a label runs the rows of
+   the mode, so `escape` returns to TERMINAL. The mode consumes every key.
 
-**Open-with (configurable CLI):** config table maps glob → command:
+**LIST mode:** ARCHITECT: *"LIST mode UI/UX is identical with using Finder/Explorer"*;
+*"Both LEFT and RIGHT side panel is EVE native features, juce::Component pure gui"*;
+*"although we are not touching any terminal even not TextEditor at all"*; *"only show
+when user enter LIST mode, hence TextEditor content automatically reflow"*; *"EVEView
+could hold Owner<Component>, 3 members. 2 SidePanel"*; *"Side panel preview immediately
+dismissed when user exit modal mode"*; *"Preview is only the content"*.
+1. `` ` `` then `l` shows a left `juce::SidePanel` with a `juce::FileTreeComponent`, and
+   a right `juce::SidePanel` with `jam::FilePreview`.
+2. The panels do not touch the terminal. EVEView holds `isResizing` on while LIST runs,
+   so the TextEditor reflows and writes no winsize.
+3. `j` and `k` move the highlight between links. The `url` row is the one selection:
+   the tree and the preview follow it, and a click in the tree writes it.
+4. `return` opens the highlighted entry through `openFile`.
+5. An exit hides the panels, and the text unwraps.
+6. The tree root is `cwd`, up by the `tree depth` row of `## display`.
+7. A `juce::TimeSliceThread` of EVEView reads the directories, because
+   `juce::DirectoryContentsList` needs one. *"EVE starts no thread"* binds the chain.
+   ARCHITECT: *"Message thread free to spawn parallel job"*.
 
-| pattern | command |
+**Open-with (configurable CLI):** the `## open with` table of the config maps an
+extension to a value. A row with no extension in its key matches a file name, such as
+`makefile`. The `any` row gives the value of every key that the table does not name,
+and the table takes any key. ARCHITECT: *"even endless could freely add any open with
+by extension to its config"*; *"Free rows: change jam"*.
+
+| key | value |
 |---|---|
-| `*.md` | `nvim "$FILE"` |
-| `*` | system default (`open` / `start`) |
+| `.cpp` | `nvim` |
+| `any` | empty |
 
-Command runs by writing it to the terminal PTY (visible, honest — the user sees
-what ran). Missing/invalid config row → `open with: no rule matched '<name>'` in
-the status area.
+1. A value that names a registered command runs that command.
+2. An empty value opens the file with the system default application.
+3. Any other value is a shell command with the quoted file as its last argument. The
+   command runs by a write to the terminal PTY (visible, honest — the user sees what
+   ran).
+4. While a program runs in the terminal, a shell command value opens the file with the
+   system default application. ARCHITECT: *"Use the system default app"*.
+5. A target that does not exist shows `open with: no file '<name>'` in the message
+   overlay.
+6. A target that is not a local file opens in the browser.
 
-**Preview (right dock), v1:**
-- Images: formats SKiT decoders support (PNG, JPEG, GIF incl. animation)
-- Text/code: read-only buffer widget, first 1 MiB; beyond that:
-  `preview truncated at 1 MiB — open to view all`
-- Binary/undecodable: `no preview — <size>, <kind>`
-- Markdown: rendered as plain text in v1 (Whelmed later)
+**Preview (right panel):** `jam::FilePreview` holds a `jam::PreviewComponent` and a
+`jam::MarkdownComponent`. ARCHITECT: *"we could just use MarkdownComponent with
+frontmatter metadata"*.
+- Images: the image, with the metadata under it.
+- Text/code: the metadata and a fenced block of the first 1 MiB.
+- Binary: the metadata only.
+- Metadata: size, type, created and modified.
 
 **Preview is one component** [2026-10-30]. ARCHITECT: *"Preview need component,
 not inlined. Because we also want gif to be animated, that's need timer."*;
 *"the component could be SSOT, exactly ONE path, on API, only differs what
 dictate the layout, and what command tell them to be visible."*
-- `jam::Preview` materialises one image source on the message thread: a file
-  path (the native column) or a record image (a takeover). It plays and loops a
-  GIF with its own timer, fits its bounds with the aspect ratio kept, and calls
+- `jam::PreviewComponent` materialises every image source: a file path (the
+  native signal) or a record image (a takeover). One vertical-blank clock plays and
+  loops every GIF. Each image fits its box with the aspect ratio kept. It calls
   native JUCE API only.
 - Takeover overlay: ARCHITECT *"Siblings via owner"*. The TextEditor reserves
   the cells (*"TextEditor only "reserve the space", to reflow, wrap, unwrap,
@@ -340,24 +422,30 @@ dictate the layout, and what command tell them to be visible."*
   each box. A cell write over an image removes it.
 - Markdown: ARCHITECT *"opening md from ls is telling View to load md and render
   Markdown like current whelmed render the harness, it's always read-only
-  anyway"* — `jam::MarkdownComponent` as a full-view sibling of the TextEditor
-  (grand scheme §3.11; not built yet).
+  anyway"* — `jam::MarkdownComponent` as a full-view sibling of the TextEditor.
+  ARCHITECT: *"MarkdownComponent basically done, tested, so we only need to wire
+  the event driven mechanics"*.
+  1. The `.md` row of `## open with` names the `markdown` command, so `openFile`
+     runs that command, also while a program runs in the terminal.
+  2. The command reads the `url` row, parses the file, and writes the panel
+     visibility to its component state. The view reacts to that state.
+  3. The panel takes the keyboard focus. Its component state holds the `panel`
+     mode, so the `dismiss` row (`escape`, `q`) matches only there.
+  4. `dismiss` hides the panel, and the TextEditor takes the focus. The terminal
+     path does not change.
 
-### Feature 5: Docking
+### Feature 5: Panels
 
-- `Ctrl+Shift+E` toggle Tree, `Ctrl+Shift+P` toggle Preview
-- Toggling is a layout event only — reader thread untouched; terminal reflows per
-  Feature 2 rules (nothing destroyed)
-- Dock visibility + widths persist in config state
-- [2026-10-30] ARCHITECT *"EVEView, like overlays"*: EVEView owns the Preview
-  column and splits its bounds in `resized`. The `preview` keys row toggles the
-  persisted component state `PREVIEW`; its width is the display row
-  `previewWidth`, a fraction of the window width.
-- [Superseded for the current build] ARCHITECT: *"NO PREVIEW COMPONENT. dont
-  fucking undo the working implementation"*. EVE has no Preview component and
-  no Preview column now. The `preview` and `previewImage` Model rows keep the
-  operation that the EVE `preview` envelope names. The side panel and the
-  Preview stay open work (grand scheme §3.11).
+- The panels show only in LIST mode (Feature 4). A panel is a layout event only —
+  the reader thread stays untouched, and the terminal reflows per Feature 2 rules
+  (nothing destroyed).
+- The `tree width` and `preview width` rows of `## display` give the panel widths.
+- [2026-11-05] ARCHITECT: *"i actually think Preview should be the first to
+  implement CORRECTLY, and wire thorugh the whole terminal protocol"*. This
+  replaces the 2026-10-31 ruling *"NO PREVIEW COMPONENT"* and the 2026-10-30 Preview
+  column in EVEView. One `jam::PreviewComponent` is a child of the TextEditor
+  content, and text paints over it. It paints every visible image in one call. The
+  right panel holds a second `jam::PreviewComponent`, through `jam::FilePreview`.
 
 ### Feature 6: Configuration
 
@@ -465,11 +553,12 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
 Editor state is ONE `juce::ValueTree`: the TextEditor's component node in the
 plugin state, from `AudioModel::getOrCreateComponentState (componentID)`. The
 node carries `mode` (a `map::EditorMode` key: 0 `normal`, 1 `visual`,
-2 `terminal`). The node's `mode` is the host parameter `Mode`, attached in both
+2 `terminal`, 3 `open`, 4 `list`). The key 5 `panel` belongs to the markdown panel
+node. The node's `mode` is the host parameter `Mode`, attached in both
 directions (`jam::Model::ValueAttachment`, `TextEditor::bindToModel`); its default
 is `terminal` (`Source/layout/parameters.md`). `visualMode` (a `map::VisualMode` value:
 `character`, `line`, `block`), `cursorLine`, `cursorColumn`,
-`cursorWantedColumn`, `anchorLine`, `anchorColumn`, `count`, `operatorCount`,
+`cursorWantedColumn`, `anchorLine`, `anchorColumn`, `count`, `numOperatorRepeats`,
 `pendingOperator`, `layer` and `sequence`. The host serialises this node with the
 rest of the plugin state.
 
@@ -498,8 +587,8 @@ comparison"*.
   the sibling of `jam::ParameterLayout` for `parameters.md`.
 - **Rows.** `applicationCursor`, `bracketedPaste`, `mouseTracking`,
   `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited`,
-  `cursor`, `commandCount`, `promptCount`, `preview`, `previewImage`, `winsize`,
-  `cwd`, `title`, `foregroundProcess`, `syncOutput`, `clipboard` and `background`
+  `cursor`, `numCommands`, `numPrompts`, `outputBlock`, `url`, `preview`, `previewBox`,
+  `winsize`, `cwd`, `title`, `foregroundProcess`, `syncOutput`, `clipboard` and `background`
   (`parameters.md:29-67`). `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
   the column change together.
 - **Producer.** The decoder (`jam::TerminalProcessor`) keeps its working state
@@ -560,6 +649,20 @@ later sprints implement it.
 | Yank | `y` | `y` | |
 | Copy | `cmd+c` / `ctrl+shift+c` | `cmd+c` / `ctrl+shift+c` | |
 | Paste | | | `cmd+v` / `ctrl+shift+v` |
+| Enter OPEN | | | `` `o `` |
+| Enter LIST | | | `` `l `` |
+
+| Action | OPEN | LIST | Markdown panel |
+|---|---|---|---|
+| Open | label key | `return` | |
+| Next page of labels | `space` | | |
+| Move down | | `j` | |
+| Move up | | `k` | |
+| Return to terminal | `escape` | `escape` `i` `a` `I` `A` `o` `O` | |
+| Close the panel | | | `escape` `q` |
+
+Under END, END's prefix layer takes `o` for OPEN and `f` for LIST, because `l` there
+moves the focus to the right pane. The hosted EVE drops its own `open` and `list` rows.
 
 The default keys belong to the command's state owner. The text editor commands
 and their keys, modes and layers are jam tables (`jam/cast/terminal.md`); zoom and

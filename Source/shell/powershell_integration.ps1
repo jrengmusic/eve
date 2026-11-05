@@ -40,17 +40,16 @@ function _eve_encode {
 }
 
 function eve {
-    param($Subcommand, $Argument)
+    param($Subcommand, $Argument, $Options)
     switch ($Subcommand) {
         'command' { $Host.UI.Write("$([char]27)]1337;EVE;command;name=$(_eve_encode $Argument)`a") }
         'preview' {
             $path = if ($Argument) { $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Argument) } else { '' }
-            $Host.UI.Write("$([char]27)]1337;EVE;preview;path=$(_eve_encode $path)`a")
+            $width = if ($env:FZF_PREVIEW_COLUMNS) { $env:FZF_PREVIEW_COLUMNS } else { '100%' }
+            $height = if ($env:FZF_PREVIEW_LINES) { $env:FZF_PREVIEW_LINES } else { '100%' }
+            $arguments = if ($Options) { ";$Options" } else { '' }
+            $Host.UI.Write("$([char]27)]1337;EVE;preview;inline=1;width=$width;height=$height$arguments;path=$(_eve_encode $path)`a")
         }
-        'image' {
-            $path = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Argument)
-            $Host.UI.Write("$([char]27)]1337;EVE;image;:$([Convert]::ToBase64String([IO.File]::ReadAllBytes($path)))`a")
-        }
-        default { [Console]::Error.WriteLine("eve: unknown command '$Subcommand'; use command, preview or image"); $global:LASTEXITCODE = 1 }
+        default { [Console]::Error.WriteLine("eve: unknown command '$Subcommand'; use command or preview"); $global:LASTEXITCODE = 1 }
     }
 }

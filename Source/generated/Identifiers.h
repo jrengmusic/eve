@@ -33,6 +33,7 @@ extern const juce::Identifier colorMode;
 extern const juce::Identifier commandCount;
 extern const juce::Identifier deviceClock;
 extern const juce::Identifier historyCapacity;
+extern const juce::Identifier previewComponent;
 extern const juce::Identifier previewWidth;
 extern const juce::Identifier profiler;
 extern const juce::Identifier selector;
@@ -56,14 +57,12 @@ namespace map
 struct CommandId : public jam::Bimap<int, juce::Identifier>
 {
     CommandId() : jam::Bimap<int, juce::Identifier> { {
-            { clear,   juce::Identifier { "clear" } },
-            { preview, juce::Identifier { "preview" } },
+            { clear, juce::Identifier { "clear" } },
     } } {}
 
     enum value : int
     {
-        clear   = 0x4600012,
-        preview = 0x4600027,
+        clear = 0x4600012,
     };
 
     static CommandId* getInstance() noexcept

@@ -93,7 +93,7 @@ void EVETerminalProcessor::registerEvents()
     for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited, Id::syncOutput })
         events.add<bool> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (bool value) { state.storeValue (tag, id, static_cast<int> (value)); });
 
-    for (const auto& id : { Id::mouseTracking, Id::cursor, Id::promptCount })
+    for (const auto& id : { Id::mouseTracking, Id::cursor, Id::numPrompts })
         events.add<int> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (int value) { state.storeValue (tag, id, value); });
 
     events.add<const char*, int> (Id::command, [this, tag = jam::Format::toType (Id::terminal)] (const char* name, int size)
@@ -105,7 +105,7 @@ void EVETerminalProcessor::registerEvents()
                                           commands.write (name, static_cast<size_t> (size));
                                           commands.writeByte ('\0');
                                           commands.flush();
-                                          state.storeValue (tag, Id::commandCount, state.getParameter<jam::Parameter<int>> (tag, Id::commandCount)->getValue() + 1);
+                                          state.storeValue (tag, Id::numCommands, state.getParameter<jam::Parameter<int>> (tag, Id::numCommands)->getValue() + 1);
                                       }
                                   });
 
@@ -119,17 +119,9 @@ void EVETerminalProcessor::registerImageEvents()
 {
     events.add<juce::int64> (Id::hyperlink, [] (juce::int64) {});
 
-    events.add<juce::int64> (Id::previewImage, [this, tag = jam::Format::toType (Id::terminal)] (juce::int64 image)
-                             {
-                                 const auto previous { state.getParameter<jam::Parameter<int64_t>> (tag, Id::previewImage)->getValue() };
-
-                                 if (previous >= 0)
-                                     terminalBuffer.addReleasedImage (previous);
-
-                                 state.storeValue (tag, Id::previewImage, static_cast<int64_t> (image));
-                             });
-
     events.add<juce::int64> (Id::clipboard, [this] (juce::int64 image) { pendingClipboard.store (image, std::memory_order_release); });
+    events.add<juce::int64> (Id::previewBox, [this, tag = jam::Format::toType (Id::terminal)] (juce::int64 value) { state.storeValue (tag, Id::previewBox, static_cast<int64_t> (value)); });
+    events.add<juce::int64> (Id::outputBlock, [this, tag = jam::Format::toType (Id::terminal)] (juce::int64 value) { state.storeValue (tag, Id::outputBlock, static_cast<int64_t> (value)); });
 }
 
 void EVETerminalProcessor::applyCommands (const std::function<void (const juce::Identifier&)>& callback)
@@ -179,21 +171,35 @@ void EVETerminalProcessor::registerUserInterfaceGetters()
 
                                                                                                         device.requestProcess();
                                                                                                     });
+
+    userInterfaceGetters[Id::previewComponent].add<jam::TerminalSwap*&> (jam::Format::toType (Id::images), [this] (jam::TerminalSwap*& output) { output = &swap; });
 }
 
 void EVETerminalProcessor::registerChainEvents()
 {
-    chainEvents[Id::terminalInput].add<const char*, int> ([this] (const char* bytes, int size)
-                                                          {
-                                                              jassert (size <= input.getFreeSpace());
+    chainEvents[Id::terminalInput].add<const char*, int> ([this] (const char* bytes, int size) { addInput (bytes, size); });
+}
 
-                                                              if (size <= input.getFreeSpace())
-                                                              {
-                                                                  input.write (bytes, static_cast<size_t> (size));
-                                                                  input.flush();
-                                                                  device.requestProcess();
-                                                              }
-                                                          });
+void EVETerminalProcessor::addInput (const char* bytes, int size)
+{
+    jassert (size <= input.getFreeSpace());
+
+    if (size <= input.getFreeSpace())
+    {
+        input.write (bytes, static_cast<size_t> (size));
+        input.flush();
+        device.requestProcess();
+    }
+}
+
+void EVETerminalProcessor::applyOpenCommand (std::string_view command, std::string_view path)
+{
+    std::string line { command };
+
+    jam::Format::appendUtf8 (line, Chars::space);
+    ShellIntegration::appendPath (line, getShell(), path);
+    jam::Format::appendUtf8 (line, Chars::carriageReturn);
+    addInput (line.data(), static_cast<int> (line.size()));
 }
 
 bool EVETerminalProcessor::writePendingData()
@@ -217,10 +223,10 @@ void EVETerminalProcessor::handleAsyncUpdate()
 
 void EVETerminalProcessor::copyToClipboard (juce::int64 image)
 {
-    const auto text (swap.getImageData (image));
-
-    if (text.getSize() > 0)
-        juce::SystemClipboard::copyTextToClipboard (text.toString());
+    swap.applyToImageData (image, [] (const void* data, size_t size, jam::TerminalImageEncoding)
+    {
+        juce::SystemClipboard::copyTextToClipboard (juce::String::fromUTF8 (static_cast<const char*> (data), static_cast<int> (size)));
+    });
 }
 
 int EVETerminalProcessor::getHistoryCapacity() const

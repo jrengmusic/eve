@@ -18,11 +18,11 @@
 
 ## Current State
 
-**Last Sprint:** Cell Width from the Unhinted Advance, Whole-Row Viewport, 1024-Unit Fonts, Ligatures from Config, 2026-11-04 (`carol/SPRINT-LOG.md:39`). Plan in flight: `PLAN-terminal-reports.md`.
+**Last Sprint:** Finder Parity, 2026-11-05 (`carol/SPRINT-LOG.md:39`). Plans in flight: `PLAN-1-preview-protocol.md` to `PLAN-6-list-mode.md`, until ARCHITECT's run closes them.
 
 **Active ODE:** None.
 
-**Active Debt:** None.
+**Active Debt:** `DEBT-20261105T000000` (Windows runtime test).
 
 **Architecture rulings:** `SPEC.md` (Core Principles 7–10, State Model, Architecture Constraints) and `PLAN-Grand-Scheme.md` (amendments 2026-10-27 in §0, §3.9, §8). Read them before any change to state, parameters, threads or the clock.
 

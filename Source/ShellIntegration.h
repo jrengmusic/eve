@@ -59,4 +59,15 @@ public:
      * @return           Space-separated arguments for the shell. The string is empty when the shell needs none.
      */
     static juce::String getShellArguments (const juce::String& shell, const juce::File& directory);
+
+    /**
+     * @brief Appends a file path to a command line, quoted for the shell.
+     *
+     * PowerShell and pwsh double each single quote in the path. Other shells use the POSIX escape for each single quote.
+     *
+     * @param output  String that receives the quoted path at its end.
+     * @param shell   Shell program name or absolute path. The function keys on the file name without extension.
+     * @param path    Path to quote.
+     */
+    static void appendPath (std::string& output, const juce::String& shell, std::string_view path);
 };

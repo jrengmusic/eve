@@ -36,6 +36,73 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Finder Parity — Preview through the Terminal Protocol, openFile, File List, Markdown Panel, OPEN and LIST Modes, No Count, jam::Array ✅
+
+**Date:** 2026-11-05
+**Duration:** one session across a context compaction. The start and end times are not recorded.
+**Scope (ARCHITECT):** the six plans `PLAN-1-preview-protocol.md` to `PLAN-6-list-mode.md`. *"i actually think Preview should be the first to implement CORRECTLY, and wire thorugh the whole terminal protocol"*. *"we dont use "count" we use "num""*, *"no count anywhere. must be consistent"*, with the option *"Every count name in EVE and JAM becomes num, and END, TIT, CAKE and WHATDBG follow. External contract strings stay"*. *"dont use vector use jam::Array if possible anywhere"*. *"you can use jam::Array as sub for HeapBlock"*. *"and also implement for windows. runtime test still need to be tested when i get to windows. add to DEBT. implement now"*. *"complete outstanding until /log no gate"*.
+
+### Agents Participated
+- COUNSELOR: the six plans; the protocol reads; each delegation; validation of each return; the SPEC and grand scheme amendments; the triage of each audit finding by a read; this log.
+- Engineer (sonnet): the code of each plan; the count rename; the `jam::Array` sweep; the audit fixes.
+- Pathfinder (haiku): targeted reads; the old panel trim from `326387d`; the consumer check of the changed types; the doxygen pass in two scopes.
+- Auditor (opus): one run over PLAN-2 to PLAN-6 and the two sweeps. PLAN-1 had its own run before ARCHITECT's *"complete outstanding until /log no gate"*.
+
+### Files Modified
+- PLAN-1, confirmed by ARCHITECT's runs (*"works"*, *"all works"*): `jam/jam_gui/widgets/jam_PreviewComponent.*` replaces `jam_Preview.*` and `jam_PreviewOverlay.*`: one component paints every box in one call, `FrameJobs` decodes in parallel, one vblank clock runs each GIF. `jam/jam_terminal/image/jam_ImageDocument.*` replaces the GIF metadata headers: one complete document per image, with one child per frame. `jam_TextEditor.*`: `addPreview`, text paints in `Content::paintOverChildren`, `setImageBounds`, `setPreviewBounds`, the `images` tree. `jam_TerminalProcessor.*`: the `previewBox` row, the EVE preview arm, the alternate screen and blank cell rules. `jam_terminal/image/native/*`: `loadImageNative`, software images, `ComApartment` on Windows. `jam_core/text/jam_Format.*`: `toNativePath`. `jam_plugin_bootstrap/view/jam_ViewManager.h`: child snapshot in `applyToComponentRows`. `eve/Source/shell/eve` on `PATH`; `eve/Source/ShellIntegration.*`, `EVEView.cpp`, `EVETerminalProcessor.cpp`, `layout/component.md`, `layout/parameters.md`, `cast/files.md`.
+- PLAN-2: `jam/cast/core.md`, `gui.md`; `jam_markdown/document/jam_ConfigDocument.cpp`: a table with an `any` row takes any key. `jam_TextEditor.*`: `applyTerminalMouse`, `applyCellMouse` with `selectionThreshold { 2 }`, `applyLink`. `jam_Format.*`: `appendQuoted`. `jam_TerminalProcessor.*`: public `getUriPath`, `applyToDecodedText`. `eve`: the `## open with` table, the `url` row, `openFile`, `getOpenCommand`, `appendPath`, `addInput`, `applyOpenCommand`.
+- PLAN-3: `jam_AnsiDocument.*`: `addFileLinks`, `getText`, `isGridLine`, `isBlank`, `getEntryEnd`. `jam_TextEditor.*`: `getLastOutputBlock` reads the `outputBlock` row, `isLinkChanged` in `addBlocks`. `jam_TerminalProcessor.cpp`: the `outputBlock` report. `eve`: the `outputBlock` row, the `directory` row.
+- PLAN-4: `eve/Source/layout/component.md` row 2, `EVEView.*`: `openMarkdown`, `setMarkdownVisible`, `applyToMarkdown`, `keyPressed`. `jam/cast/gui.md`: `EditorMode` `panel`. `default-eve.md`: `dismiss`, `.md` takes `markdown`.
+- PLAN-5: `jam/cast/gui.md`, `terminal.md`, `spell.md`, `style.md`: `open`, colour rows, sizes 28. `jam_TextEditor.*`: `applyToVisibleLines`, `applyToVisibleLinks`, `applyLinkLabel`, `paintLinkLabels`, `Id::page`. `jam_ENAXClientExtensions.cpp`, `end/Source/config/keys.md`, `end/cast/bimaps.md`, `end/Source/ui/ENDView.cpp`, `EditorView.cpp`. `eve/Source/textEditor.css`, `layout/parameters.md`.
+- PLAN-6: new `jam/jam_markdown_graphics/component/jam_FilePreview.*`. `jam_PreviewComponent.*`: `bindToImages`. `jam_TextEditor.*`: `getLink`, `getListEntry`, `moveListEntry`, `setCursorToTerminal`, `paintColumns`, `paintListEntry`. `EVEView.*`: `panels`, `directoryThread`, `directoryList`, `addPanels`, `setPanelsVisible`, `setPanelFile`, the trim in `resized`, `juce::FileBrowserListener`. `default-eve.md`: `tree depth`, `tree width`.
+- Count rename: about 240 names over about 150 JAM files, 4 EVE sources, the cast tables and `user-modules-info.md`, then bare `count` in about 40 files. Examples: `Id::count` to `numRepeats`, `Grapheme::Entry::count` to `numCodepoints`, `HashMap::count` to `num_entries` (the fork keeps its snake case, NAMES Rule 5). Consumers changed where they use a JAM name: `end/Source/ui/ENDView.cpp`, `SessionView.cpp`, `lookAndFeel/ENDLookAndFeel.cpp`, `ARCHITECTURE.md`, `SHADERS.md`, `ggwp/Source/Build.cpp`.
+- `jam::Array` sweep: 133 declarations over 45 JAM files: `jam_graphics`, `jam_fuzzy`, `jam_animation`, `jam_dsp`, `jam_terminal`, `jam_clap`, `jam_core`, `jam_gui`, `jam_data_structures`, `jam_pdf`, plus `jam_VulkanMesh.h`. `endless/Source/terminal/action/ActionListSelection.cpp:40` takes parentheses.
+- `eve/SPEC.md`, `README.md`, `PLAN-Grand-Scheme.md`, `CLAUDE.md`, `DEBT.md`, `PLAN-1` to `PLAN-6`.
+- Doxygen: each new declaration and each stale block in the sprint scope.
+
+### Alignment Check
+- [x] BLESSED principles followed: a CLI signal is a Model row; widgets react to `juce::ValueTree` events; one component paints every image in one call; one command opens every target.
+- [x] NAMES.md adhered: each new name joins a family. `applyUrl` became `setPanelFile`, because `apply` pushes onto a target that the caller supplies.
+- [x] MANIFESTO.md principles applied
+- [ ] Not validated by a compile. Only PLAN-1 was built and run. PLAN-2 to PLAN-6, both sweeps and the audit fixes have seen no compiler. The doxygen zero-warning check has not run.
+
+### Problems Solved
+- **Terminal images on a Component.** ARCHITECT rejected the placement model: *"this is wrong mental model"*. A CLI signal is a registered row, and the widget only listens. The native lane sends a file as metadata, so no bytes cross the PTY: *"why not just the file as metadata? suffice?"*. The third-party lanes stay for compatibility. fzf treats any `ESC]1337;` as a full-window image and exits with `CSI J`, so `setBlankCells` clears the box.
+- **Isomorphism.** `ImageDocument` is the AST like `AnsiDocument`, the decoded frames are the runs, the `images` tree is the Model, and paint is one call. ARCHITECT: *"one component per image is costly"*.
+- **A parent is not an owner.** ARCHITECT: *"juce::Component hierarchy is decoupled from ownership"*. The view table owns the component, and `bindTo` reparents it into the content. `applyToComponentRows` reads a snapshot, because the reparent shifts each later z index. The panel lookup uses the `type` property for the same reason.
+- **Decode delay.** `FrameJob` decodes each GIF frame on its own pool, so the first frame shows at once and a same-pool wait cannot lock.
+- **File list.** OSC 133 D scrolls the output into history (`SPEC.md`, Resize), so the links build at creation in `addBlocks`. `history.erase` from PLAN-3 Step 3 is not used, because `addBlock` treats an absent block as new and shifts the cursor. `isLinkChanged` compares the block's stored number with the row.
+- **A command with no output brought the old list back (audit H3).** The fold over resident lines also ran on each vblank (H2). The processor's `outputBlock` became one Model row, so one read replaces the walk, and `true` or `cd` clears the list.
+- **Null read (audit H1).** A file that opens with an error keeps its range with a null address (`juce_SharedCode_posix.h:585`). `FilePreview::setFile` and `openMarkdown` test `getData()`, the shape of `jam_PreviewComponent.cpp:242`.
+- **Winsize in LIST (audit M1).** `resizeEnd` and each animator change cleared the gate. `resizeEnd` now keeps it while a panel shows, and `setPanelsVisible` sets the bounds, then the gate.
+- **No temporary container (audit M4, L6).** `getVisibleLinks` from PLAN-5 built and sorted an array on each paint. `applyToVisibleLines` and `applyToVisibleLinks` walk in place, and `applyToVisibleImages` uses the same walk.
+- **Audit findings also resolved.** M3, M6, M7, L1 to L7, L10, L11, L12 (bounds), L13, L14, L17, L20 (`applyUrl`), L21 to L24, and the link discovery part of M9: `AnsiDocument::addFileLinks` now holds the filesystem test, so the view holds none.
+- **Audit findings rejected, each with its read.** M2: `getVisibleLinks` holds only rows in view, so `j` past the view needs the line walk. M5: `isPanelShowing` is framework API, and the panel can differ from the mode. M8: PLAN-2 Step 5 and PLAN-4 Step 3, and the view holds no state. M9, the rest: MANIFESTO L, *"decomposing it would only relocate the same lines across more files"*, and the earlier ruling in this log. M10: `EVEView.cpp:12` writes before the listener exists (`jam_PluginEditor.cpp:210`). L8: `getMotions` and `getActions` are the lookup tables that MANIFESTO L asks for. L9: `TerminalSwap::linesPerBlock` bounds one build. L12 `isNew`: the three sites hold different payloads, and one helper would be a carrier. L15: `panels` is empty by design until the first LIST. L16: both sites call the one pair `getUriPath` and `applyToDecodedText`. L18: the z index shifts. L19: the row exists and is used. L20, other names: each was verbatim in a delegation prompt.
+- **Sweep rows kept.** `jam_HashMap.h` (allocator parameter), `Tokens` and `tokenGroups` (copied into a job), `ResourceFetchers` (a const lvalue is copied), `BrickWall::getCoefficients`, `FrequencyGrid::getBandRanges`, the `FrequencyGrid` tick tables, `SimdStackBlur` history (`jam_Array.h:797`), `juce::Typeface::getLayersForGlyph`, two `vk::ResultValue` returns, `juce::ColourGradient::createLookupTable`.
+- **Rename rulings from the read.** The unit string `"count"`, the message `count differs from the default: `, `FrameCount`, `frame_count_mod` and CSS `counter` stay as external strings. The `counter` family and `isCounterClockwise` stay: they are not `count`. English prose stays. Consumer-own names stay, by the option text: *"END, TIT, CAKE and WHATDBG follow"*.
+- **Mistakes owned.** The doxygen protocol skipped for `Model::Component`, with a false absence claim. The bytes recommendation. Text out of the terminal model. *"you delegate"*, after I pushed work back. One component per image. A watchdog armed late. A delegation prompt that said `carol apply --expect 0` writes nothing: on a file with no match it writes the same bytes, so Pathfinder rewrote 279 consumer files with identical content, and only their modification times changed.
+- **Watchdogs.** The array inventory and the `jam_graphics` sweep reached 15 minutes and were stopped. The cause was a read of every site in one prompt, and `carol apply` retries. Each resumed with a narrow task. ARCHITECT stopped the run once at a watchdog call and resumed with *"continue"*.
+
+### State for Continuation
+- Run `cast` in `jam`, then `eve`, `end`, `ggwp` and the other consumers: the `Id::` renames, `numRepeats`, `outputBlock`, `url`, `openFile`, `markdown`, `dismiss`, `open`, `list`, `listDown`, `listUp`, `created`, `modified`, `treeDepth`, `treeWidth`, `directory`, `any`, and the colour rows need it. Until then the generated headers hold the old names.
+- Then build `jam`, `eve`, `end`, `endless`. Expect compile errors. No compiler has seen PLAN-2 to PLAN-6, the rename or the sweep. Most risk: `jam_TextEditor.h` templates (`applyToVisibleLines`), `jam_Rotary.*`, `jam_Filter.h` loops, `jam_BonusMatrix.*`, `jam_AnsiDocument.cpp` header order for `juce::URL`, the `EVEView.cpp:12` use of `map::EditorMode::panel`.
+- 279 consumer files have new modification times. A build rebuilds them.
+- ARCHITECT tests, in plan order: the Acceptance list of PLAN-2 to PLAN-6. First: a click after `ls`, `` ` `` `o` labels, `` ` `` `l` panels with no SIGWINCH, `.md` panel with `escape`, hot reload of the theme in the panel.
+- The first LIST show animates from an empty rectangle: `juce::SidePanel` has no bounds until it is shown (`juce_SidePanel.cpp:109-121`). Read the result on a run.
+- `ls sub/` lists names that do not resolve against `cwd` (PLAN-3 Risks).
+- Run `<leader>bd` and `ninja doxygen`, and confirm zero warnings. LSP on JAM `.cpp` files gave wrong targets in this session: check `.clangd`.
+- `PLAN-1` to `PLAN-6` stay until ARCHITECT's run closes them.
+- `jam_TextEditor.cpp` `perform` keeps `isUsed`: a statement runs after it, so no result return fits. `Noise::Brown` and the fuzzy finder have no caller in EVE.
+- Windows: nothing in this sprint has built or run there.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261105T000000` — Windows runtime test of the preview path, by ARCHITECT: *"runtime test still need to be tested when i get to windows. add to DEBT."*
+
+---
+
 ## Sprint: Terminal Reports — Tab Name and Cwd from the Pane, OSC and DEC Reports on the Tick, ENAX Pane UUID, Audit of Four Sprints ✅
 
 **Date:** 2026-11-04
@@ -262,114 +329,6 @@
 
 ### Debts Deferred
 - None
-
-## Sprint: Closing with fzf Open No Longer Hangs; Version Reset; fzf and btop on the Transparent Contract ✅
-
-**Date:** 2026-11-04
-**Duration:** one session, after the eve.md cleanup log. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"closing app while fzf opened, crash"*; *"closing END while EVE terminal opened fzf still HANGS"*; *"perhaps we need better clean up, when Processor dtor"*; *"eve version should be reset to 0.0.1"*; *"also fix btop also not transparent"*; *"delete zip inside Source/plugins/"*; *"add missing handlers for claude code to eve DEBT.md"*; *"9/10 add to DEBT"*.
-
-### Agents Participated
-- COUNSELOR: reads of the close path, the triage, `project-info.md`, `CLAUDE.md`, `end/.gitignore`, `zshrc`, `btop.conf`, `DEBT.md`, the one-line race fix, this log.
-- Pathfinder (haiku): `sample` of the hung END, git history reads.
-- Engineer (sonnet): the `close()` reorder, the zip delete.
-
-### Files Modified (7 total)
-- `jam/jam_terminal/tty/native/jam_TerminalTTY_posix.cpp:281-311` — `close()` kills the child, closes the read source and the master, and only then waits for the child. Nothing reads the master after `device.stop()`, so the old wait on an open master never returned.
-- `jam/jam_terminal/tty/native/jam_TerminalTTY_posix.cpp:232` — the read handler also resumes a cancelled source, so a 0-byte event cannot leave the cancel wait blocked.
-- `eve/project-info.md:38`, `eve/CLAUDE.md:11` — version `0.0.1`.
-- `end/.gitignore:36` — the unpacked plugin folder follows the version.
-- `~/.config/zsh/zshrc:98` — fzf `bg:16`, the blank index. `~/.config/btop/btop.conf:8` — `theme_background = false`.
-- `eve/DEBT.md` — `DEBT-20261103T233912`, `DEBT-20261103T235331`, `DEBT-20261103T235332`.
-- Deleted: `end/Source/plugins/EVE v0.0.1 macOS.zip` (END's toolchain builds it again, `end/project-info.md:106`).
-
-### Alignment Check
-- [x] BLESSED principles followed — the TTY owns its cleanup order; no Processor destructor code, per CODING.md RAII rule.
-- [x] NAMES.md adhered — `isChildRunning` joins the `is` family.
-- [x] MANIFESTO.md principles applied
-- [ ] Not audited: this work came after the sprint's one Auditor pass.
-
-### Problems Solved
-- **Hang on close with fzf open.** `sample` of the hung END: 806 of 806 main-thread samples in `__wait4` under `close()`, through `~EVETerminalProcessor`, with the shell in state `U`. ARCHITECT named the cleanup; the fix reorders it. ARCHITECT confirmed: *"no more hangs with fzf"*.
-- **Why the blank colour had no effect.** fzf sent `bg:#090D12`, an opaque true colour; `bg:16` uses index 16. btop's theme colours have no index form (`nord.theme:4`), and its own files state that a transparent background needs an empty background (`nord.theme:12`), so `btop.conf:7-8` is its route.
-- **Mistakes owned.** A first race fix at `:232` from reading alone, before a stack existed; it was not the cause of the hang. A stale claim that EVE must build before END, when END's toolchain builds it (`end/project-info.md:106`). Three hand-offs of `zshrc:98` that ARCHITECT's ruling already covered.
-
-### State for Continuation
-- ARCHITECT has not yet reported fzf and btop as transparent after these edits. Test in a new shell and a restarted btop. `printf '\e[48;5;16m text \e[0m\n'` tests EVE alone.
-- `btop` differs from the ruling *"that exact colour set as fzf and btop bg colour"*, for the reason above. Read `btop.conf:7-8`.
-- `doxygen` crashed at 06:44:21 with a bus error (`~/Library/Logs/DiagnosticReports/doxygen-2026-11-04-064421.ips:46`). `docs/xml` is stale for `getIndexedColourId`. Check the next regeneration.
-- `kuassa` C++ is regenerated and not compiled.
-- `eve/CLAUDE.md:21`, `:25` name an old plan and a paid debt.
-- nvim gaps are in no ledger: cursor shape `CSI Ps SP q`, the `CSI ?u` and `CSI >` key modes, `?1004` focus events (`jam_TerminalProcessor.cpp:288`, `:299`, `jam/cast/terminal.md:1286-1297`).
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261103T235332` — move old `END.app` into the endless repo before the first Release install (ARCHITECT: *"9/10 add to DEBT"*).
-- `DEBT-20261103T235331` — route dev END and EVE to `~/.config/dev/` (ARCHITECT: *"9/10 add to DEBT"*).
-- `DEBT-20261103T233912` — live decoder handlers for Claude Code (ARCHITECT: *"add missing handlers for claude code to eve DEBT.md"*).
-
----
-
-## Sprint: eve.md Cleanup — One Table per Css File, AnsiColours in Cast, Index 16 Is Blank ✅
-
-**Date:** 2026-11-04
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** `PLAN-eve-md-cleanup.md`. *"this sprint i want to focus on cleaning up eve.md"*; *"markdown/mermaid will be absorbed from whelmed as eve native markdown/mermaid renderer, so those related colour definition stays."*; *"we should just rename it to default-eve.md"*; *"should not be harcoded to module. either the SSOT comes from css or table generated static by cast"*; *"ANSIColours?"*; blank colour design: *"eve set a colour, an ansi colour that terminal understand"*, *"that colour set to blank, 0 alpha, nothing to paint, transparent"*, *"that exact colour set as fzf and btop bg colour"*, *"jam::TerminalGraphics must true to its contract, no hacking no shortcut, no circus of anything to just deliver per terminal spec"*; index *"16"*.
-
-### Agents Participated
-- COUNSELOR: PLAN, every validation read, the triage of the audit, `SPEC.md`, `README.md`, `CLAUDE.md`, one line in `jam_StyleTerminal.cpp`, this log.
-- Pathfinder (haiku): discovery reads, cast and rename inventory, style and config read path, the doxygen pass.
-- Engineer (sonnet): cast tables, `StyleTerminal`, css split, audit fixes, every cast run.
-- Auditor (opus): one pass, 14 findings.
-
-### Files Modified (29 total, generated output excluded)
-**jam:**
-- `cast/terminal.md:123` — `## TerminalIndexed` is `## AnsiColours`; rows `colourN`, `ansi colourN colour id`; new `colour` column with the default ARGB word of all 256 indexes; `Id::terminal` row moved in from `cast/gui.md`, because `jam_terminal` sits below `jam_gui`.
-- `cast/style.md:577-832` — `ansiColourNColourId`, `ansi colourN colour id`; keys `0x1`–`0x100` unchanged.
-- `cast/spell.md:1784-1789`, `:2276-2286` — `AnsiColours` bimap; new `defaultAnsiColours` lookup table.
-- `jam_terminal/style/jam_StyleTerminal.h`, `.cpp` (new) — sets all 256 defaults at construction; `setAppearance` applies the `terminal` sheet, then the component sheet. Shape of `StyleMarkdown::setAppearance`.
-- `jam_terminal/jam_terminal.h:39`, `:114-115`, `jam_terminal.cpp:54-55` — includes and the order prose.
-- `jam_terminal/document/jam_AnsiDocument.h:221-229` — `getIndexedColourId` public; `jam_AnsiDocument.cpp:701-716` — `map::AnsiColours`.
-- `jam_markdown/document/jam_ConfigDocument.cpp:203-204` — a property table with a `dark` column always holds a DARK child; `:422-431` `hasReference`; `jam_ConfigDocument.h:96`, `:215-218` doc.
-- `jam_web/css/jam_Css.cpp:204`, `:1966-1967` — `compare`, not `==` or `!=` on strings.
-- `resources/textEditor.css` — 512 indexed rows deleted.
-
-**kuassa:** `user_modules/cast/style.md` — same 256 rows as jam.
-
-**eve:**
-- `Source/layout/colours.css`, `terminal.css`, `markdown.css`, `mermaid.css` (new); `Source/layout/style.css`, `Source/textEditor.css` — one css file for one table; 21 palette names; 17 `terminal` rows; 480 forwarding rows and 350 duplicate dark rows gone.
-- `Source/layout/ViewLayout.md` renamed `default-eve.md`; `cast/files.md:23`.
-- `Source/EVEView.cpp:171` — `registerStyle<jam::StyleTerminal>`.
-- `SPEC.md` Config and ANSI colours; `README.md:73`; `CLAUDE.md:46`; `PLAN-eve-md-cleanup.md`.
-
-### Alignment Check
-- [x] BLESSED principles followed — cast is the one source of the 256 defaults; no new path in `jam::TerminalGraphics`.
-- [x] NAMES.md adhered — `AnsiColours` is ARCHITECT's word; `defaultAnsiColours`, `StyleTerminal`, `hasReference` join existing families.
-- [x] MANIFESTO.md principles applied
-- [ ] Doxygen not regenerated; ARCHITECT regenerates and reads the warning count. `docs/xml` is stale for `getIndexedColourId`.
-
-### Problems Solved
-- **Why eve.md had 2155 lines.** `getDefaultSettings` writes the whole css tree. `textEditor.css` held 240 hex rows and 240 forwarders to them, because `addAppearance` stores only a `var()` name. All 240 are fixed values with one reader.
-- **Layout.** One sheet is one css file (`jam_Css.cpp:2206`), so the split needed no translation layer. `colours.css` uses the path that `toDocument`, `getTypeName` and `getColourValue` already had.
-- **Transparent background with black intact.** ARCHITECT's design: EVE sets one ANSI index to blank, and the application asks for that index. Paint already fills nothing at alpha 0 (`jam_GlyphArrangement.h:136`). No code path changed.
-- **Audit.** 14 findings. Resolved: 1 (regression: a disk `dark` cell had no effect), 2, 4, 5, 6, 7, 8, 9, 10, 13, 14 `ConfigDocument`, 14 `Css` strings. Rejected: 3 (the PLAN names a set, not an order), 11 (`setMonoFont` replaces a complete state), 12 (Decision 6 and `end/PLAN-end-eve-config.md:243`), 14 `Css:1764-1767` (a copy in creation), 14 `end/CLAUDE.md:44` (no CONTRACT clause).
-- **Mistakes owned.** A question that `end/PLAN-end-eve-config.md:45` had answered; `defaultColorRegisters` offered as a sibling with no read of its semantics; an `addGlyph` rule against EVE's contract, withdrawn; a claim that a glyph at index 16 goes blank, when it takes the default text colour (`jam_GlyphArrangement.cpp:598`); a stale `Id::toType` in a pasted sibling, the one build error.
-
-### State for Continuation
-- Builds: `cast cast/spell.md` in jam and kuassa/user_modules, `cast cast/spell.md --debug` in eve: exit 0, 0 errors, 0 warnings. After the build, the doxygen pass changed comment text only. END and kuassa C++ are not built; run cast there and build.
-- ARCHITECT's test: delete `~/.config/end/eve.md` first (version stays `0.0.1`). Read the new tables. `printf '\e[48;5;16m text \e[0m'` shows no fill.
-- App side, MACHINIST: `~/.config/zsh/zshrc:98` `bg:#090D12` becomes `bg:16`. btop: a `.theme` file with background `#000000`, and `truecolor = false` (`btop.conf:5`, `:10`). The btop source is not on disk, so the first run shows which index btop sends.
-- Regenerate doxygen (`ninja doxygen`; jam `<leader>bd`).
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
----
 
 ## Handoff to COUNSELOR: EVE terminal protocol — one envelope, one path; measure and decode; Preview foundation
 
