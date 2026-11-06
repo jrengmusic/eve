@@ -242,7 +242,7 @@ always UNIDIRECTIONAL, always SSOT, no copy, no shadow state"*.
   `shellExited` calls `updateHostDisplay` with two flags: `parameterInfoChanged` for VST2
   and AU, `nonParameterStateChanged` for VST3 (`EVEProcessor::valueTreePropertyChanged`).
   The host then reads the state.
-- **The host to EVE.** A tree of type `terminal` in `setStateInformation` sets each of
+- **The host to EVE.** A tree of type `pluginState` in `setStateInformation` sets each of
   its properties on the Model, with no clock restart (`EVETerminalProcessor::setRows`).
   Any other tree restores the state through the restart path.
 
@@ -599,21 +599,21 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
 - **Read only:** the history is not editable. ARCHITECT: *"return to terminal,
   history should not be editable. read only, copy only"*.
 
-Editor state is ONE `juce::ValueTree`: the TextEditor's component node in the
-plugin state, from `AudioModel::getOrCreateComponentState (componentID)`. The
-node carries `mode` (a `map::EditorMode` key: 0 `normal`, 1 `visual`,
-2 `terminal`, 3 `open`, 4 `list`). The key 5 `panel` belongs to the markdown panel
-node. The node's `mode` follows the `mode` Model row in both directions
-(`TextEditor::valueTreePropertyChanged`); its default
-is `terminal` (`Source/layout/parameters.md`). `visualMode` (a `map::VisualMode` value:
-`character`, `line`, `block`), `cursorLine`, `cursorColumn`,
-`cursorWantedColumn`, `anchorLine`, `anchorColumn`, `count`, `numOperatorRepeats`,
-`pendingOperator`, `layer` and `sequence`. The host serialises this node with the
-rest of the plugin state.
+The editor mode, `mode` (a `map::EditorMode` key: 0 `normal`, 1 `visual`, 2 `terminal`,
+3 `open`, 4 `list`), exists only as the `mode` Model row, with the default `terminal`
+(`Source/layout/parameters.md`). `layer` and `sequence` are Model rows on the same tree.
+ARCHITECT: *"why copy? no copy allowed"*. The key 5 `panel` belongs to the markdown panel
+node.
 
-`TextEditor` is a `juce::ValueTree::Listener`. Its `valueTreePropertyChanged`
+The rest of the editor state is the TextEditor's component node in the
+plugin state, from `AudioModel::getOrCreateComponentState (componentID)`: `visualMode`
+(a `map::VisualMode` value: `character`, `line`, `block`), `cursorLine`, `cursorColumn`,
+`cursorWantedColumn`, `anchorLine`, `anchorColumn`, `count`, `numOperatorRepeats` and
+`pendingOperator`. The host serialises this node with the rest of the plugin state.
+
+`TextEditor` is a `juce::ValueTree::Listener` of both trees. Its `valueTreePropertyChanged`
 dispatches the changed property through a `Function::Map`.
-`TextEditorStatusBar` binds the same node. It shows the mode and the
+`TextEditorStatusBar` binds the same two trees. It shows the mode and the
 `line:column` ruler in `normal` and `visual` mode. The left segment holds the mode in
 bold, and the right segment holds the ruler. A visual label is `VISUAL`, `V-LINE` or
 `V-BLOCK`. Its colours are EVE's, in `Source/textEditor.css`: one colour id for each
@@ -646,7 +646,7 @@ comparison"*.
   `isWrapPending`, `activeLink`, `scrollingRegion`, `savedCursorNormal`, `savedCursorAlternate`,
   `pen`, `savedPenNormal`, `savedPenAlternate`, `keyboardFlagsInactive`, `keyboardModesNormal`,
   `keyboardModesAlternate`, `numKeyboardModesNormal`, `numKeyboardModesAlternate`, `syncStart`,
-  `numYanks` and `pendingClipboard` (`parameters.md`, `## model`). ARCHITECT: *"everything should
+  `numYanks`, `layer`, `sequence` and `pendingClipboard` (`parameters.md`, `## model`). ARCHITECT: *"everything should
   be Parameter, no strays ana manual state management allowed"*. `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
   the column change together. `cursorShape` is a key of `map::CursorShape`, from
   `CSI Ps SP q`. In TERMINAL, the caret paints a block, an underline, or a bar from this
@@ -669,7 +669,9 @@ comparison"*.
   when an event arrives, and send the bytes through the `terminalInput` chain
   event (`TextEditor::bindToEvents`).
 - **Tree.** The Model tree is the `terminal` child of the APVTS state.
-  `getStateInformation` saves it. On `setStateInformation`, EVE suspends
+  `getStateInformation` saves it as a `pluginState` child, the state instance that a host holds.
+  ARCHITECT: *"the correct design is not `terminal`, but the state instance of `EVE`. `EVE` could
+  be any plugin"*. On `setStateInformation`, EVE suspends
   processing. The Model takes the restored values, and its tree replaces the
   restored child in the incoming state. Then the APVTS replaces its whole tree,
   so one tree remains. No callback takes part: `jam::PluginEditor` owns
@@ -745,7 +747,9 @@ END also tells EVE its keyboard focus through the `focus` Model row; EVE takes
 keyboard focus when it turns on and gives it up when it turns off
 (`EVEView::registerTerminalEvents`). `commandManager` is EVE's, not `jam::PluginEditor`'s, and
 zoom and size are EVE's contract: `zoom`, `width` and `height` are Model rows, `resized` writes no
-row, and `resizeEnd` writes `width` and `height` at the final stop. ARCHITECT: *"CommandManager is
+row, and `resizeEnd` writes `width` and `height` at the final stop. A host sets `width` and `height`,
+and EVE sets the size of that axis from the row (`EVEView::registerTerminalEvents`). ARCHITECT: *"it's
+still the same tree but adhere to how audio plugin host-client contract"*; *"CommandManager is
 EVE's, NOT PLUGIN EDITOR"*; *"no fucking applyGesture at resized(). never call atomic on message
 thread. why branching on message thread. this is EVE's CONTRACT. not PluginEditor."*. The TextEditor paints its caret only while it holds the
 keyboard focus, and `focusOfChildComponentChanged` repaints it on each change. A pane

@@ -152,15 +152,23 @@ void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     terminalProcessor.flush();
 
+    auto state { model.copyState() };
+    auto terminal { state.getChildWithName (jam::Format::toType (Id::terminal)) };
+    juce::ValueTree pluginState { jam::Format::toType (Id::pluginState) };
+
+    pluginState.copyPropertiesAndChildrenFrom (terminal, nullptr);
+    state.removeChild (terminal, nullptr);
+    state.appendChild (pluginState, nullptr);
+
     juce::MemoryOutputStream stream { destData, false };
-    model.copyState().writeToStream (stream);
+    state.writeToStream (stream);
 }
 
 void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto state { juce::ValueTree::readFromData (data, sizeInBytes) }; state.isValid())
     {
-        if (state.hasType (jam::Format::toType (Id::terminal)))
+        if (state.hasType (jam::Format::toType (Id::pluginState)))
         {
             terminalProcessor.setRows (state);
         }

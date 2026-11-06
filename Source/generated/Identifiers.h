@@ -33,6 +33,7 @@ extern const juce::Identifier numCommands;
 extern const juce::Identifier deviceClock;
 extern const juce::Identifier historyCapacity;
 extern const juce::Identifier openWith;
+extern const juce::Identifier pluginState;
 extern const juce::Identifier previewComponent;
 extern const juce::Identifier previewWidth;
 extern const juce::Identifier profiler;

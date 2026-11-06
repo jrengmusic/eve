@@ -103,8 +103,8 @@ Each step is validated by COUNSELOR before the next step, against MANIFESTO.md, 
 
 ### Step 5: Editor mode is a Model row
 **Scope:** `jam/jam_gui/widgets/jam_TextEditor.*`.
-**Action:** Delete `modeAttachment`. The `terminal` property table gets `Id::mode`, which calls `setMode` with the row value. `setMode` from a key writes the row, so the row is the one truth.
-**Validation:** One writer path. `Model::ValueAttachment` has no use left in `jam_TextEditor`.
+**Action:** Delete `modeAttachment`. `mode` exists only as the `terminal` row. `setMode` writes the row and `getMode` reads the row. `invokeKey` takes the `terminal` tree, so `layer` and `sequence` are rows too. Amended after a run under END, which started in NORMAL: the sync between the row and the component state wrote 0 to the row at the bind. ARCHITECT: *"why copy? no copy allowed"*.
+**Validation:** One tree holds `mode`. `Model::ValueAttachment` has no use left in `jam_TextEditor`.
 
 ### Step 6: EVE tells the host, and takes rows
 **Scope:** `eve/Source/EVEProcessor.*`, `eve/Source/EVETerminalProcessor.*`.
@@ -112,7 +112,7 @@ Each step is validated by COUNSELOR before the next step, against MANIFESTO.md, 
 1. `EVEProcessor` listens to the Model tree. For `title`, `foregroundProcess`, `cwd`, `zoom` and `shellExited`, it calls `updateHostDisplay (ChangeDetails{}.withParameterInfoChanged (true).withNonParameterStateChanged (true))`. The five ids are a local `static const std::array` named `hostRows`.
 2. `setStateInformation`: a tree of type `Format::toType (Id::terminal)` sets each of its properties on the Model and does not restart. Any other tree keeps the restore path (`EVEProcessor.cpp:160-166`).
 3. `openTTY` starts in the `cwd` row. An empty row keeps `ShellIntegration::getStartDirectory()`.
-**Validation:** A live tell has no clock restart. Each row keeps one author: END sends only `zoom`, `mode`, `focus` and the first `cwd`. No lock on the clock.
+**Validation:** A live tell has no clock restart. END sends only `zoom`, `mode`, `focus`, `width`, `height` and the first `cwd`. No lock on the clock.
 
 ### Step 7: Exit in EVE
 **Scope:** `eve/Source/EVEView.cpp`.
@@ -134,7 +134,8 @@ Each step is validated by COUNSELOR before the next step, against MANIFESTO.md, 
 **Action:**
 1. `SessionView` and `ENDView` read `title`, `foregroundProcess` and `cwd` from the `terminal` child of the pane row.
 2. `EditorView::setZoom`, `setMode` and the `focus` write call `PluginState::setRows`.
-**Validation:** No terminal row sits directly on the pane row. `width` and `height` have no END writer, because `setEditorBounds` already sizes the editor (`EditorView.cpp:89-90`) and `EVEView::resizeEnd` writes the rows (Step 4).
+3. `EditorView::resized` writes `width` and `height` through `setRows`. Amended after a run under END: `setEditorBounds` only moves the VST2 host window (`EditorView.cpp:87-90`, `juce_AudioProcessorEditor.h:275`). ARCHITECT: *"it's still the same tree but adhere to how audio plugin host-client contract"*.
+**Validation:** No terminal row sits directly on the pane row. `EVEView::resizeEnd` writes the same rows at the final stop (Step 4), and each row sets only its own axis.
 
 ### Step 10: commandManager is END's one registry
 **Scope:** `end/Source/action/ENDActions.*` (delete), `end/Source/ui/ENDView.*`, `TabView.cpp`, `SessionView.cpp`, `EditorView.cpp`, `end/Source/plugins/Nexus.cpp`, `end/Source/Main.*`, `end/cast/identifiers.md`.

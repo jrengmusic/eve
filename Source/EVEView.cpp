@@ -129,14 +129,7 @@ bool EVEView::isResizing() const
 
 bool EVEView::isListMode() const
 {
-    bool isAnyList { false };
-
-    applyToTextEditors ([this, &isAnyList] (jam::TextEditor& editor)
-    {
-        isAnyList = isAnyList or static_cast<int> (model.getOrCreateComponentProperty (editor.getComponentID(), Id::mode).getValue()) == map::EditorMode::list;
-    });
-
-    return isAnyList;
+    return static_cast<int> (getTerminalState().getProperty (Id::mode)) == map::EditorMode::list;
 }
 
 void EVEView::timerCallback() { resizeEnd(); }
@@ -145,21 +138,6 @@ void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Ident
 {
     if (tree.hasType (jam::Format::toType (Id::terminal)) and terminalEvents.contains (property))
         terminalEvents.get (property, std::as_const (tree));
-
-    if (property == Id::mode)
-    {
-        bool isEditorTree { false };
-
-        applyToTextEditors ([this, &tree, &isEditorTree] (jam::TextEditor& editor)
-        {
-            isEditorTree = isEditorTree or tree == model.getOrCreateComponentState (editor.getComponentID());
-        });
-
-        const auto isList { static_cast<int> (tree.getProperty (Id::mode)) == map::EditorMode::list };
-
-        if (isEditorTree and isList != (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing()))
-            setPanelsVisible (isList);
-    }
 
     jam::PluginEditor::valueTreePropertyChanged (tree, property);
 }
@@ -198,12 +176,30 @@ void EVEView::registerTerminalEvents()
         resized();
     });
 
+    terminalEvents.add<const juce::ValueTree&> (Id::width, [this] (const juce::ValueTree& terminal)
+    {
+        setSize (static_cast<int> (terminal.getProperty (Id::width)), getHeight());
+    });
+
+    terminalEvents.add<const juce::ValueTree&> (Id::height, [this] (const juce::ValueTree& terminal)
+    {
+        setSize (getWidth(), static_cast<int> (terminal.getProperty (Id::height)));
+    });
+
     terminalEvents.add<const juce::ValueTree&> (Id::focus, [this] (const juce::ValueTree& terminal)
     {
         if (static_cast<bool> (terminal.getProperty (Id::focus)))
             grabKeyboardFocus();
         else
             giveAwayKeyboardFocus();
+    });
+
+    terminalEvents.add<const juce::ValueTree&> (Id::mode, [this] (const juce::ValueTree& terminal)
+    {
+        const auto isList { static_cast<int> (terminal.getProperty (Id::mode)) == map::EditorMode::list };
+
+        if (isList != (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing()))
+            setPanelsVisible (isList);
     });
 
 #if JAM_USING_PROFILER

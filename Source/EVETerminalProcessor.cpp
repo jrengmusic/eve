@@ -51,7 +51,7 @@ juce::File EVETerminalProcessor::getManifestFile()
 
 void EVETerminalProcessor::setState (juce::ValueTree newState)
 {
-    const auto restored { newState.getChildWithName (jam::Format::toType (Id::terminal)) };
+    const auto restored { newState.getChildWithName (jam::Format::toType (Id::pluginState)) };
 
     if (restored.isValid())
     {

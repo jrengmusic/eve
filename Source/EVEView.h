@@ -112,7 +112,7 @@ private:
     /**
      * @brief Ends the resize. It sets the resizing mark of the text editors to `true` when a text editor is in the list mode, and to `false` otherwise.
      *
-     * It writes the width and the height of the view to the `width` and `height` rows of the terminal state.
+     * It writes the width and the height of the view to the `width` and `height` rows of the terminal tree.
      * It stops the coalesce timer. The timer also runs this call as the final stop of a frame change from outside the window.
      */
     void resizeEnd() override;
@@ -130,8 +130,8 @@ private:
     bool isResizing() const;
 
     /**
-     * @brief Answers whether a text editor is in the list mode. It reads the component state, and it creates the `Id::mode` property of a text editor when that property is absent.
-     * @return `true` when the `Id::mode` property of any text editor is `map::EditorMode::list`.
+     * @brief Answers whether the terminal is in list mode. It reads the `mode` row of the `terminal` tree.
+     * @return `true` when the `mode` row of the `terminal` tree is `map::EditorMode::list`.
      */
     bool isListMode() const;
 
@@ -144,13 +144,9 @@ private:
      * @brief Reacts to a change of a property in the model tree.
      *
      * A change of a property of the `terminal` tree runs the handler of `terminalEvents` for that property, when a handler exists.
-     * The handlers cover `Id::numCommands`, `Id::clipboard`, `Id::url`, `Id::numYanks`, `Id::shellExited`, `Id::zoom`, `Id::focus`,
-     * and, in a profile build, `Id::numPrompts`.
+     * The handlers cover `Id::numCommands`, `Id::clipboard`, `Id::url`, `Id::numYanks`, `Id::shellExited`, `Id::zoom`, `Id::width`, `Id::height`,
+     * `Id::focus`, `Id::mode`, and, in a profile build, `Id::numPrompts`.
      *
-     * A change of `Id::mode` on the component state of a text editor shows the file panels when the mode is `map::EditorMode::list` and the panels are hidden.
-     * It hides them when the mode is not `map::EditorMode::list` and the panels show.
-     * The constructor sets the `panel` mode and a false `Id::value` on the markdown state, before `initialise()` runs.
-     * This keeps a restored state from swallowing the first show.
      * The base class gets every change.
      *
      * @param tree      Tree that changed.
@@ -171,7 +167,7 @@ private:
     void initialiseView() override;
 
     /**
-     * @brief Sets the editor to be resizable, then sets its size from the width and height rows of the terminal state.
+     * @brief Makes the editor resizable, then sets its first size from the width and height rows of the terminal tree.
      *
      * The window is made resizable without the bottom-right corner resizer. The function writes no row.
      */
@@ -187,7 +183,7 @@ private:
     void addCommands();
 
     /**
-     * @brief Writes the zoom row of the terminal state, clamped to the range of 0.25 to 4.0.
+     * @brief Writes the zoom row of the terminal tree, clamped to the range of 0.25 to 4.0.
      * @param newZoom  Zoom value to write.
      */
     void setZoom (float newZoom);
@@ -291,7 +287,7 @@ private:
     void setMarkdownVisible (bool isVisible);
 
     /**
-     * @brief Writes the url of the selected file of the file tree to the `url` property of the terminal state.
+     * @brief Writes the url of the selected file of the file tree to the `url` property of the terminal tree.
      *
      * The call does nothing when no file is selected.
      */
@@ -452,7 +448,11 @@ private:
      * The `numYanks` handler returns each text editor to terminal mode. The terminal mode sits above the vim modes of the editor, so its owner decides this.
      * The `shellExited` handler shows the `Id::failShellExited` message when the property is true, then invokes the quit command of the command manager.
      * The `zoom` handler sets the zoom of the view and lays it out again.
+     * The `width` handler sets the width of the view and keeps its height.
+     * The `height` handler sets the height of the view and keeps its width.
      * The `focus` handler grabs the keyboard focus when the property is true, and gives it away when the property is false.
+     * The `mode` handler shows the file panels in list mode, and hides them in any other mode.
+     * It acts only when the left panel has a different visibility.
      * In a profile build, the `numPrompts` handler repaints the view when the count is 1, and it sets the `Id::promptPainted` rule of the processor.
      */
     void registerTerminalEvents();

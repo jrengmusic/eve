@@ -91,7 +91,7 @@ public:
     /**
      * @brief Joins the Model lane to a restored state tree.
      *
-     * When @p newState has a `terminal` child, `state` takes the values of that child, and the child leaves @p newState. A row that the child lacks keeps its value.
+     * When @p newState has a `pluginState` child, `state` takes the values of that child, and the child leaves @p newState. A row that the child lacks keeps its value.
      * The tree of `state` then moves from its parent to @p newState.
      *
      * @param newState  State tree that the host restored. It receives the tree of `state`.
@@ -99,9 +99,9 @@ public:
     void setState (juce::ValueTree newState);
 
     /**
-     * @brief Copies each property of @p rows to the terminal Model.
+     * @brief Copies each property of @p rows to the `terminal` tree of the Model.
      *
-     * The call sets the properties on the Model state without a restart of the clock.
+     * The call sets the properties on the terminal tree without a restart of the clock.
      *
      * @param rows  Tree whose properties are the rows to write.
      */

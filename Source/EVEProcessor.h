@@ -60,13 +60,21 @@ public:
     const juce::String getProgramName (int index) override;
     void changeProgramName (int index, const juce::String& newName) override;
 
-    /** @brief Flushes the terminal Model to its tree, then writes a copy of the model state to @p destData. */
+    /**
+     * @brief Writes the model state to @p destData, with the terminal tree saved as the pluginState child.
+     *
+     * The call flushes the terminal Model to its tree first.
+     * The `terminal` child is copied to a `pluginState` child, which replaces it in the written state.
+     * A host holds the `pluginState` child as the state of this plugin instance.
+     *
+     * @param destData  Block that receives the state bytes.
+     */
     void getStateInformation (juce::MemoryBlock& destData) override;
 
     /**
      * @brief Restores the model state from host data.
      *
-     * A tree of the `terminal` type sets each of its properties on the terminal Model through `EVETerminalProcessor::setRows()`.
+     * A tree of the `pluginState` type sets each of its properties on the terminal Model through `EVETerminalProcessor::setRows()`.
      * It does not restart the clock.
      * Any other valid tree restores the state inside `terminalProcessor.restart`.
      * The clock is stopped while the terminal Model and the APVTS take the restored tree.

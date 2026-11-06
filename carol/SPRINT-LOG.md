@@ -36,6 +36,74 @@
 
 ## SPRINT HISTORY
 
+## Sprint: A Pane Holds Any Plugin — pluginState, Three Close Commands, One Close Order, Mode as One Row, Window Size through Rows, Host Keeps Bundled Font Bytes ✅
+
+**Date:** 2026-11-06
+**Duration:** one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** the crash and the wrong size under END: *"last sprint still left broken state"*; *"winsize disagree with window size"*; *"it's not only winsize, i think it's the whole state of EVE are wrong ... immediately init at NORMAL mode"*. *"Display Mono custom pua also broken now"*. *"why copy? no copy allowed"*. *"closing pane, exit, clean dtor must be deterministic, SSOT. one COMMAND"*. *"close terminal should be one commandId (kills eve instance CLEANLY)"*; *"close pane should be one commandId"*; *"close terminal pane should be one commandId (calls closeTerminal then, closePane)"*; *"cmd+w, `exit`, should call close terminal pane"*. The pane model, verbatim in `end/SPEC.md`: *"a pane is just blank canvas for ANY PLUGIN"*; *"default plugin is EVE"*; *"any pane could be any plugin"*; *"by default cmd+w IS `exit`"*. *"the correct design is not `terminal`, but the state instance of `EVE`. `EVE` could be any plugin"*. *"comprehensive doxygen pass until /log no gate"*.
+
+### Agents Participated
+- COUNSELOR: the reads of the crash, size, state, font and close paths; each design; validation of each return; the one-line edits in `EditorView.cpp` and `Session.cpp`; `eve/SPEC.md`, `end/SPEC.md`, `PLAN-host-client-state.md`; this log.
+- Engineer (sonnet): the mode row, the mouse clamp, the size rows, the bundled face lookup, the close order, the three close commands, `loadPlugin`, `pluginState`.
+- Pathfinder (haiku): the plan inventory; the `jam_fuzzy` and fzf read; the crash, state, layout, font and mode reads; the doxygen pass and its correction.
+
+### Files Modified (40 total)
+- `jam/jam_gui/widgets/jam_TextEditor.cpp:102`, `:110`, `:655`, `:853` — `mode` exists only as the `terminal` row; the three sync lines are deleted. `:547`, `:563`, `:585`, `:592` — `invokeKey` takes `terminal`. `:1450` — `applyMouse` constrains the position to the content, because JUCE sends drags outside the bounds (`juce_MouseListener.h:112-116`).
+- `jam/jam_gui/widgets/jam_TextEditorStatusBar.h`, `.cpp` — a `terminal` member; `paint` reads the mode from it.
+- `jam/jam_gui/layout/jam_OwnerComponent.h`, `.cpp:48-58` — `remove` destroys the child first with its row whole; the `childRemoved` hook runs after the erase and receives the row.
+- `jam/jam_gui/layout/jam_MatrixComponent.h`, `.cpp:409-433` — the focus moves before the tree changes; a root pane row leaves `state` directly; one-argument `getParent` deleted.
+- `jam/jam_gui/layout/jam_TabbedComponent.h`, `.cpp` — the hook signature.
+- `jam/jam_graphics/fonts/jam_Typeface.cpp:398-421` — `findBundledTypeface`; `registerSystemTypeface` takes the bytes of a registered bundled face of the same name and style.
+- `jam/jam_graphics/context/jam_CpuLowLevelGraphicsContext.h:238`, `:267-271` — the context interns the current font, the shape of the Vulkan context, because an index of another binary's table has no meaning.
+- `jam/jam_gui/commands/jam_CommandManager.h`, `jam/jam_graphics/fonts/jam_Typeface.h` — doxygen.
+- `end/Source/ui/EditorView.h`, `.cpp` — `perform` is a lookup of `closeTerminal`, `closePane`, `closeTerminalPane`; `shellExited` invokes `closeTerminalPane`; `resized` writes `width` and `height`; one `resized()` after `createProcessorEditor()`.
+- `end/Source/ui/TabView.h`, `.cpp:45-52` — `loadPlugin` has `files::evePlugin` as its default argument; `childRemoved` removes the plugin and tells the session view when no pane remains.
+- `end/Source/ui/SessionView.h`, `.cpp:53-59` — `childRemoved` quits when no tab remains.
+- `end/Source/ui/ENDView.h`, `.cpp` — the `loadPlugin` command; the three close commands forward to the focused pane; the join command no longer removes a plugin.
+- `end/Source/plugins/Session.h`, `.cpp` — `removePlugins` and `valueTreeChildRemoved` deleted; `removePlugin` public; `pluginState`; the `jassert` on the format deleted.
+- `end/Source/plugins/PluginState.h`, `.cpp` — the `pluginState` child.
+- `end/cast/bimaps.md`, `end/cast/identifiers.md`, `end/Source/config/keys.md:24` — `closeTerminal`, `closeTerminalPane`, `loadPlugin`, `pluginState`; cmd+w binds `close terminal pane`.
+- `end/SPEC.md`, `eve/SPEC.md`, `eve/PLAN-host-client-state.md` — the rulings, and the false *"`width` and `height` have no END writer"*.
+- `eve/Source/EVEView.h`, `.cpp` — `isListMode` reads the row; `Id::mode`, `Id::width` and `Id::height` events, each row sets its own axis.
+- `eve/Source/EVEProcessor.h`, `.cpp:151-186`, `eve/Source/EVETerminalProcessor.h`, `.cpp:54` — `terminal` stays EVE's own tree and maps to `pluginState` at the state boundary.
+- `eve/Source/layout/parameters.md`, `eve/cast/identifiers.md` — `layer` and `sequence` rows; `pluginState`.
+
+### Alignment Check
+- [x] BLESSED principles followed, with the branches named below.
+- [x] NAMES.md adhered: `pluginState` from ARCHITECT's *"state instance"*, in the family of `Id::plugin` and `PluginState`; `findBundledTypeface` joins `findBundledFallback`.
+- [x] MANIFESTO.md principles applied: B, a view dies before its plugin; S, one `mode`.
+- [ ] No Auditor run. ARCHITECT's run order was the doxygen pass, then the log.
+- [ ] No build or run of the last code is reported. Zero doxygen warnings are unconfirmed: no index was regenerated.
+- [ ] Branches stay where a read shows no other form: the root case (`jam_MatrixComponent.cpp:413`), the empty owner rules (`TabView.cpp:50`, `SessionView.cpp:57`), `if (format != nullptr)` (`Session.cpp:80`).
+
+### Problems Solved
+- **NORMAL at start.** `state = componentState` fires `valueTreeRedirected` (`juce_ValueTree.cpp:630`). The mode handler then wrote 0 to the row, and the sync copied it back. Two trees held one truth. Now one row holds it.
+- **Window at 800x600 under END.** END loads `EVE.vst`, and the VST2 host window has `resizableByHost = false` (`juce_AudioProcessorEditor.h:275`), so `setEditorBounds` only moves it. `38b6b1a` deleted the old write and I wrote a false line in the plan. `EditorView::resized` now writes the rows.
+- **Underlined `≤` for U+E000.** `0325a0d25` read the outline from a CoreText font found by name. Under END that name finds the installed Display Mono, where gid 105 is `lig_003C_003D`. `Typeface::Native` is private (`juce_Typeface.cpp:276`), so the bundled bytes answer.
+- **Asserts on close.** A focus write reached a dying child whose row had no session ancestor. Each close now has one order: the view, then the focus, then the plugin.
+- **`closeTerminal`.** It removes the `plugin` row. The pane deletes its editor first, then `Session` removes the plugin (`juce_ValueTree.cpp:101-107`).
+- **Doxygen pass.** Six blocks plus one parameter were rejected on read and corrected.
+- **Findings rejected, each with its read.** C-1, `CommandManager::state`: the sequence timer needs the tree that it clears (`jam_CommandManager.cpp:122-125`), so this is no history for a caller. C-2, `removeListener` in destructors: the clause covers RAII objects, and a listener registration is not one; `ENDView.cpp:40-41` listens to a model that outlives it.
+- **Mistakes owned.** Assumptions stated as facts: *"a `TextEditor` with no Model"*, and *"content-ignorant"* used as a ruling when it is SPEC prose. Two ENAX and row proposals withdrawn on read. A `hasProperty` check and a double `resized()` shipped against the ruling, then deleted.
+
+### State for Continuation
+- ARCHITECT runs `cast` in `eve` and `end`, builds, and tests cmd+w, `exit`, the last pane, a file drop, the Display Mono PUA, and the first size and mode.
+- Change `close pane` to `close terminal pane` in `~/.config/end/keys.md:27` and `~/.config/dev/keys.md:24`.
+- Delete a standalone EVE saved state from an earlier build: its `terminal` child stays in front of the live one (`EVETerminalProcessor.cpp:62-63`).
+- Run `<leader>bd` in `jam` and `ninja doxygen` in `eve` and `end`, and confirm zero warnings.
+- The first winsize still comes from the config size (`jam_ViewEditor.h:129-130`), and the final stop corrects it.
+- `Session.cpp:108` gates `PluginState` by company name (`PLAN-host-client-state.md`, Step 8.5). ENAX is formalised later with CLAP (`end/SPEC.md:38`).
+- Native fuzzy finder: `jam_fuzzy` holds the matchers. It is in no build, and its UI has no plan (`PLAN-Grand-Scheme.md:800-802`).
+- Still open from the last sprint: the `commands` FIFO is not a row; the `background` and `winsize` working copies; the `MallocStackLogging` emitter; the AU and VST3 paths of `PluginState` have no test.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
+---
+
 ## Sprint: Host Client State Seam — Every State a Model Row, One Seam for All Formats, commandManager the One Registry, `exit` Closes Its Pane ✅
 
 **Date:** 2026-11-06
@@ -304,63 +372,6 @@
 ### Debts Paid
 - `DEBT-20261103T233912` — the live decoder handles every listed sequence through its tables. A link is render only, by ruling.
 - `DEBT-20261103T235332` — closed by ARCHITECT: *"not issue with bundle id. old binary is dead."*
-
-### Debts Deferred
-- None
-
----
-
-## Sprint: Cell Width from the Unhinted Advance, Whole-Row Viewport, 1024-Unit Fonts, Ligatures from Config ✅
-
-**Date:** 2026-11-04
-**Duration:** one session, after the keyboard focus log. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"[1] font kerning looks too tight. what option do we have to adjust the spacing for each characters, slightly spaced out? is our calculation wrong? ... ideally we have baseline 0 kerning, this baseline could then overriden via config"*; *"[2] ... look at top most row. there's remants of previous history sometimes left on top ... we should just always snap to cell height, so no cutoff. and no remnants of normal screen at alternate"*; *"config should be wired, AFTER we have correct calculation"*; *"we actually have new fonts to be built /Users/jreng/Documents/Poems/dev/fonts/ all of it now is 1024 base, not 1003 anymore ... build with ggwp"*; *"issue now: no ligatures renderd"*; *"IIUC the spec also ligatures is config driven, so it must be hot reload"*.
-
-### Agents Participated
-- COUNSELOR: reads of the metric path, the row path, the FreeType load path, the config overlay and the old ligature code; design; validation of each Engineer return; this log.
-- Engineer (sonnet): the cell width, kerning and row snap edits; the ggwp build and install; the ligature code and config row.
-- Pathfinder (haiku): the font tables of the old `DisplayMonoBook.ttf`; the git trace of the deleted ligature code.
-- Auditor: not run. ARCHITECT: *"do not audit until i explicitly say so"*.
-
-### Files Modified (15 total, and 12 built fonts)
-- `jam/jam_graphics/fonts/jam_GlyphRasterizer.cpp:505` — the cell measure loads with `FT_LOAD_NO_HINTING`, so `ceil26Dot6ToPx` (`:537`) rounds the real advance up.
-- `jam/jam_style/jam_StyleCustom.cpp:35-48` — `setMonoFont` adds the kerning once to `monoMetrics.cellWidth`. The mono `Fonts` table carries factor 0, so `getFontMeasure` (`jam_GlyphArrangement.cpp:221`) does not add it again. `monoFonts.add` stays before `getOrCreateMetrics`, because the add registers the typeface (`jam_Typeface.cpp:465-467`).
-- `jam/jam_gui/widgets/jam_TextEditor.h:432-434`, `jam_TextEditor.cpp:720`, `:1028-1034`, `:1203-1218`, `:1229`, `:1333` — the viewport holds whole rows through `Cell::Rectangle::fromPixel` and `toPixel`. `getRowOffset` gives the distance from the view top to its row top. `Content::paint`, `applyMouse` and `keepCursorVisible` use it.
-- `jam/jam_graphics/fonts/jam_GlyphArrangement.h:204`, `:218`, `:489-493`, `:661-665`, `:681` — `ligatureFeature`, `Fonts::hasLigatures`, the three ligature declarations, the three constants, the `ligatures` cache.
-- `jam/jam_graphics/fonts/jam_GlyphArrangement.cpp:57-59`, `:275-298`, `:413-472` — `Fonts::add` reads the feature; `addCellEntries` tries a ligature first; `isLigatureCandidate`, `getOrCreateLigature`, `findLigatureGlyph`.
-- `jam/jam_style/style_manager/jam_StyleManager.cpp:206-214` — `setAppearance` reads the `ligatures` row and tells `setMonoFont` through `FontOptions::withFeatureEnabled`.
-- `jam/cast/style.md:39` — `Id::ligatures`.
-- `jam/resources/fonts/` — the six Display and Display Mono fonts, rebuilt with ggwp. All report 1024 units per em. Display goes from 102 to 111 glyphs. Display Mono goes from 1443 to 118 glyphs.
-- `eve/Source/layout/default-eve.md:19-20` — `ligatures` row of `## display`, type `bool`, value `true`.
-- Outside the repos: `fonts/display/DisplayBook.ttf` and its two siblings, `fonts/display-mono/`, `fonts/display-serif/`, `fonts/display-serif-mono/`, three weights each. All 12 builds exited 0. The Serif fonts have no consumer, so they stay beside their manifests.
-
-### Alignment Check
-- [x] BLESSED principles followed: one cell width owner; no shadow scroll state, because `getRowOffset` derives on demand; `getClusterGlyph` stays the one shape.
-- [x] NAMES.md adhered: `getOrCreateLigature` joins `getOrCreateFallback`; `findLigatureGlyph` joins the `find*Glyph` family; `getRowOffset` joins `getRowTop`.
-- [x] MANIFESTO.md principles applied
-- [ ] New declarations hold no doxygen yet, per CAROL.md Code Hygiene. The pass waits for the audit.
-- [ ] No Auditor run, on ARCHITECT's word.
-
-### Problems Solved
-- **Cell too narrow.** `measureMaxCellWidth26Dot6` loaded glyphs hinted. The font has no bytecode, so FreeType autohints it (`ftobjs.c:969`) and rounds the advance (`afloader.c:567`). Display Mono gave 7 for a design advance of 7.36 at size 12. The cell is now 8. The new font has the same ratio, 628/1024.
-- **`--kerning` was half wired.** It widened each cell (`jam_GlyphArrangement.cpp:221`), but `setWinsize` used the plain `cellWidth` (`jam_TextEditor.cpp:1053`), and a wide character got one share. It now lives once in `monoMetrics.cellWidth`.
-- **Top row remnant and cut-off.** The row count floors the view height. Terminal mode anchors the content to the bottom (`jam_TextEditor.cpp:861`), so a strip smaller than one row sat at the top. `Content::paint` draws history above the live rows, so the strip showed the last history row on both screens. The viewport now holds whole rows, and the leftover sits empty below the grid.
-- **Scroll snap by paint offset.** A view position snap in `visibleAreaChanged` would stick on a small trackpad delta: the wheel starts from the view position (`jam_Viewport.cpp:49`, `:54`). So the view position stays pixel exact, and `Content::paint` draws from the row top.
-- **Ligatures were deleted.** Commit `e78e5776c` (Sprint 163) removed `tryLigature` and `findLigatureGlyph` as *"ligature and composite lanes deleted"*. The restored lane keeps the old rules: 3 cells then 2, narrow ASCII, one style, one glyph from the shape. The new parts are the `Fonts` gate, the JUCE `liga` feature as the carrier, and a cache that also holds misses. ARCHITECT confirmed nvim renders them.
-- **Config row.** `ConfigDocument::addTables` rejects a disk table whose headers differ from the default (`jam_ConfigDocument.cpp:490`), so a `## fonts` column would fail every existing disk copy, and agents never change the version (`SPEC.md:547`). The row went to `## display`. Hot reload needs no new code: `fileChanged` → `registerStyle` → `setAppearance` → `sendLookAndFeelChange` → `TextEditor::lookAndFeelChanged` → `setBlocks`.
-- **Prompt ligatures.** A typed `->` stays two glyphs, because `zshrc:131` and `:142` give `-` and `>` two colours, and the rule needs one style (`jam_GlyphArrangement.cpp:424`). ARCHITECT: *"correct. echo or quoted works."*
-- **Mistakes owned.** The first scroll snap proposal, corrected before code. The `@font-face --ligatures` recommendation, withdrawn on `jam_ConfigDocument.cpp:490`. The first font read stepped `hmtx` by 2 bytes, so its side bearings looked like advances. Only the 615 value stood.
-
-### State for Continuation
-- **Cell width is held open.** ARCHITECT: *"now visually the kerning too spaced out"*, then *"hold that thought"* for the fonts. Options on record: `--kerning: -0.0417` at `eve/Source/layout/style.css:27` gives 7.5 (15 device px at 2x), or a scale-aware baseline, which changes the contract at `jam_GlyphRasterizer.h:255`. No decision yet.
-- **Prompt ligature rule is unchanged.** The colour check at `jam_GlyphArrangement.cpp:424` stays, because ARCHITECT did not rule to change it.
-- Hot reload of `ligatures` and `--kerning` is not reported as tested. Add the `ligatures` row to `~/.config/dev/eve.md` and flip it.
-- Check the Display Mono glyph drop from 1443 to 118 against what the fonts must hold. ARCHITECT said the fonts add glyphs. A missing character now takes a fallback font.
-- Doxygen after the audit: `jam_GlyphArrangement.h:13`, `:48` still say that `hb_shape` serves grapheme clusters only; the new declarations need blocks. `SPEC.md` has no `ligatures` line, and writing it is gated.
-- The old fonts are backed up only in the session scratchpad, and git holds them too.
-
-### Debts Paid
-- None
 
 ### Debts Deferred
 - None
