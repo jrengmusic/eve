@@ -18,7 +18,7 @@
 
 ## Current State
 
-**Last Sprint:** see the top entry of `carol/SPRINT-LOG.md`. Plans in flight: `PLAN-1-preview-protocol.md`, `PLAN-3-file-list.md` to `PLAN-6-list-mode.md`, `PLAN-terminal-bugs.md` and `PLAN-host-client-state.md`, until ARCHITECT's run closes them.
+**Last Sprint:** see the top entry of `carol/SPRINT-LOG.md`. Plans and status: `PLAN-finder-0-tracker.md` (index, canon rulings, carried checks), with `PLAN-finder-1-markdown.md` to `PLAN-finder-10-protocol.md`.
 
 **Active ODE:** None.
 
