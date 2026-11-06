@@ -18,7 +18,7 @@
 
 ## Current State
 
-**Last Sprint:** see the top entry of `carol/SPRINT-LOG.md`. Plans in flight: `PLAN-1-preview-protocol.md`, `PLAN-3-file-list.md` to `PLAN-6-list-mode.md` and `PLAN-terminal-bugs.md`, until ARCHITECT's run closes them.
+**Last Sprint:** see the top entry of `carol/SPRINT-LOG.md`. Plans in flight: `PLAN-1-preview-protocol.md`, `PLAN-3-file-list.md` to `PLAN-6-list-mode.md`, `PLAN-terminal-bugs.md` and `PLAN-host-client-state.md`, until ARCHITECT's run closes them.
 
 **Active ODE:** None.
 
@@ -38,7 +38,7 @@
 |------|------|
 | `Source/EVEProcessor.h/.cpp` | Plugin entry, state serialisation (one APVTS tree with the terminal Model child), MASTER BYPASS parameter, `prepareToPlay` / `releaseResources` told to the terminal chain, `processBlock` audio only, `prepare()` → `prepareToPlay` |
 | `Source/EVETerminalProcessor.h/.cpp` | Terminal chain on its own clock (`jam::VirtualDevice`, the chain is its `juce::AudioIODeviceCallback`): TTY (`$SHELL`), input lane, decoder (`jam::TerminalProcessor`), row ring (`jam::TerminalBuffer`), record (`jam::TerminalSwap`), and the terminal state machine (`jam::Model`, the Model lane) |
-| `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction. `registerButtons` registers the buttons, `registerViewComponents` registers the TextEditor with its event binding (`bindToEvents`), `registerCallbacks` registers the UI scale, clear, open file, markdown, dismiss, markdown visibility, message and history capacity callbacks, and `registerTerminalEvents` dispatches the Model row changes |
+| `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction. `registerButtons` registers the buttons, `registerViewComponents` registers the TextEditor with its event binding (`bindToEvents`), `registerCallbacks` registers the UI scale, clear, open file, markdown, dismiss, zoom in, zoom out, zoom reset, markdown visibility, message and history capacity callbacks, and `registerTerminalEvents` dispatches the Model row changes |
 | `Source/generated/` | CAST output: `Identifiers.*`, `Files.*` (build-time, do not edit) |
 | `Source/layout/` | Layout and style documents: `default-eve.md`, `component.md`, `parameters.md` (automatable host parameters only), `colours.css`, `terminal.css`, `markdown.css`, `mermaid.css`, `style.css`, `SettingsLayout.html`. Each css file gives one table of `eve.md`, and `Source/textEditor.css` gives `## text editor`. `@font-face` rules give `## fonts` |
 | `Source/buttons/`, `Source/icons/` | Button SVGs, app icon |
