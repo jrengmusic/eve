@@ -119,9 +119,9 @@ bool EVEView::isResizing() const
 {
     bool isAnyResizing { false };
 
-    applyToTextEditors ([this, &isAnyResizing] (jam::TextEditor& editor)
+    applyToTextEditors ([&isAnyResizing] (jam::TextEditor& editor)
     {
-        isAnyResizing = isAnyResizing or static_cast<bool> (model.getOrCreateComponentProperty (editor.getComponentID(), Id::isResizing).getValue());
+        isAnyResizing = isAnyResizing or static_cast<bool> (editor.getValueTree().getProperty (Id::isResizing));
     });
 
     return isAnyResizing;

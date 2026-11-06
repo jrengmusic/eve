@@ -22,7 +22,21 @@
 
 @font-face {
     font-family: mono;
+    src: url(fonts/DisplayMonoMedium.ttf);
+    --height: 12;
+    --kerning: 0;
+}
+
+@font-face {
+    font-family: "--monoBook";
     src: url(fonts/DisplayMonoBook.ttf);
+    --height: 12;
+    --kerning: 0;
+}
+
+@font-face {
+    font-family: "--monoBold";
+    src: url(fonts/DisplayMonoBold.ttf);
     --height: 12;
     --kerning: 0;
 }

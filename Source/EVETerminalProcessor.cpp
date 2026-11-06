@@ -65,12 +65,7 @@ void EVETerminalProcessor::setState (juce::ValueTree newState)
 
 void EVETerminalProcessor::setRows (const juce::ValueTree& rows)
 {
-    for (int index { 0 }; index < rows.getNumProperties(); ++index)
-    {
-        const auto name { rows.getPropertyName (index) };
-
-        state.state.setProperty (name, rows.getProperty (name), nullptr);
-    }
+    state.setValuesFrom (rows);
 }
 
 void EVETerminalProcessor::flush()

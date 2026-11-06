@@ -124,7 +124,10 @@ private:
     void setResizing (bool newIsResizing);
 
     /**
-     * @brief Answers whether a text editor holds the winsize gate closed. It reads the component state, and it creates the `Id::isResizing` property of a text editor when that property is absent.
+     * @brief Answers whether any text editor holds the winsize gate closed. It reads the `Id::isResizing` property of the component tree of each text editor, and creates nothing.
+     *
+     * An absent `Id::isResizing` property reads as `false`.
+     *
      * @return `true` when the `Id::isResizing` property of any text editor is true.
      */
     bool isResizing() const;
