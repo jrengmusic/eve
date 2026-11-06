@@ -36,6 +36,146 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Host Client State Seam — Every State a Model Row, One Seam for All Formats, commandManager the One Registry, `exit` Closes Its Pane ✅
+
+**Date:** 2026-11-06
+**Duration:** one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"`exit` should close END's pane (exit eve)"*; *"standalone eve should exit, close the app. why cant this be SSOT?"*; *"there's no \"report\" it's all terminal state. a Model parameter. its state changes, terminal command is the sole author. Listener react, always UNIDIRECTIONAL, always SSOT, no copy, no shadow state, there's no such thing as `report`"*; *"commandManager is the SSOT of `operation`"*; *"must be cross format. hence this is END's contract as host to have ONE EXACT SEAM to handle all format, the only exceptions when there's a format that legitimately could not adhere to design, then ENAX is the path"*; *"CommandManager is EVE's, NOT PLUGIN EDITOR"*; *"never call atomic on message thread"*; *"everything should be Parameter, no strays ana manual state management allowed"*. Plan: `PLAN-host-client-state.md`.
+
+### Agents Participated
+- COUNSELOR: reads of the host, client and format paths; the plan; validation of each step; the atomic fixes, the spell fix and the restore fix; `SPEC.md` of EVE and END; this log.
+- Engineer (sonnet): the report path removal, the Model rows, the `PluginEditor` split, the END seam, the `ENDActions` removal, the stray rows.
+- Pathfinder (haiku): file sets, the exit path trace, the binary scan for the malloc message, the plan inventory, three doxygen runs.
+- Librarian (haiku): neovim redraw and child stdio source.
+- Auditor: three runs stopped by the 15-minute watchdog, with no findings. ARCHITECT then ruled *"no audit"*.
+
+### Files Modified (46 total)
+- `eve/Source/layout/parameters.md` — `## parameter` holds `bypass` only; `zoom`, `width`, `height`, `mode`, `focus` and the stray rows join `## model`.
+- `eve/Source/layout/default-eve.md` — `scaling` row deleted, one scaling contract; `zoom in`, `zoom out`, `zoom reset`, `settings` key rows.
+- `eve/cast/identifiers.md` — `startDirectory`, `zoom`, `zoomStep`; `zoomIn`, `zoomOut`, `zoomReset`, `settings` in `CommandId`.
+- `eve/Source/EVEProcessor.h`, `.cpp` — listens to the state tree; `hostRows` signal the host through `updateHostDisplay` with two flags; a `terminal` tree in `setStateInformation` sets rows with no restart.
+- `eve/Source/EVETerminalProcessor.h`, `.cpp` — `setRows`; `setState` uses `setValuesFrom`; `openTTY` starts in the `cwd` row; quit listener and `pendingClipboard` atomic deleted; stray rows registered; `syncOutput` and `winsize` read the tree.
+- `eve/Source/EVEView.h`, `.cpp` — owns `commandManager`, `addCommands`, the command target overrides, `setScaling`, `setZoom`; `resized` writes no row; `resizeEnd` writes `width` and `height`; `shellExited` invokes the quit command; `zoom`, `focus`, `numYanks` events; `applyTerminalReport` deleted.
+- `eve/SPEC.md`, `end/SPEC.md`, `eve/PLAN-host-client-state.md` — rulings and the new contract.
+- `jam/jam_plugin_bootstrap/view/jam_PluginEditor.h`, `.cpp` — commands, keys, zoom, size and focus deleted; `setScaling` virtual.
+- `jam/cast/plugin_bootstrap.md`, `jam/cast/spell.md`, `jam/cast/core.md`, `jam/cast/terminal.md`, `jam/cast/gui.md` — `PluginEditorCommandId`, `pluginEditorKeys` and the ENAX state ids deleted; stray ids and `numYanks` added.
+- `jam/jam_plugin_bootstrap/enax/jam_ENAXClientExtensions.h`, `.cpp` — `terminalReport`, `startDirectory`, `size`, `paneUuid` deleted; `engine`, `keys`, profile rules unchanged.
+- `jam/jam_plugin_bootstrap/parameter/jam_ModelLayout.h`, `.cpp` — `floatingPoint` row.
+- `jam/jam_data_structures/model/jam_AudioModel.cpp` — page copies read the state tree, no atomic.
+- `jam/jam_gui/widgets/jam_TextEditor.h`, `.cpp` — `modeAttachment` deleted; `mode` follows the row; a yank counts on `numYanks`.
+- `jam/jam_terminal/processor/jam_TerminalProcessor.h`, `.cpp` — `getReports` deleted; `getPackedPen`, `getPackedModes`; `applyEvents` reports the decoder state; `hyperlink` event deleted.
+- `end/Source/plugins/PluginState.h`, `.cpp` — new: the one seam, `stateReads` and `stateWrites` by format name.
+- `end/Source/plugins/Session.h`, `.cpp` — `pluginStates`, `hasPluginState`, `setRows`, gate by company name; `loadingPanes` deleted.
+- `end/Source/plugins/Nexus.h`, `.cpp` — state extensions deleted; `sessions` declared after `graph`; `onPromptPainted`.
+- `end/Source/ui/ENDView.h`, `.cpp` — `commands` table, `addSession`, `addPane`; `actions` and `registerTerminalActions` deleted.
+- `end/Source/ui/EditorView.h`, `.cpp` — a command target for `closePane`; `setRows`; parameter writes deleted; `shellExited` invokes `closePane` on itself.
+- `end/Source/ui/TabView.h`, `.cpp` — `addPane`, `loadPlugin`, command ids in place of action names.
+- `end/Source/ui/SessionView.h`, `.cpp` — the `terminal` child gives the tab name; quit through `commandManager`.
+- `end/Source/Main.h` — `ENDActions` member deleted. `end/Source/action/` deleted.
+- `end/cast/identifiers.md` — zoom rows restored, 26 rows that `map::CommandId` names deleted.
+
+### Alignment Check
+- [x] BLESSED principles followed, with the exceptions below.
+- [x] NAMES.md adhered: `PluginState`, `setRows`, `hostRows` by plan approval.
+- [x] MANIFESTO.md principles applied.
+- [ ] `mode` exists in the Model row and the component state (`jam_TextEditor.cpp:817`, `:854-855`), because `CommandManager::isInMode` reads the component state (`jam_CommandManager.cpp:67-69`). This breaks *"no shadow state"*.
+- [ ] Atomics stay on the message thread at `Model::flush` (`jam_Model.cpp:29-39`) and on `handleAsyncUpdate` when `prepare` runs `handleUpdateNowIfNeeded`.
+- [ ] No Auditor run, on ARCHITECT's word: *"no audit"*.
+- [ ] Not validated by a clean run. The last report was the `zoom` assert, fixed after that build.
+
+### Problems Solved
+- **The `exit` wiring was a second report path.** It is deleted. `shellExited` is a row, END holds the state of its plugin, and `EditorView` invokes `closePane` on itself.
+- **Each binary has its own `juce::Identifier` pool** (`juce_StringPool.cpp:170-174`), so END cannot read a live EVE tree. `getStateInformation` bytes rebuild in END's pool (`juce_ValueTree.cpp:1066-1069`).
+- **The hosted formats wrap state differently.** One lookup holds a read and a write for VST2, VST3, AU and CLAP (`PluginState.cpp`).
+- **VST2 drops `nonParameterStateChanged`** (`juce_audio_plugin_client_VST2.cpp:1217-1218`), so EVE sends two flags.
+- **`Nexus` destroyed `graph` before `sessions`.** `PluginState` refers to an instance of the graph, so `sessions` moved after it.
+- **`getValue` is an atomic read too** (`juce_AudioParameterFloat.h:154`, `:161`). My earlier claim of a non-atomic path was wrong. The page copies read the tree.
+- **The zoom assert.** `replaceState` removed rows that a saved state lacks (`jam_Model.cpp:107`). `setState` now uses `setValuesFrom`.
+- **The `MallocStackLogging` remnant.** nvim compares each cell with its own grid (`grid.c:622-630`). Bytes that bypass that grid stay on cells nvim holds as blank. EVE has no dirty mark on this path. CTRL-L clears; this is not run.
+- **Mistakes owned.** A second audit round of 15 minutes each. A question that a ruling had already answered. A `removePane` action, a report fallback and a manual `AsyncUpdater` that the framework already supplied. Cast rows deleted with the spell rows left in place.
+
+### State for Continuation
+- ARCHITECT runs `cast` in `jam`, `eve`, `end`, builds EVE, repackages `EVE.vst` into `end/Source/plugins/`, then builds END. Run `<leader>bd` and `ninja doxygen`.
+- Test the Verification list of `PLAN-host-client-state.md`. Test `exit` in a focused pane, an unfocused pane, the last pane, and standalone.
+- Read `EVEView::setScaling`: `width` and `height` rows give the window size when no saved state holds them.
+- Read `EVEView::resized`: it does not call the base, so `panel` bounds do not run. `EVE` has no `PanelLayout.html` in `Source/layout`.
+- Open: the `commands` FIFO is not a row. A row holds one value, and `flush` writes only the last (`jam_Model.cpp:29-39`).
+- Open: the `mode` shadow above.
+- Open: `background` and `winsize` members stay as synced working copies (`jam_TerminalProcessor.h:190`, `:205`).
+- WHELMED does not build: `WHELMEDView` uses the commands and zoom that `PluginEditor` lost. ARCHITECT: *"Exclude WHELMED"*.
+- The `engine`, `keys` and profile ENAX rules are unchanged. ARCHITECT has not ruled on them.
+- The `MallocStackLogging` emitter is not identified. `claude` and `bun` hold the bare word only.
+- The AU and VST3 paths of `PluginState` have no test.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
+---
+
+## Sprint: Terminal Bugs, V-BLOCK, Noto Text Symbols and Cluster Widths, CoreText Outlines, PLAN-2 Closed, Audit of the Uncommitted Tree ✅
+
+**Date:** 2026-11-06
+**Duration:** one session across context compactions. The start and end times are not recorded.
+**Scope (ARCHITECT):** `PLAN-terminal-bugs.md`. *"V-BLOCK is weird ... ctrl+v rect block should be FREE"*. *"icons/mono emoji scaling is off"*. *"why small? scaled with magic numbers? why not just fit and obey its codepoints width"*. *"what do you mean by PingFang text stays blank? leave it broken?"*. *"what closes PLAN 2? what outstandings?"*. `/audit until /log no gate`. *"this includes everything pre-noto work. i havent commit anything, probably some already recorded at @carol/SPRINT-LOG.md but might be supersed"*. Finder Parity is committed (`bf9da04`, `efe070af0`, `20e2b13`), so the audit scope is the uncommitted tree: 18 EVE entries, 46 JAM entries, 10 END entries.
+
+### Agents Participated
+- COUNSELOR: the reads, each delegation, validation of each return, the triage of each audit finding, the SPEC, CLAUDE.md and END SPEC sync, this log.
+- Engineer (sonnet): the code of each step; seven parallel audit fix sets; one cross-file rename pass; two file operations.
+- Pathfinder (haiku): machine evidence; the file inventory; the doxygen pass in five runs.
+- Auditor (opus): one sweep in three parts over disjoint file sets, because one run does not fit 15 minutes.
+
+### Files Modified
+- `PLAN-terminal-bugs.md` Steps 1 to 7: `jam_TerminalProcessor.*`: `savedCursors`, `savedPens`, `cursorShape`. `jam_TextEditor.*`: `caretShapes`, `applyPaste`. `EVEView.*`: `juce::FileDragAndDropTarget`, `juce::Timer`, `applyToTextEditors`, `isResizing`. `EVETerminalProcessor.*`: `getQuotedPaths`. `Source/layout/parameters.md`, `jam/cast/terminal.md`.
+- V-BLOCK: `jam_TextEditor.*`: `isVisualBlock`, `getScreenCell`, `getBlockCursor`, `setWantedColumn`, `applyBlockStep`, `getBlockCursorBounds`, `getBlockBounds`, `getBlockText`, `blockSteps`. `jam_TextEditorStatusBar.*`. `jam/cast/terminal.md`: `visualBlock` also in `terminal`.
+- Fonts: `jam_GlyphArrangement.*`: `pointHeights`, one `getFontSize`, marks on the base, every codepoint of a cluster drawn. `jam_Typeface.*`, `native/jam_Typeface_mac.mm`: `createSystemFont`, `getSystemFontOutline`, `Entry::nativeFont`, `Entry::getOutline`. `jam_GlyphRasterizer.*`: `rasterizeSystem` deleted. `jam_GlyphConstraintTable.cpp`: the Noto arm, `ScaleMode::cover`. `jam_AttributedChar.*`, `jam_AttributedString.cpp`, `jam_ReflowDocument.cpp`, `jam_TerminalGraphicsContext.cpp`, `jam_TerminalProcessor.cpp`: VS16 and VS15 widths from the whole cluster. `jam_PdfLowLevelGraphicsContext.*`: the one outline owner.
+- Theme and pane: `jam_PaneComponent.*`, `jam_StyleCustom.*`, `jam/cast/style.md`, `eve/Source/layout/style.css`, `eve/Source/textEditor.css`, `end/Source/lookAndFeel/ENDLookAndFeel.*`, `end/Source/config/theme/gfx/theme.md`.
+- Tests: `eve/test/glyphs.sh`.
+- Assert from a config reload: `jam/patch/juce-vulkan-engine-hook.patch`: `CoreGraphicsContext::externalCoreGraphicsImageContextFactory`, the macOS sibling of the Direct2D image hook. `jam_CpuGraphicsEngine.cpp` installs it. `jam_CpuLowLevelGraphicsContext.h` drops its `SoftwareImageType` override.
+- Audit fixes: listed under Problems Solved.
+- `eve/PLAN-2-open-and-gesture.md` deleted: ARCHITECT's run passed all six Acceptance items.
+- `/Applications/NeoVim.app` moved to the Trash, on ARCHITECT's *"Delete the app"*.
+- Docs: `eve/SPEC.md`, `eve/CLAUDE.md`, `eve/PLAN-terminal-bugs.md`, `eve/project-info.md`, `end/SPEC.md`.
+- Doxygen: each new or changed declaration, in the audited scope.
+
+### Alignment Check
+- [x] BLESSED principles followed
+- [x] NAMES.md adhered
+- [x] MANIFESTO.md principles applied
+- [ ] Not validated by a compile. ARCHITECT built and ran up to the assert fix. No compiler has seen the audit fixes or the doxygen pass, and no agent ran `cast`.
+- [ ] Zero doxygen warnings not confirmed. Regeneration is ARCHITECT's.
+
+### Problems Solved
+- **OSC 8 links worked.** My item 2 never created the file, and item 4 gave no command. Acceptance was wrong, not the code. ARCHITECT: *"both link rendered, clickable. one opened in vim, one opened in browser"*.
+- **`-50` dialog.** EVE ran the default application as designed. The default for `.cpp` was the `/Applications/NeoVim.app` Automator stub, and its script calls the missing `/Applications/WezTerm.app`. The log shows no `-50` line, so the cause of that number stays likely, not proven. Item 5 passed on `.txt` with TextEdit.
+- **`jassert (styleFlags == 0)` on a config reload.** `setAppearance` takes a 1x snapshot. The scale change rebuilds the cached image of the viewport (`juce_StandardCachedComponentImage.h:47-51`) through a plain `CoreGraphicsContext`, which has no JAM glyph path. Windows already had the hook.
+- **Audit, 92 JAM findings, 37 EVE and END findings, 26 doc refutations.** Each was read before it went to a fix.
+- **Resolved, JAM fonts:** A-01 the atlas frame advances in `CpuGraphicsEngine::createContext`, once per peer paint. A-02 a grapheme atom reads `getCodepoint`, not its cluster index. A-03 a mark entry has advance 0 in both modes. A-04 a cell atom with more than one entry advances by its cell span. A-05 kerning scales from the role face. A-07 `nativeFont` builds in the mapped-file constructor, as a `unique_ptr`. A-08 `createSystemFallback`, and `Entry::isItalic` (other `juce::Font` sites have no `FontOptions` route). A-09, A-26 the context uses the typeface index argument. A-10 one glyph lookup. A-11 `applyToClusters` passes the byte offset. A-12. A-16 the `if (embolden)`. A-17 one `applyToGlyphs`. A-19 `getSpan`. A-20 five reserved fields and their table lines, and the orphan `HeightRef`. A-21. A-25. A-29. A-31. A-32. A-35 `applyGpuOperation`. A-36 `addSpacer`. A-37 `getWidth`. A-38 `Entry::getFontSize`.
+- **Resolved, JAM terminal and GUI:** B-01, B-02 `savedPens` as the plan says; RIS resets only `attributes`, so no `Pen` rebuilds on the tick. B-04 the `map::` names (`CSI > q` compares `Chars::lowerQ`, because the `CSI` table takes each key once). B-05 `pendingReplyBytes` keeps the unwritten reply. B-07 `applyImageStart`, `applyCarriageReturn`. B-08 the one-row table is a direct call; the literal is gone: OSC 133 D clears each row with its own argument pointer and length 0, the shape of the sibling rows. My `emptyText` name caused the crash at OSC 133 D. B-09 the owner writes `Id::visualMode` once. B-10 the clamp moved to the end of `addBlocks` and covers the anchor; the guard at `getCursorCell` stays, because an empty `Document::Index` has a null root. B-11 `copy` in `normal visual`. B-17 `setViewToEnd`, `getAnchor`, `isLinewise`. B-18, B-19, B-20, B-21, B-22, B-27, B-29, B-30, B-31, B-33, B-35 callbacks run after the lock, B-37, B-38, B-39, B-40, B-42, B-43, B-45 one cluster walker and `getColumns`, B-49.
+- **Resolved, EVE and END:** C-1 `process()` built a `juce::Identifier` on the tick; `terminalTag` is built once. C-2, C-3 a shell exit or a failed open reaches `messageOverlay`. C-4. C-5, C-6, C-7 only a move into or out of LIST writes the gate. C-8 a restored LIST shows the panels. C-9 `ShellIntegration::hasControlByte`. C-10. C-11 one path to TERMINAL. C-12, C-13, C-14 `getTerminalState`, `getEVEProcessor`, `getUrlFile`. C-16 `getProfilerTable`, `getDefaultShell`. C-17 `applyRotation`. C-18, C-25 the swap and the unused END rows. C-21, C-22, C-26, C-27, C-29, C-30, C-32, C-33, C-34, C-35, C-36. L-2 by C-16. DS-1 to DS-26.
+- **Rejected, each with its read.** B-06, B-12, L-1, the file rows of A-16: MANIFESTO L, *"decomposing it would only relocate the same lines across more files"*, and the Finder Parity ruling on M9. B-14: the table builders are the lookups that MANIFESTO L asks for, and `applyLinkLabel` needs its full count. B-03: PLAN Step 2 keeps `csiFunctions`. B-13: `perform` holds 3 branches, and the rest is a number alone. B-15: `history` holds only resident blocks (SPEC, *"builds only the blocks the view shows"*), so the walk is bounded by the view. B-16: `getBlockCursor` takes its x from the wanted column, so the selection is right. B-23: half page moves the view by its own amount. B-24: the bind empties the rows with the `images` tree. B-25: a closure over the owner's table is the established getter shape. B-26: the mode row is the editor's own. B-28: the labels are a named lookup. B-32: `getEdge` and `getCorner` have END callers. B-34, B-48, A-22, A-23, A-24: no read confirms a fault. B-36: the view calls the owner's API. B-44: `getToken` is the `jam::Document` parse contract. B-46: the generator input is positional. B-47: sibling headers have no `#pragma once`. B-50: EVE is the terminal unit hosted at END (`PLAN-Grand-Scheme.md:3`). B-07 third part: it wraps `getParameterValue`. A-13: `getNominalCodepoint` is the only route for an entry with no HarfBuzz font. A-14, A-27: a choice at discovery. A-15: `CoreGraphicsContext` holds no transform to read. A-18: `getStringBounds` needs one advance per atom. A-28: runs at discovery. A-30: FreeType's glyph slot is the owner API. A-33: the PDF reader is held for discussion. A-34: the two writers use different widths. A-39: the `.mm` split is the platform exception. A-40: `currentPeerDirtyBounds` is used (`jam_VulkanGraphicsEngine.cpp:419`). A-41: creation. A-42: the fonts are in SPEC. C-15: ENAX dispatch returns void by type. C-19: the `SafePointer` guards a `callAsync` that can outlive the menu window. C-20: the premise fails, `TabView.h` has `AreaOption`. C-23 was rejected wrongly: ARCHITECT, *"why hardcode the limit of pasting?"*; `pendingInput` now holds input past the lane, and each vblank moves the next part. C-24: themes differ by design. C-28: no read shows an alias in that table. C-31: `events.get` throws on an unregistered key. C-37: the naming contract is for C++.
+- **Mistakes owned.** My first Acceptance list carried a Mac-only row and two untestable items. *"For icon size, compare ..."* asked ARCHITECT to open a file for a test. `savedPens = {}` at RIS and a comma expression in the initializer list were accepted by Engineers and rejected on my read. `isComputedOnGpu` broke the verb contract until the doxygen pass showed it runs the operation. `/Applications/NeoVim.app` showed a window on ARCHITECT's screen from my `open` test. An Auditor's or a Pathfinder's background command and two read-only `git status` calls ran against their prompts, each disclosed.
+
+### State for Continuation
+- Run `cast` in `jam`, then `eve`, `end`. New: `failShellExited`, `keyboardFlags`. Removed: `colorMode`, `resizeBar`, `resizeBarHighlight`, END's `zoom*` rows. The patch changed, so JUCE repatches.
+- Then build `jam`, `eve`, `end`. Expect compile errors: no compiler has seen the audit fixes. Most risk: `savedPens` initialisation, the two `applyToClusters` overloads, `Entry::nativeFont` order in the initializer list, `applyToChildren` and `EVEProcessor.h` in `EVEView.h`, `jam::Array` in `ENDLookAndFeel::setColours`, the Windows `rasterizeNative` arm.
+- ARCHITECT tests: `PLAN-terminal-bugs.md` Verification, and the Acceptance lists of `PLAN-1`, `PLAN-3` to `PLAN-6`. Each plan stays until that run. `eve/test/glyphs.sh` passed on the pre-audit build.
+- Run `<leader>bd` and `ninja doxygen`, and confirm zero warnings. LSP on JAM `.cpp` files gave wrong targets: `.clangd` in `jam/` points at the EVE compile database.
+- `.cpp` resolves to `/Users/jreng/.Trash/NeoVim.app` until the Trash empties or a new handler is set (`duti -x cpp`).
+- Corrected after this log, by ARCHITECT. *"why smaller icon is acceptable?"*: I rejected A-06 wrongly, and `cover` now takes no `iconInset`. *"what's unclear about history preservation? why my rulings need to be second guessed?"*: the history item is withdrawn, because the ruling stands. B-41, *"Wire the protocol"*: `TerminalProcessor` decodes the progressive keyboard sequences and reports the `keyboardFlags` row.
+- Held for discussion: the `ls` click preview, the PDF reader.
+- Scratchpad backups may be deleted.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261105T000000` — Windows runtime test, by ARCHITECT. The Windows arms of this sprint have not built or run.
+
+---
+
 ## Sprint: Finder Parity — Preview through the Terminal Protocol, openFile, File List, Markdown Panel, OPEN and LIST Modes, No Count, jam::Array ✅
 
 **Date:** 2026-11-05
@@ -226,109 +366,6 @@
 - None
 
 ---
-
-## Sprint: Keyboard Focus Follows Pane Focus; MatrixComponent Owns the Pane Focus Commands ✅
-
-**Date:** 2026-11-04
-**Duration:** one session, after the Shift+Enter log. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"keyboard focus is not following pane focus. this is contract violations. i need to click the pane although it already focused (the outline shows) after creating new split. all must be event driven, not manually manage the state maching"*; *"SSOT, navigating with prefix + hjkl, clicking, moving focus after split, etc must be exact ONE commandId, feasible?"*; *"then the design is wrong. if focus management is MatrixComponent responsibility, then it's MatrixComponent commandId, END only tell"*.
-
-### Agents Participated
-- COUNSELOR: reads of the focus path, the plugin load order, the JUCE command target chain, the cast module table; validation of each changed line; the module table row move; this log.
-- Engineer (sonnet): `EditorView` change, the move of the commands to `MatrixComponent`.
-- Auditor: not run. ARCHITECT: *"do not audit until i explicitly say so"*.
-
-### Files Modified (12 total)
-- `end/Source/ui/EditorView.cpp:163-183` — the plugin-loaded event writes the row's `Id::focus` into the plugin's `focus` parameter, through the one write site that `Id::focus` uses. No new state and no helper.
-- `jam/cast/gui.md:55-58`, `:226` — `Id` rows `paneDown`, `paneLeft`, `paneRight`, `paneUp`; new `MatrixCommandId` table, ids from `0x4900001`.
-- `jam/cast/spell.md:950-961` — `map::MatrixCommandId` in `jam_Gui.h`, a copy of the `TextEditorCommandId` row.
-- `jam/user-modules-info.md:988` — `commands/jam_CommandManager.h` moves above `layout/jam_OwnedComponent.h`. This table gives the include order of the generated `jam_gui.h`.
-- `jam/jam_gui/layout/jam_MatrixComponent.h:18-19`, `:100-106`, `:141`, `:220-221` — `juce::ApplicationCommandTarget` base, its four overrides, `focusPane`, `matrixCommandId`, `commandManager`.
-- `jam/jam_gui/layout/jam_MatrixComponent.cpp:10`, `:16`, `:341-379` — both constructors register the commands; `perform` looks up the direction and calls `focusPane`, which ends in `setFocusedChild`.
-- `end/cast/bimaps.md`, `end/cast/identifiers.md` — the four pane focus rows are deleted.
-- `end/Source/ui/ENDView.h`, `end/Source/ui/ENDView.cpp:31`, `:70-73` — `registerFocusActions` is deleted; `getNextCommandTarget` returns `getActiveTabView()`; `setKeyPresses` runs after `newSession`.
-- `end/Source/ui/TabView.h`, `end/Source/ui/TabView.cpp` — `focusPane` is deleted.
-
-### Alignment Check
-- [x] BLESSED principles followed: `setFocusedChild` stays the one focus write; the owner of the panes owns the commands; END tells through the target chain.
-- [x] NAMES.md adhered: `MatrixCommandId` joins `TextEditorCommandId`; `focusDirections` keeps its existing name as a dispatch noun (Rule 8).
-- [x] MANIFESTO.md principles applied
-- [ ] Not validated by a clean compile. The last build gave one error, fixed after that build, and no build ran after the fix.
-- [ ] No Auditor run, on ARCHITECT's word.
-
-### Problems Solved
-- **A new split had the outline but no keyboard focus.** `split` runs `childAdded`, then `setFocusedChild` (`jam_MatrixComponent.cpp:342`), which writes the row's `Id::focus` (`jam_OwnerComponent.cpp:111`). At that time `editor` is null, so the old write site dropped the event. The plugin loads asynchronously (`Session.cpp:91-93`), and `Id::name` then builds the editor (`Session.cpp:115`). No focus write followed, so EVE's `focus` parameter stayed 0. A second `setFocusedChild` would do nothing, because `ValueTree` sends no event for an unchanged value (`juce_ValueTree.cpp:144-145`).
-- **Command ownership.** One `commandId` for every focus path is not possible: a command carries no argument (`juce_ApplicationCommandManager.h:219`, `ENDView.cpp` `perform`), and each key row maps to one command (`jam_CommandManager.cpp:28`). ARCHITECT's design holds: `MatrixComponent` owns four commands, and click and split were already inside it (`jam_OwnerComponent.cpp:94`, `jam_MatrixComponent.cpp:342`).
-- **`CommandManager` unknown at `jam_MatrixComponent.h:221`.** The include order of `jam_gui.h` comes from `jam/user-modules-info.md`, so `cast` overwrote the hand edit.
-- **Mistakes owned.** A code edit before ARCHITECT's *"discuss first"*. A layer argument against a JAM command id, which `TextEditorCommandId` refuted. A plan step that edited generated `jam_gui.h` when the source is `user-modules-info.md`.
-
-### State for Continuation
-- Build `jam` through `cast` first. Check that `jam_gui.h` gives `commands/jam_CommandManager.h` above `layout/jam_OwnedComponent.h`, and that `map::MatrixCommandId` has its four enum names.
-- ARCHITECT tests these: a new split takes keys with no click; the first pane of a new tab takes keys; prefix + hjkl moves focus, and keys follow; the same after a tab switch.
-- `setKeyPresses` now runs inside the `callAsync` of the `ENDView` constructor (`ENDView.cpp:31`). A key sheet row of a pane command is skipped if it runs before a `TabView` exists (`jam_CommandManager.cpp:14`). `ENDView.cpp:445` sets it again on a config event.
-- The command chain has a loop: `ENDView` goes to the active `TabView`, and `TabView` goes to its parent target, `ENDView`. `getTargetForCommand` asserts on the loop only for a command that no target owns (`juce_ApplicationCommandTarget.cpp:111`). Every registered command has an owner, so this path does not run.
-- The new `MatrixComponent` declarations have no doxygen. They wait for the comment pass.
-- The state of the three previous checks in the Shift+Enter log is partly known: `cast` ran, and the build reached `jam_MatrixComponent.h`. Shift+Enter and the dev config root are not reported as tested.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
-## Sprint: Shift+Enter Is a Terminal Key Row; Debug END and EVE Use the Dev Config Root ✅
-
-**Date:** 2026-11-04
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"why i cant shift+enter to create new line in this claude code?"*; *"we need to shift the config to ~/.config/dev/ so this running instance wont conflict with we're working on check @DEBT.md"*; *"this should not be hardcoded to TextEditor, as plain TextEditor newline should be just simply enter. shift+enter newline only for TERMINAL mode"*; *"why harcodes? isnt SSOT? fix it"*; *"dont change the comment. config/dev/ only always temporary"*; *"after plan and execution, do not audit until i explicitly say so"*.
-
-### Agents Participated
-- COUNSELOR: reads of the key encoders, the key sheet, the host key hook, the Kitty and Ghostty sources, the nvim doc, the Claude Code binary, the cast read path; validation of each changed line; this log.
-- Pathfinder (haiku): plan and config root read, Claude Code binary commands.
-- Engineer (sonnet): the two implementations. The first file set had eight files, the second had three.
-- Auditor: not run. ARCHITECT: *"do not audit until i explicitly say so"*.
-
-### Files Modified (11 total)
-- `jam/cast/terminal.md:1851`, `:1914`, `:1970`, `:2008`, `:2046` — one `newline` row in `TextEditorCommandId`, `textEditorKeys mac`, `textEditorKeys windows`, `textEditorModes`, `textEditorLayers`: key `shift+return`, mode `terminal`. The tables are positional, so each one takes a row.
-- `jam/cast/gui.md:51` — `Id::newline`.
-- `jam/cast/spell.md:134-136` — the three key lookup tables grow from 23 to 24.
-- `jam/jam_gui/widgets/jam_TextEditor.cpp:464-468` — `Id::newline` action beside `paste`. It writes `Chars::newline` through `terminalInput`.
-- `end/project-info.md:369`, `eve/project-info.md:379` — `configDirectory` DEFINES row. `CAST_CONFIG_DIRECTORY` is `.config/dev` for Debug and `.config/end` otherwise.
-- `end/Source/config/ConfigDirectory.h:75` — `configDirectoryName` reads the define.
-- `eve/cast/files.md:31` — `markdown settings directory` reads the define. The cell has no format, so the macro stays raw (`cast/Source/Model.cpp:975-985`). The value column of the table is wider.
-- `jam/jam_clap/format/jam_ClapPluginFormat.h:37`, `:135`, `jam/jam_clap/format/jam_ClapPluginFormat.cpp:161`, `:167`, `:257-266` — the `inHousePath` literal is gone. The host passes `hostPluginsDirectory` through the constructor.
-- `end/Source/plugins/Nexus.cpp:80` — END passes `ConfigDirectory::Config::getPath (Id::plugins).getFullPathName()`.
-
-### Alignment Check
-- [x] BLESSED principles followed: one root switch in the `DEFINES` lane, each root path read from one owner, a key as a data row.
-- [x] NAMES.md adhered: `hostPluginsDirectory` joins the `host*` family; `CAST_CONFIG_DIRECTORY` joins `CAST_PLUGINS_HASH`.
-- [x] MANIFESTO.md principles applied
-- [ ] Not validated by a compile. No cast and no build ran.
-- [ ] No Auditor run, on ARCHITECT's word.
-
-### Problems Solved
-- **Shift+Enter submitted.** With no key row, terminal mode called `TerminalKeyboard::map` with `keyboardFlags` at 0 (`jam_TextEditor.cpp:511-516`), which returns `carriageReturn` for Return (`jam_TerminalKeyboard.cpp:172-183`, `:218`). Claude Code reads `0xd` as `return` and `0xa` as `enter`, a line break (binary lines 51593976-51593978, 51599945). Old endless wrote `\n` from a `newline = "shift+return"` binding (`default_keys.lua:102`, `MainComponentActions.cpp:65`). The new row has the same shape, and only terminal mode matches it (`jam_CommandManager.cpp:65-70`).
-- **Convention.** No read shows a standard for this key. Kitty legacy mode sends `0xd` for Shift+Enter (`keyboard-protocol.rst:530`). Ghostty sends `\x1b[27;2;13~` (`function_keys.zig:199`). nvim negotiates `CSI > 3 u` or `CSI > 4 ; 2 m` (`tui.txt:185-195`). Claude Code's own setup binds ESC CR in VS Code and Zed (binary lines 51600164-51600174).
-- **Ctrl+J gave nothing, Ctrl+Shift+J gave a new line.** The peer offers each key to END first (`jam/patch/juce-key-pressed-hook.patch:21-23`, `Nexus.cpp:7-13`, `ENDView.cpp:57-59`). `~/.config/end/keys.md:75` binds `ctrl+j` to `join down`. `ctrl+shift+j` has no row, so EVE's `mapCtrl` sends `0xa` (`jam_TerminalKeyboard.cpp:75-78`).
-- **Mistakes owned.** A first Pathfinder prompt read far past the question. A claim that Ctrl+J gives a new line came from `mapCtrl` alone. A claim that Shift+Enter cannot be a key row missed `jam_PluginEditor.cpp:328`. Each one was corrected in the chat.
-
-### State for Continuation
-- Nothing is cast or compiled. The generated files and `CMakeLists.txt` of `jam`, `end` and `eve` are stale until the next `cast`. Check these three things first:
-  1. `eve/Source/generated/Files.cpp` gives `juce::String::fromUTF8 (JUCE_STRINGIFY (CAST_CONFIG_DIRECTORY))`.
-  2. `CMakeLists.txt` of `end` and `eve` holds the `configDirectory` row with its `$<IF:...>` quoted.
-  3. `JUCE_STRINGIFY` gives `.config/dev` in Debug and `.config/end` in Release.
-- ARCHITECT tests Shift+Enter in Claude Code in hosted EVE, and in a plain TextEditor mode. The second must not change.
-- A Debug END makes `~/.config/dev/`. ARCHITECT: *"config/dev/ only always temporary"*.
-- Comments stay stale on ARCHITECT's word *"dont change the comment"*: `ConfigDirectory.h:46`, `:52`, `Main.cpp:252`, `Main.h:28`, `jam_ClapPluginFormat.h:108`. `jam_ClapPluginFormat.h:28-30` has no `@param` for the new parameter.
-- The negotiated layer is not built. `TerminalKeyboard` encodes `CSI 13;2u` (`:172-179`), but `jam_TextEditor.cpp:516` passes no flags and `applyCsiSequence` drops `CSI >`. If it is built, the key row wins over it, because `invokeKey` runs first (`:511`). This belongs to `DEBT-20261103T233912`.
-- `DEBT-20261103T235332` stays in the ledger. This sprint did not touch it. ARCHITECT: *"i have already backup old binary to endless repo"*.
-- `eve/CLAUDE.md:59` lists `HANDOFF.md` as present, and `:42-44` list three `Source/EVEView*.cpp` files. None of these four files exists.
-
-### Debts Paid
-- `DEBT-20261103T235331` — a Debug END and EVE use `~/.config/dev/`, a Release build uses `~/.config/end/`, with one switch in the `DEFINES` lane of each project.
-
-### Debts Deferred
-- None
 
 ## Handoff to COUNSELOR: EVE terminal protocol — one envelope, one path; measure and decode; Preview foundation
 

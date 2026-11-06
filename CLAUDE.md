@@ -10,7 +10,7 @@
 | **Type** | JUCE Audio Plugin — Effect (Fx) |
 | **Version** | 0.0.1 (`CMakeLists.txt:62`) |
 | **Stack** | C++17, JUCE 8.0.14, JAM framework, Vulkan renderer |
-| **Formats** | Standalone, VST3, AU (`CMakeLists.txt:67`) |
+| **Formats** | Standalone, VST, VST3, AU (`CMakeLists.txt:67`) |
 | **Platforms** | macOS 11.0+ (x86_64 + arm64), Windows (MSVC) |
 | **Root** | `/Users/jreng/Documents/Poems/dev/eve` |
 
@@ -18,7 +18,7 @@
 
 ## Current State
 
-**Last Sprint:** Finder Parity, 2026-11-05 (`carol/SPRINT-LOG.md:39`). Plans in flight: `PLAN-1-preview-protocol.md` to `PLAN-6-list-mode.md`, until ARCHITECT's run closes them.
+**Last Sprint:** see the top entry of `carol/SPRINT-LOG.md`. Plans in flight: `PLAN-1-preview-protocol.md`, `PLAN-3-file-list.md` to `PLAN-6-list-mode.md` and `PLAN-terminal-bugs.md`, until ARCHITECT's run closes them.
 
 **Active ODE:** None.
 
@@ -31,14 +31,14 @@
 ## Layer Order & Key Source Dirs
 
 1. **JUCE 8.0.14 + patches.** Eight patches, applied in order at configure time to a cached copy (`CMakeLists.txt:124-133`). Source: `../../JUCE`.
-2. **JAM modules.** Nineteen modules added with `juce_add_module` (`CMakeLists.txt`, MODULES section): core, audio_devices, debug, data_structures, dsp, gui, graphics, animation, freetype, vulkan, style, markdown, document, web, plugin_bootstrap, pdf, mermaid_diagram, markdown_graphics, terminal. Source: `../jam/`.
+2. **JAM modules.** Twenty modules added with `juce_add_module` (`CMakeLists.txt`, MODULES section): core, audio_devices, debug, data_structures, dsp, gui, graphics, animation, freetype, vulkan, style, markdown, document, web, plugin_bootstrap, pdf, mermaid_diagram, markdown_graphics, terminal, profiler. Source: `../jam/`.
 3. **EVE application.**
 
 | Path | Role |
 |------|------|
 | `Source/EVEProcessor.h/.cpp` | Plugin entry, state serialisation (one APVTS tree with the terminal Model child), MASTER BYPASS parameter, `prepareToPlay` / `releaseResources` told to the terminal chain, `processBlock` audio only, `prepare()` → `prepareToPlay` |
 | `Source/EVETerminalProcessor.h/.cpp` | Terminal chain on its own clock (`jam::VirtualDevice`, the chain is its `juce::AudioIODeviceCallback`): TTY (`$SHELL`), input lane, decoder (`jam::TerminalProcessor`), row ring (`jam::TerminalBuffer`), record (`jam::TerminalSwap`), and the terminal state machine (`jam::Model`, the Model lane) |
-| `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction. `registerButtons` registers the buttons, `registerViewComponents` registers the TextEditor with its event binding (`bindToEvents`), `registerCallbacks` registers the UI scale, clear, preview, message and history capacity callbacks, and `registerTerminalEvents` dispatches the Model row changes (`EVEView.cpp:61-95`, `:123-258`) |
+| `Source/EVEView.h/.cpp` | Plugin editor: theme, component registry and view construction. `registerButtons` registers the buttons, `registerViewComponents` registers the TextEditor with its event binding (`bindToEvents`), `registerCallbacks` registers the UI scale, clear, open file, markdown, dismiss, markdown visibility, message and history capacity callbacks, and `registerTerminalEvents` dispatches the Model row changes |
 | `Source/generated/` | CAST output: `Identifiers.*`, `Files.*` (build-time, do not edit) |
 | `Source/layout/` | Layout and style documents: `default-eve.md`, `component.md`, `parameters.md` (automatable host parameters only), `colours.css`, `terminal.css`, `markdown.css`, `mermaid.css`, `style.css`, `SettingsLayout.html`. Each css file gives one table of `eve.md`, and `Source/textEditor.css` gives `## text editor`. `@font-face` rules give `## fonts` |
 | `Source/buttons/`, `Source/icons/` | Button SVGs, app icon |
@@ -75,7 +75,7 @@ Read the index first, then the compound XML, before any grep. See the `doxygen-p
 ## Build
 
 1. `project-info.md` is the SSOT. `CMakeLists.txt` is generated from it by CAST. Do not edit `CMakeLists.txt` by hand.
-2. Regenerate and build: `cast cast/spell.md --debug` (`carol/SPRINT-LOG.md:60`).
+2. Regenerate and build: `cast cast/spell.md --debug`.
 3. Build directories: `Builds/Debug`, `Builds/Release`.
 4. JUCE version gate: exact match to 8.0.14 (`CMakeLists.txt:215`). A mismatch stops configure.
 5. Patched JUCE cache: `~/.cache/cast/juce/<hash>` on macOS, `%LOCALAPPDATA%/cast/juce/<hash>` on Windows (`CMakeLists.txt:136-152`). The hash covers the JUCE version and the patch files.

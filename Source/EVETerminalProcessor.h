@@ -12,7 +12,7 @@
  * On each `process()` call, the processor writes a changed live area to the swap, unless synchronized output is on.
  * The processor does not decode images. The view reads the bytes of an image from the swap and decodes them.
  * The view pulls through the getter in `userInterfaceGetters`. The getter gives the swap, and the view reads the history lines and the live lines from it.
- * The view sends input bytes through the `terminalInput` event. The event writes the bytes into the input lane when the lane has room for them, and asks for a process.
+ * The view sends input bytes through the `terminalInput` event. The bytes wait in `pendingInput`, and they enter the fixed input lane as it has room, in order, on the message thread.
  *
  * @par Model lane
  * The object owns a terminal `jam::Model`, `state`. Its tree is the `terminal` child of the APVTS state of the model.
@@ -34,7 +34,6 @@
  */
 class EVETerminalProcessor
     : private jam::AsyncUpdater
-    , private juce::ValueTree::Listener
     , private juce::AudioIODeviceCallback
 {
 public:
@@ -49,7 +48,7 @@ public:
      */
     EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse);
 
-    /** @brief Stops listening to `state` and cancels a pending update. The clock must be stopped (jassert). */
+    /** @brief Stops the clock through `releaseResources()`. */
     ~EVETerminalProcessor() override;
 
     /**
@@ -92,12 +91,21 @@ public:
     /**
      * @brief Joins the Model lane to a restored state tree.
      *
-     * When @p newState has a `terminal` child, `state` replaces its content with that child, and the child leaves @p newState.
+     * When @p newState has a `terminal` child, `state` takes the values of that child, and the child leaves @p newState. A row that the child lacks keeps its value.
      * The tree of `state` then moves from its parent to @p newState.
      *
      * @param newState  State tree that the host restored. It receives the tree of `state`.
      */
     void setState (juce::ValueTree newState);
+
+    /**
+     * @brief Copies each property of @p rows to the terminal Model.
+     *
+     * The call sets the properties on the Model state without a restart of the clock.
+     *
+     * @param rows  Tree whose properties are the rows to write.
+     */
+    void setRows (const juce::ValueTree& rows);
 
     /** @brief Takes the message manager lock, then flushes the Model lane to its tree. */
     void flush();
@@ -135,6 +143,13 @@ public:
      */
     void applyOpenCommand (std::string_view command, std::string_view path);
 
+    /**
+     * @brief Returns the paths quoted for the shell of this processor, joined by one space.
+     * @param paths  The absolute paths.
+     * @return       UTF-8 text, for the paste of a file drop.
+     */
+    std::string getQuotedPaths (const juce::StringArray& paths) const;
+
 #if JAM_USING_PROFILER
     /**
      * @brief Returns the manifest file of a profile build.
@@ -146,7 +161,7 @@ public:
     jam::ViewManager::Getters
         userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter and a `previewComponent` getter. The `previewComponent` getter, keyed by `images`, gives the swap only. The text editor getter posts the history writer to the serial context of this object when synchronized output is off, flushes the Model lane, gives the swap, and asks for a process.
     jam::ViewManager::Events
-        chainEvents;///< Events of the chain. The constructor adds the `terminalInput` event. It writes its bytes into the input lane when the lane has room for them, then asks for a process.
+        chainEvents;///< Events of the chain. The constructor adds the `terminalInput` event. It passes its bytes to `addInput()`.
 
 private:
     /**
@@ -158,7 +173,14 @@ private:
     /** @brief Starts the clock with this object as the callback, and asks for a process. */
     void start();
 
-    /** @brief Runs on the tick of the clock. It reads `bypass`. When `bypass` is 0, it writes the input lane to the TTY, then the terminal processor reads and decodes the TTY output until a read does not fill its read space. Each call of the terminal processor writes the changed live area to the swap, unless synchronized output is on. The live area has the row count of the current window size. */
+    /**
+     * @brief Runs on the tick of the clock.
+     *
+     * It reads `bypass`. When `bypass` is 0, it writes the input lane to the TTY, then the terminal processor reads and decodes the TTY output until a read does not fill its read space.
+     * Each call of the terminal processor writes the changed live area to the swap, unless synchronized output is on. The live area has the row count of the current window size.
+     *
+     * It reads the `background` parameter of the `terminal` tree through `terminalTag`, and it passes the value to the terminal processor.
+     */
     void process() noexcept;
 
     /** @brief The tick of the clock. It runs `process()`. */
@@ -176,36 +198,28 @@ private:
     void audioDeviceStopped() override;
 
     /**
-     * @brief Writes the pending history rows to the swap, and asks for a process when it wrote a line.
+     * @brief Writes the pending history rows to the swap, then stores the pending clipboard image number in the `clipboard` property of `state`.
      *
-     * The call also takes the pending clipboard image, when one waits, and stores its number in the `clipboard` property of `state`.
+     * The call reads the `pendingClipboard` parameter of the `terminal` tree before it runs `writePendingData()`.
+     * It asks the device for a process when `writePendingData()` returns `true`.
+     * The `clipboard` property is stored on each call, whether or not an image waits.
      */
     void handleAsyncUpdate() override;
-
-    /**
-     * @brief Quits the application when the shell exits.
-     *
-     * The call quits when @p property is `shellExited` and its flushed value is true.
-     *
-     * @param tree      Tree that changed.
-     * @param property  Property that changed.
-     */
-    void
-    valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
 
     /**
      * @brief Adds the event setters that copy the terminal state to the Model lane, then adds the image events.
      *
      * Each setter calls `storeValue` on `state`. The bool events store 0 or 1. They are `applicationCursor`, `bracketedPaste`,
      * `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited` and `syncOutput`.
-     * The `mouseTracking`, `cursor` and `numPrompts` events store an int.
+     * The `mouseTracking`, `cursorShape`, `cursor` and `numPrompts` events store an int.
      * The `preview`, `title`, `foregroundProcess` and `cwd` events store the text.
      * The `command` event writes the name and a zero byte to `commands`, then flushes `commands`. It then increments `numCommands` in `state`.
+     * It does this only when the name is not empty and `commands` has room for it.
      */
     void registerEvents();
 
     /**
-     * @brief Adds the image events: `hyperlink`, `clipboard` and `previewBox`.
+     * @brief Adds the image events: `hyperlink`, `clipboard`, `previewBox` and `outputBlock`.
      *
      * The `hyperlink` event does nothing.
      * The `clipboard` event stores the image number in `pendingClipboard`. `handleAsyncUpdate()` then stores it in the Model lane.
@@ -225,15 +239,19 @@ private:
     void registerChainEvents();
 
     /**
-     * @brief Writes bytes into the input lane, then asks the device for a process.
-     *
-     * The size must fit the free space of the input lane. An assert checks it.
-     * When the size fits, the call writes the bytes, flushes the lane, and requests a process.
+     * @brief Adds bytes to `pendingInput`, then runs applyPendingInput(). Input of any size arrives whole and in order. Message thread.
      *
      * @param bytes  Bytes to write.
      * @param size   Number of bytes.
      */
     void addInput (const char* bytes, int size);
+
+    /**
+     * @brief Moves the bytes of `pendingInput` that fit into the input lane, then asks the device for a process.
+     *
+     * The lane is the fixed lock-free handoff to the tick. `addInput()` and the text editor getter, on each vblank, run this call. Message thread.
+     */
+    void applyPendingInput();
 
     /** @brief Returns the history capacity that the `historyCapacity` component of the model holds. */
     int getHistoryCapacity() const;
@@ -256,8 +274,11 @@ private:
     /**
      * @brief Opens the TTY on the serial context of the device.
      *
-     * In a profile standalone build, the shell, its arguments and its folder come from the `profiler` table of the manifest, and the object listens to `state`.
-     * In other builds, the shell is the `SHELL` variable, with the shell integration when it is available.
+     * In a profile standalone build, the shell, its arguments and its folder come from the `profiler` table of the manifest.
+     * In other builds, the shell is the `SHELL` variable, with the shell integration when it is available. The call opens the TTY only when it is not open.
+     * In other builds, the shell starts in the directory of the `cwd` row of `state`. An empty `cwd` row keeps `ShellIntegration::getStartDirectory()`.
+     *
+     * A failed open stores 1 in the `shellExited` property of `state`.
      *
      * @param bufferSize                  Device buffer size: the largest number of bytes that one TTY read returns.
      * @param maximumPeriodMilliseconds   Longest wait between two readiness ticks of the TTY, in milliseconds. The call passes one vblank.
@@ -277,6 +298,17 @@ private:
      */
     juce::String getShell() const;
 
+#if JAM_USING_PROFILER
+    /**
+     * @brief Returns the `profiler` child of the `manifest` tree in the manifest file.
+     *
+     * In a standalone build, the manifest file is the command-line file. In another build, the processor fills the manifest file through the `jam::ENAXClientExtensions`, under `Id::manifestFile`.
+     *
+     * @return The `profiler` tree of the manifest file.
+     */
+    juce::ValueTree getProfilerTable() const;
+#endif
+
     /** @brief Returns the TTY of the platform. */
     static std::unique_ptr<jam::TerminalTTY> createTTY();
 
@@ -287,12 +319,12 @@ private:
         bypass;///< Atomic of the bypass parameter in the model. `process()` runs only while it is 0.
     jam::Model
         state;///< Terminal Model. Its tree is the `terminal` child of the model state. The events store the terminal state into it, and the flush writes it to the tree.
+    const juce::Identifier terminalTag { jam::Format::toType (Id::terminal) };///< Identifier of the `terminal` tree. It is built at construction, off the clock, so that the tick of the clock does not build it.
     std::unique_ptr<jam::Model::ParameterAttachment>
         winsizeAttachment;///< Listens to the winsize parameter of `state`. A change calls `restart()`, so the chain prepares again for the new grid only while the clock runs.
     jam::Function::Map<juce::Identifier, void>
         events;///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
-    static constexpr juce::int64 noClipboard { -1 };    ///< Value of `pendingClipboard` that means that no clipboard write waits.
-    std::atomic<juce::int64> pendingClipboard { noClipboard };    ///< Number of the image of a clipboard write that waits for `handleAsyncUpdate()`. The processor stores it with release order, and `handleAsyncUpdate()` takes it with acquire order.
+    std::string pendingInput;    ///< Input bytes that wait for room in the input lane. Message thread only.
     jam::TerminalFIFO input;///< Input lane from the view to the TTY.
     jam::TerminalFIFO commands;///< Command names from the shell to the view.
     jam::VirtualDevice device {

@@ -1,5 +1,5 @@
 #include "EVEView.h"
-#include "EVEProcessor.h"
+#include "ShellIntegration.h"
 
 EVEView::EVEView (jam::AudioModel& newModel,
                   jam::PluginEditorLayout& newLayout,
@@ -14,16 +14,29 @@ EVEView::EVEView (jam::AudioModel& newModel,
 
     registerTerminalEvents();
     initialise (layout.getOrCreateSettings());
+    addCommands();
     addChildComponent (messageOverlay);
     setConstrainer (this);
     setScaling();
 
     registry->callbacks.get (jam::Format::toType (Id::message).toString(), static_cast<juce::Component&> (*this));
+
+    if (isListMode())
+        setPanelsVisible (true);
 }
 
 void EVEView::resized()
 {
-    jam::PluginEditor::resized();
+    if (isTimerRunning() or not isResizing())
+    {
+        setResizing (true);
+        startTimer (coalesceWindowTimeMs);
+    }
+
+    const auto zoom { static_cast<float> (getTerminalState().getProperty (Id::zoom)) };
+
+    view->setBounds (jam::ViewEditor::getViewBounds (model, getLocalBounds(), zoom));
+    view->setTransform (juce::AffineTransform::scale (zoom));
     messageOverlay.setBounds (getLocalBounds());
 
     if (not panels.isEmpty())
@@ -42,7 +55,23 @@ void EVEView::resized()
 void EVEView::lookAndFeelChanged()
 {
     jam::PluginEditor::lookAndFeelChanged();
-    model.state.getChildWithName (jam::Format::toType (Id::terminal)).setProperty (Id::background, juce::var { static_cast<juce::int64> (findColour (juce::ResizableWindow::backgroundColourId).getARGB()) }, nullptr);
+    getTerminalState().setProperty (Id::background, juce::var { static_cast<juce::int64> (findColour (juce::ResizableWindow::backgroundColourId).getARGB()) }, nullptr);
+}
+
+bool EVEView::isInterestedInFileDrag (const juce::StringArray& files)
+{
+    return std::none_of (files.begin(), files.end(), [] (const juce::String& file) { return ShellIntegration::hasControlByte (file.toRawUTF8()); });
+}
+
+void EVEView::filesDropped (const juce::StringArray& files, int, int)
+{
+    const auto text { getTerminalProcessor().getQuotedPaths (files) };
+
+    applyToTextEditors ([&text] (jam::TextEditor& editor)
+    {
+        editor.setMode (map::EditorMode::terminal);
+        editor.applyPaste (text);
+    });
 }
 
 void EVEView::focusGained (FocusChangeType)
@@ -61,18 +90,56 @@ bool EVEView::keyPressed (const juce::KeyPress& key)
     return commandManager->invokeKey (key, markdownState);
 }
 
-void EVEView::resizeStart() { setResizing (true); }
-
-void EVEView::resizeEnd() { setResizing (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing()); }
-
-void EVEView::setResizing (bool isResizing)
+void EVEView::resizeStart()
 {
-    jam::Component::applyFunctionRecursively (view.get(), [this, isResizing] (juce::Component* child)
+    stopTimer();
+    setResizing (true);
+}
+
+void EVEView::resizeEnd()
+{
+    stopTimer();
+    setResizing (isListMode());
+
+    auto terminal { getTerminalState() };
+
+    terminal.setProperty (Id::width, getWidth(), nullptr);
+    terminal.setProperty (Id::height, getHeight(), nullptr);
+}
+
+void EVEView::setResizing (bool newIsResizing)
+{
+    applyToTextEditors ([this, newIsResizing] (jam::TextEditor& editor)
     {
-        if (jam::Component::hasProperty (child->getProperties(), Id::type, Id::textEditor))
-            model.getOrCreateComponentProperty (child->getComponentID(), Id::isResizing).setValue (isResizing);
+        model.getOrCreateComponentProperty (editor.getComponentID(), Id::isResizing).setValue (newIsResizing);
     });
 }
+
+bool EVEView::isResizing() const
+{
+    bool isAnyResizing { false };
+
+    applyToTextEditors ([this, &isAnyResizing] (jam::TextEditor& editor)
+    {
+        isAnyResizing = isAnyResizing or static_cast<bool> (model.getOrCreateComponentProperty (editor.getComponentID(), Id::isResizing).getValue());
+    });
+
+    return isAnyResizing;
+}
+
+bool EVEView::isListMode() const
+{
+    bool isAnyList { false };
+
+    applyToTextEditors ([this, &isAnyList] (jam::TextEditor& editor)
+    {
+        isAnyList = isAnyList or static_cast<int> (model.getOrCreateComponentProperty (editor.getComponentID(), Id::mode).getValue()) == map::EditorMode::list;
+    });
+
+    return isAnyList;
+}
+
+void EVEView::timerCallback() { resizeEnd(); }
 
 void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
 {
@@ -80,7 +147,19 @@ void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Ident
         terminalEvents.get (property, std::as_const (tree));
 
     if (property == Id::mode)
-        setPanelsVisible (static_cast<int> (tree.getProperty (Id::mode)) == map::EditorMode::list);
+    {
+        bool isEditorTree { false };
+
+        applyToTextEditors ([this, &tree, &isEditorTree] (jam::TextEditor& editor)
+        {
+            isEditorTree = isEditorTree or tree == model.getOrCreateComponentState (editor.getComponentID());
+        });
+
+        const auto isList { static_cast<int> (tree.getProperty (Id::mode)) == map::EditorMode::list };
+
+        if (isEditorTree and isList != (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing()))
+            setPanelsVisible (isList);
+    }
 
     jam::PluginEditor::valueTreePropertyChanged (tree, property);
 }
@@ -99,8 +178,33 @@ void EVEView::registerTerminalEvents()
 
     terminalEvents.add<const juce::ValueTree&> (Id::url, [this] (const juce::ValueTree&) { setPanelFile(); });
 
-    for (const auto& id : jam::TerminalProcessor::getReports())
-        terminalEvents.add<const juce::ValueTree&> (id, [this, id] (const juce::ValueTree& terminal) { applyTerminalReport (terminal, id); });
+    terminalEvents.add<const juce::ValueTree&> (Id::numYanks, [this] (const juce::ValueTree&)
+    {
+        applyToTextEditors ([] (jam::TextEditor& editor) { editor.setMode (map::EditorMode::terminal); });
+    });
+
+    terminalEvents.add<const juce::ValueTree&> (Id::shellExited, [this] (const juce::ValueTree& terminal)
+    {
+        if (static_cast<bool> (terminal.getProperty (Id::shellExited)))
+        {
+            messageOverlay.showMessage (Id::failShellExited);
+            commandManager->invokeDirectly (juce::StandardApplicationCommandIDs::quit, true);
+        }
+    });
+
+    terminalEvents.add<const juce::ValueTree&> (Id::zoom, [this] (const juce::ValueTree& terminal)
+    {
+        setZoom (static_cast<float> (terminal.getProperty (Id::zoom)));
+        resized();
+    });
+
+    terminalEvents.add<const juce::ValueTree&> (Id::focus, [this] (const juce::ValueTree& terminal)
+    {
+        if (static_cast<bool> (terminal.getProperty (Id::focus)))
+            grabKeyboardFocus();
+        else
+            giveAwayKeyboardFocus();
+    });
 
 #if JAM_USING_PROFILER
     terminalEvents.add<const juce::ValueTree&> (Id::numPrompts, [this] (const juce::ValueTree& terminal)
@@ -112,17 +216,10 @@ void EVEView::registerTerminalEvents()
             if (auto* peer { getPeer() })
                 peer->performAnyPendingRepaintsNow();
 
-            static_cast<EVEProcessor&> (*getAudioProcessor()).set (Id::promptPainted, [] {});
+            getEVEProcessor().set (Id::promptPainted, [] {});
         }
     });
 #endif
-}
-
-void EVEView::applyTerminalReport (const juce::ValueTree& terminal, const juce::Identifier& id)
-{
-    const auto text { terminal.getProperty (id).toString() };
-
-    static_cast<EVEProcessor&> (*getAudioProcessor()).set (Id::terminalReport, [] (const char*, const char*) {}, static_cast<const char*> (id.getCharPointer().getAddress()), text.toRawUTF8());
 }
 
 void EVEView::initialiseTheme (const juce::ValueTree& settings)
@@ -276,6 +373,28 @@ void EVEView::registerCallbacks()
                                                     static_cast<EVEView&> (c).setMarkdownVisible (false);
                                                 });
 
+    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::zoomIn),
+                                                [] (juce::Component& c)
+                                                {
+                                                    auto& editor { static_cast<EVEView&> (c) };
+
+                                                    editor.setZoom (static_cast<float> (editor.getTerminalState().getProperty (Id::zoom)) + static_cast<float> (editor.styleManager->getConfig (jam::StyleManager::getDisplaySheet()).getChildWithName (jam::Format::toType (Id::zoomStep)).getProperty (Id::value)));
+                                                });
+
+    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::zoomOut),
+                                                [] (juce::Component& c)
+                                                {
+                                                    auto& editor { static_cast<EVEView&> (c) };
+
+                                                    editor.setZoom (static_cast<float> (editor.getTerminalState().getProperty (Id::zoom)) - static_cast<float> (editor.styleManager->getConfig (jam::StyleManager::getDisplaySheet()).getChildWithName (jam::Format::toType (Id::zoomStep)).getProperty (Id::value)));
+                                                });
+
+    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::zoomReset),
+                                                [] (juce::Component& c)
+                                                {
+                                                    static_cast<EVEView&> (c).setZoom (1.0f);
+                                                });
+
     registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::markdown),
                                                 [] (juce::Component& c)
                                                 {
@@ -325,34 +444,96 @@ void EVEView::initialiseView()
 juce::ValueTree EVEView::getViewDefaultKeys() const
 {
     auto keys { jam::TextEditor::getDefaultKeys() };
-    static_cast<EVEProcessor&> (*getAudioProcessor()).set (Id::keys, [] (juce::ValueTree&) {}, keys);
+    getEVEProcessor().set (Id::keys, [] (juce::ValueTree&) {}, keys);
     return keys;
 }
 
 void EVEView::getAllCommands (juce::Array<juce::CommandID>& commands)
 {
-    jam::PluginEditor::getAllCommands (commands);
-
     jam::CommandManager::addCommands (commands, *commandId);
 }
 
 void EVEView::getCommandInfo (juce::CommandID commandID, juce::ApplicationCommandInfo& result)
 {
-    if (jam::Map::contains (map::CommandId::getInstance()->get(), commandID))
+    jam::CommandManager::setInfo (result, commandId->get (commandID).toString());
+}
+
+void EVEView::setScaling()
+{
+    const auto terminal { getTerminalState() };
+
+    setResizable (true, false);
+    setSize (static_cast<int> (terminal.getProperty (Id::width)), static_cast<int> (terminal.getProperty (Id::height)));
+}
+
+void EVEView::setZoom (float newZoom)
+{
+    static constexpr float minimumZoom { 0.25f };
+    static constexpr float maximumZoom { 4.0f };
+
+    getTerminalState().setProperty (Id::zoom, juce::jlimit (minimumZoom, maximumZoom, newZoom), nullptr);
+}
+
+void EVEView::addCommands()
+{
+    const auto keysSheet { jam::Format::toType (Id::keys) };
+    const auto config { styleManager->getConfig (keysSheet) };
+    juce::ValueTree keys { keysSheet };
+
+    for (const auto& defaultKey : getViewDefaultKeys())
+        if (not config.getChildWithName (jam::Format::toType (defaultKey.getType())).isValid())
+            keys.appendChild (defaultKey.createCopy(), nullptr);
+
+    for (const auto& configKey : config)
+        keys.appendChild (configKey.createCopy(), nullptr);
+
+    jam::Component::applyFunctionRecursively (view.get(), [this] (juce::Component* child)
     {
-        jam::CommandManager::setInfo (result, commandId->get (commandID).toString());
-    }
-    else
-    {
-        jam::PluginEditor::getCommandInfo (commandID, result);
-    }
+        commandManager->registerAllCommandsForTarget (dynamic_cast<juce::ApplicationCommandTarget*> (child));
+    });
+
+    commandManager->registerAllCommandsForTarget (this);
+    commandManager->setKeyPresses (keys);
+    setWantsKeyboardFocus (true);
+}
+
+void EVEView::fileChanged (const juce::File& file, jam::File::Watcher::Event event)
+{
+    jam::PluginEditor::fileChanged (file, event);
+    addCommands();
+}
+
+juce::ApplicationCommandTarget* EVEView::getNextCommandTarget()
+{
+    return findFirstTargetParentComponent();
+}
+
+bool EVEView::perform (const InvocationInfo& info)
+{
+    const auto name { commandManager->getNameOfCommand (info.commandID) };
+    const auto isPerformed { registry->callbacks.contains (name) };
+
+    if (isPerformed)
+        registry->callbacks.get (name, static_cast<juce::Component&> (*this));
+
+    return isPerformed;
 }
 
 void EVEView::paintOverChildren (juce::Graphics& g) { transition.paint (g, getLocalBounds()); }
 
+EVEProcessor& EVEView::getEVEProcessor() const
+{
+    return static_cast<EVEProcessor&> (*getAudioProcessor());
+}
+
 EVETerminalProcessor& EVEView::getTerminalProcessor() const
 {
-    return static_cast<EVEProcessor&> (*getAudioProcessor()).getTerminalProcessor();
+    return getEVEProcessor().getTerminalProcessor();
+}
+
+juce::ValueTree EVEView::getTerminalState() const
+{
+    return model.state.getChildWithName (jam::Format::toType (Id::terminal));
 }
 
 void EVEView::clear()
@@ -372,15 +553,14 @@ juce::String EVEView::getOpenCommand (const juce::File& file) const
 
 void EVEView::openFile()
 {
-    const auto terminal { model.state.getChildWithName (jam::Format::toType (Id::terminal)) };
+    const auto terminal { getTerminalState() };
     const juce::URL url { terminal.getProperty (Id::url).toString() };
 
     if (url.isLocalFile())
     {
-        jam::TerminalProcessor::applyToDecodedText (jam::TerminalProcessor::getUriPath (url.toString (false).toRawUTF8()), [this, &terminal] (std::string_view path)
-        {
-            openFile (path, terminal);
-        });
+        const auto path { getUrlFile().getFullPathName() };
+
+        openFile (path.toRawUTF8(), terminal);
     }
     else
     {
@@ -394,15 +574,14 @@ void EVEView::openFile (std::string_view path, const juce::ValueTree& terminal)
     const auto value { getOpenCommand (file) };
     const auto* command { value.isEmpty() ? nullptr : commandManager->getCommandForName (juce::Identifier { value }) };
     const auto isBusy { static_cast<bool> (terminal.getProperty (Id::isRecording)) or static_cast<bool> (terminal.getProperty (Id::alternateScreen)) };
-    const auto hasControlByte { std::any_of (path.begin(), path.end(), [] (char byte) { return static_cast<unsigned char> (byte) < static_cast<unsigned char> (Chars::space); }) };
 
     if (file.exists())
     {
         if (command != nullptr) commandManager->invokeDirectly (command->commandID, false);
-        else if (value.isEmpty() or isBusy or hasControlByte) file.startAsProcess();
+        else if (value.isEmpty() or isBusy or ShellIntegration::hasControlByte (path)) file.startAsProcess();
         else
         {
-            invokeCommand (Id::terminal);
+            applyToTextEditors ([] (jam::TextEditor& editor) { editor.setMode (map::EditorMode::terminal); });
             getTerminalProcessor().applyOpenCommand (value.toRawUTF8(), path);
         }
     }
@@ -438,7 +617,7 @@ void EVEView::selectionChanged()
     const auto& tree { static_cast<const juce::FileTreeComponent&> (*getPanel (leftPanel).getContent()) };
 
     if (tree.getNumSelectedFiles() > 0)
-        model.state.getChildWithName (jam::Format::toType (Id::terminal)).setProperty (Id::url, juce::URL { tree.getSelectedFile() }.toString (false), nullptr);
+        getTerminalState().setProperty (Id::url, juce::URL { tree.getSelectedFile() }.toString (false), nullptr);
 }
 
 void EVEView::fileClicked (const juce::File&, const juce::MouseEvent&) {}
@@ -456,7 +635,7 @@ juce::File EVEView::getTreeRoot() const
 {
     const auto display { styleManager->getConfig (jam::StyleManager::getDisplaySheet()) };
     const auto depth { static_cast<int> (display.getChildWithName (jam::Format::toType (Id::treeDepth)).getProperty (Id::value)) };
-    juce::File root { model.state.getChildWithName (jam::Format::toType (Id::terminal)).getProperty (Id::cwd).toString() };
+    juce::File root { getTerminalState().getProperty (Id::cwd).toString() };
 
     for (int level { 0 }; level < depth; ++level)
         root = root.getParentDirectory();
@@ -466,13 +645,16 @@ juce::File EVEView::getTreeRoot() const
 
 juce::File EVEView::getUrlFile() const
 {
-    const auto url { model.state.getChildWithName (jam::Format::toType (Id::terminal)).getProperty (Id::url).toString() };
+    const auto url { getTerminalState().getProperty (Id::url).toString() };
     juce::File file;
 
-    jam::TerminalProcessor::applyToDecodedText (jam::TerminalProcessor::getUriPath (url.toRawUTF8()), [&file] (std::string_view path)
+    if (juce::URL { url }.isLocalFile())
     {
-        file = juce::File { juce::String::fromUTF8 (path.data(), static_cast<int> (path.size())) };
-    });
+        jam::TerminalProcessor::applyToDecodedText (jam::TerminalProcessor::getUriPath (url.toRawUTF8()), [&file] (std::string_view path)
+        {
+            file = juce::File { juce::String::fromUTF8 (path.data(), static_cast<int> (path.size())) };
+        });
+    }
 
     return file;
 }
@@ -526,16 +708,17 @@ void EVEView::setPanelsVisible (bool isVisible)
         getPanel (leftPanel).showOrHide (isVisible);
         getPanel (rightPanel).showOrHide (isVisible);
         resized();
-        setResizing (isVisible);
+
+        if (not isVisible)
+            setResizing (isTimerRunning());
+
         setPanelFile();
     }
 }
 
 void EVEView::setPanelFile()
 {
-    const juce::URL url { model.state.getChildWithName (jam::Format::toType (Id::terminal)).getProperty (Id::url).toString() };
-
-    if (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing() and url.isLocalFile())
+    if (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing())
     {
         const auto file { getUrlFile() };
 

@@ -139,7 +139,7 @@ among ours.
     - Operations: `command` (`name=` the name of any command registered in EVE's
       command manager: EVE's, the plugin editor's or the text editor's. The
       command runs on the instance that read it, through its text editor's
-      command chain, `EVEView::invokeCommand`, `EVEView.cpp:321-331`), `preview`
+      command chain, `EVEView::invokeCommand`), `preview`
       (`path=` an absolute path, with `width=` and `height=` in cells; an empty path
       shows nothing). The `eve` command emits them. Shell integration puts it on
       `PATH`, so any child process can run it.
@@ -194,8 +194,7 @@ among ours.
       The grid holds the placement `{cell box, image number}`. The bytes go
       through the `images` lane into the record, with the image's encoding
       (format, pixel size, compression). The lane also carries the text of an
-      OSC 52 write and the record of an OSC 8 link
-      (`jam_TerminalProcessor.cpp:995-1012`, `:1257-1265`).
+      OSC 52 write and the record of an OSC 8 link.
     - Lanes (each `jam::TerminalFIFO`, one writer, one reader): `input`
       (message thread → tick), `images` (tick → the record writer), `commands`
       (tick → message thread).
@@ -219,23 +218,33 @@ The tick decodes each report into metadata or a Model row. The dispatch tables a
 `jam/cast/terminal.md` (`## oscFunctions`, `## shellIntegrationFunctions`,
 `## privateModes`, `## imageFunctions`). The handlers are in `jam_TerminalProcessor.cpp`.
 
-| Report | Table row | Handler | Result |
-|---|---|---|---|
-| OSC 0, OSC 2 | `terminal.md:1329-1330` | `:987-990` | The `title` row takes the text. |
-| OSC 7 | `terminal.md:1328` | `:969-986` | The `cwd` row takes the decoded path. |
-| OSC 8 | `terminal.md:1332` | `:995-1012` | A link record goes through the `images` lane. A click writes the `url` row and invokes the `openFile` command. |
-| OSC 11 `?` | `terminal.md:1331` | `:378-412`, `:991-994` | The reply gives the `background` row as `rgb:`. The view writes that row (`EVEView.cpp:25-29`). |
-| OSC 52 | `terminal.md:1097`, `:1381` | `:1100-1126`, `:1257-1265` | A write of selection `c` goes to the record, and the `clipboard` row names it. A query (`?`) is not handled. |
-| OSC 133 A | `terminal.md:1350` | `:1049` | The `numPrompts` row counts up. |
-| OSC 133 C | `terminal.md:1348` | `:1018-1035` | The `isRecording` row turns on. The `foregroundProcess` row takes the first word of the command line. |
-| OSC 133 D | `terminal.md:1349` | `:1036-1048` | The `isRecording` row turns off. The `foregroundProcess` and `title` rows clear. |
-| DEC 2026 | `terminal.md:1310` | `:867-871` | The `syncOutput` row follows the mode. A hold ends after `syncTimeoutMilliseconds` (`jam_TerminalProcessor.h:114`). |
-| XTVERSION (`CSI > q`) | none | `:328-336` | The reply gives the program name. |
-| DECRQM (`CSI ? Pd $ p`) | none | `:320-321`, `:368-376` | The reply covers mode 2026. Every other mode is "not recognised". |
+| Report | Result |
+|---|---|
+| OSC 0, OSC 2 | The `title` row takes the text. |
+| OSC 7 | The `cwd` row takes the decoded path. |
+| OSC 8 | A link record goes through the `images` lane. A click writes the `url` row and invokes the `openFile` command. |
+| OSC 11 `?` | The reply gives the `background` row as `rgb:`. The view writes that row (`EVEView::lookAndFeelChanged`). |
+| OSC 52 | A write of selection `c` goes to the record, and the `clipboard` row names it. A query (`?`) is not handled. |
+| OSC 133 A | The `numPrompts` row counts up. |
+| OSC 133 C | The `isRecording` row turns on. The `foregroundProcess` row takes the first word of the command line. |
+| OSC 133 D | The `isRecording` row turns off. The `foregroundProcess` and `title` rows clear. |
+| DEC 2026 | The `syncOutput` row follows the mode. A hold ends after `syncTimeoutMilliseconds`. |
+| XTVERSION (`CSI > q`) | The reply gives the program name. |
+| DECRQM (`CSI ? Pd $ p`) | The reply covers mode 2026. Every other mode is "not recognised". |
+| Progressive keyboard (`CSI = Ps ; Pm u`, `CSI > Ps u`, `CSI < Ps u`, `CSI ? u`) | Each screen keeps its own flags and stack. The `keyboardFlags` row reports the flags of the active screen, and `TextEditor` passes them to `TerminalKeyboard::map`. The flags hold the two bits that the encoder implements: disambiguate and report all keys. ARCHITECT: *"Wire the protocol"*. |
 
-The Model rows are in `Source/layout/parameters.md:24-68`. EVE tells END the `title`,
-`foregroundProcess` and `cwd` rows through the ENAX `terminal-report` callback
-(`EVEView.cpp:78-79`, `:97-102`).
+The Model rows are in `Source/layout/parameters.md`. All EVE state is a Model row, except
+the `bypass` host parameter. ARCHITECT: *"there's no \"report\" it's all terminal state. a
+Model parameter. its state changes, terminal command is the sole author. Listener react,
+always UNIDIRECTIONAL, always SSOT, no copy, no shadow state"*.
+
+- **EVE to the host.** A change of `title`, `foregroundProcess`, `cwd`, `zoom` or
+  `shellExited` calls `updateHostDisplay` with two flags: `parameterInfoChanged` for VST2
+  and AU, `nonParameterStateChanged` for VST3 (`EVEProcessor::valueTreePropertyChanged`).
+  The host then reads the state.
+- **The host to EVE.** A tree of type `terminal` in `setStateInformation` sets each of
+  its properties on the Model, with no clock restart (`EVETerminalProcessor::setRows`).
+  Any other tree restores the state through the restart path.
 
 ## Components
 
@@ -243,7 +252,6 @@ The Model rows are in `Source/layout/parameters.md:24-68`. EVE tells END the `ti
 |---|---|---|
 | **Terminal** | center core | Renders the content SSOT + active grid; input → PTY |
 | **Tree** | left dock, show/hide | cwd-relative directory tree; vim navigation; jump anywhere in hierarchy |
-| **FileList** | center-adjacent (layout-composed) | Finder/Explorer-style listing of a directory; click/keyboard open |
 | **Preview** | right dock, show/hide | v1: images (SKiT decoder formats) + read-only text/code |
 
 All Components are peers in the app layout. Docks toggle without any effect on the
@@ -258,14 +266,14 @@ layout event only).
 1. EVE launches → spawns `$SHELL` (fallback `/bin/zsh` macOS, PowerShell Windows) in a PTY at the terminal Component's cell size
 2. Bytes flow: PTY → the clock's tick (`EVETerminalProcessor`'s `jam::VirtualDevice`) → decoder → engine rows → history and live FIFOs → TextEditor (message thread) → layout → paint
 3. Keyboard/mouse → TerminalKeyboard/TerminalMouse encoders → PTY write
-4. Shell exits → terminal Component shows: `[process exited — <code>]` on the line after last output; input disabled; history remains browsable
+4. Shell exits → the `shellExited` row turns on, and `EVEView` shows `shell exited` in the message overlay; history remains browsable. `EVEView` then invokes `StandardApplicationCommandIDs::quit` through its `commandManager`. In standalone that quits the application. In a plugin no target takes the command, and END closes the pane from the row. ARCHITECT: *"`exit` should close END's pane (exit eve)"*; *"standalone eve should exit, close the app. why cant this be SSOT?"*
 
 **Error handling:**
 
 | Condition | User sees | System action |
 |---|---|---|
-| Shell spawn fails | `EVE: failed to start '<shell>': <errno string>` in the terminal Component | Component stays open, history empty, retry via app menu |
-| PTY read error (not EOF) | `[pty error: <errno string>]` appended | Session closed as on exit |
+| Shell spawn fails | `shell exited` in the message overlay | As on exit: `openTTY` writes the `shellExited` row |
+| PTY read error | `shell exited` in the message overlay | Session closed as on exit |
 
 ### Feature 2: Non-Destruction (the headline)
 
@@ -289,8 +297,7 @@ layout event only).
      drains them and writes each row once to the swap's index and segment
      files (`jam_TerminalSwap.cpp:78-135`, `:147-161`). The vblank getter
      posts the writer to the processor's own serial context, in every host.
-     The getter skips the post while the `syncOutput` row is on
-     (`EVETerminalProcessor.cpp:168-183`). ARCHITECT:
+     The getter skips the post while the `syncOutput` row is on. ARCHITECT:
      *"why vblank must be branched? vblank at all build contract are exactly
      the same"*.
    - The swap keeps the last `HISTORY_CAPACITY` lines. It deletes the index
@@ -314,20 +321,37 @@ layout event only).
 
 ### Feature 3: Scrollback Navigation
 
-- Scroll wheel / trackpad: scrolls the view through history; new output does not
-  yank the view while scrolled (a `[N new lines]` pill appears bottom-right;
-  clicking it or pressing `G` returns to live tail).
+- Scroll wheel / trackpad: scrolls the view through history; new output moves the
+  view to the tail only in TERMINAL mode. In NORMAL, `G` returns to live tail.
 - Keyboard (terminal Component focused): the TextEditor starts in TERMINAL mode,
   where every key goes to the shell. `` ` `` then `]` enters NORMAL, a read-only,
   copy-only view of the history; `Esc` or `i a I A o O` return to TERMINAL. In NORMAL:
   `k`/`j` line up/down, `Ctrl+u`/`Ctrl+d` half-page, `gg` top of history, `G` live
-  tail, `v`/drag select, `y` yank. ARCHITECT: *"` is bind key to enter TERMINAL modal
-  mode. ` + ], TERMINAL modal mode is TextEditor NORMAL"*; *"return to terminal,
-  history should not be editable. read only, copy only"*.
+  tail, `v`/drag select, `y` yank. TextEditor keeps the vim contract: a yank ends in
+  NORMAL, and it sends `Id::yank` on the `terminal` tree. `EVEView` handles that event
+  and returns the editor to TERMINAL. ARCHITECT: *"` is bind key to enter TERMINAL
+  modal mode. ` + ], TERMINAL modal mode is TextEditor NORMAL"*; *"return to terminal,
+  history should not be editable. read only, copy only"*; *"enter NORMAL mode, VISUAL
+  mode - yank should immediately back to TERMINAL. not staying in the mode"*;
+  *"TextEditor is VIM core parity, functionally. Normal, Insert, Visual must work as
+  is, that's the CONTRACT. TERMINAL mode is special mode ... this state belong to its
+  owner, its Orchestrator: EVEView"*.
+- V-BLOCK: `ctrl+v` enters it from NORMAL, VISUAL and TERMINAL, so the shell and a
+  program in the terminal do not receive `ctrl+v`. The selection is a screen rectangle
+  from the anchor cell to the cursor cell. `h j k l` step one screen cell, past the end
+  of a line and through wrapped and grid rows. Yank copies the cells in the rectangle.
+  ARCHITECT: *"ctrl+v rect block should be FREE"*; *"i could not just move to any
+  cell"*; for `ctrl+v` in TERMINAL: *"Enter V-BLOCK"*.
 - Mouse: a press sets the cursor and the anchor. A drag enters VISUAL only at 2 cells
   from the anchor. A release in another mode opens the link under the cursor. A program
   that enabled mouse reports takes the mouse first. ARCHITECT: *"dragging in range of 2
   or more cell then start VISUAL and select"*.
+- File drop: EVEView is the `juce::FileDragAndDropTarget`. The processor quotes each
+  path for the shell and joins the paths with a space. The TextEditor returns to
+  TERMINAL and pastes the text, bracketed when the terminal reports bracketed paste.
+  The drop sends no Enter. EVEView refuses a drag when a path holds a control byte,
+  because the quote does not escape it. ARCHITECT: *"EVEView should be
+  FileDragAndDropTarget, dragging file should pasting the pathname to active prompt"*.
 - Link click: the TextEditor writes the target to the `url` row and invokes the
   `openFile` command by name. The TextEditor knows no table. ARCHITECT: *"the open file
   must be a registered command, so clicking, jump open, or pressing enter on highlighted
@@ -336,8 +360,6 @@ layout event only).
 ### Feature 4: Finder Layer
 
 **cwd tracking:** shell integration emits OSC 7; EVE updates `cwd` in the Model.
-No OSC 7 received → Tree/FileList show the session start directory and a status
-line: `cwd tracking unavailable — install shell integration`.
 
 **File list:** the last output block is the file list. ARCHITECT: *"when user run `ls`
 on active prompt, the last block of the list will serves as the file list"*; *"when ls
@@ -392,10 +414,11 @@ by extension to its config"*; *"Free rows: change jam"*.
 1. A value that names a registered command runs that command.
 2. An empty value opens the file with the system default application.
 3. Any other value is a shell command with the quoted file as its last argument. The
-   command runs by a write to the terminal PTY (visible, honest — the user sees what
-   ran).
+   TextEditor returns to TERMINAL, and the command runs by a write to the terminal PTY
+   (visible, honest — the user sees what ran).
 4. While a program runs in the terminal, a shell command value opens the file with the
-   system default application. ARCHITECT: *"Use the system default app"*.
+   system default application. ARCHITECT: *"Use the system default app"*. A path with a
+   control byte takes the same route, because the quote does not escape it.
 5. A target that does not exist shows `open with: no file '<name>'` in the message
    overlay.
 6. A target that is not a local file opens in the browser.
@@ -451,18 +474,28 @@ dictate the layout, and what command tell them to be visible."*
 
 - Markdown tables + CSS, CAST conventions (colour + appearance custom properties;
   data tables for keymaps, open-with rules, shell, fonts; `EMBOLDEN` is on by
-  default; `HISTORY_CAPACITY` is 10000 (lines of terminal history that the record keeps); EVE bundles Display Mono and the Nerd Font symbol face, so icons
-  render with no system font. ARCHITECT: *"eve should bundle nerd font, just
-  like endless with display mono. it should work OOTB"*)
+  default; `HISTORY_CAPACITY` is 10000 (lines of terminal history that the record keeps); EVE bundles Display Mono, the Nerd Font symbol face and the two Noto
+  faces, so icons and symbols render with no system font. ARCHITECT: *"eve should
+  bundle nerd font, just like endless with display mono. it should work OOTB"*;
+  *"we only need to include noto as binary, exactly like how other fonts carry"*;
+  *"emoji/icons etc are EVE contract, not Display Mono contract"*. The emoji face
+  answers only an emoji-presentation codepoint. ARCHITECT: *"definitely wrong
+  logic. a wrong SSOT abstraction"*. A fallback glyph takes the em of the run face,
+  and a Noto text symbol fits its cell through the `GlyphConstraint` table. ARCHITECT:
+  *"icons/mono emoji scaling is off"*; *"why not just fit and obey its codepoints
+  width"*. A cluster with U+FE0F takes two cells, a cluster with U+FE0E takes one, and
+  a mark draws on its base. ARCHITECT: *"emoji should be wide, not narrow cell"*. On
+  macOS a system face takes its glyph outline from CoreText, on the screen and in a
+  PDF. ARCHITECT: *"we delegate what native OS supplies"*)
 - `ligatures` (`display` table, bool, default true) switches the ligature glyphs
-  of the mono font (`Source/layout/default-eve.md:19`, `jam_StyleManager.cpp:206-212`).
+  of the mono font (`Source/layout/default-eve.md`, `jam::StyleManager`).
 - `--kerning` (custom property of the `mono` `@font-face` rule in
-  `Source/layout/style.css:27`) adds the font height times the factor to the
-  mono cell width (`StyleCustom::setMonoFont`, `jam_StyleCustom.cpp:35-48`).
+  `Source/layout/style.css`) adds the font height times the factor to the
+  mono cell width (`StyleCustom::setMonoFont`).
 - Both rows hot reload: the new look and feel reaches `TextEditor::lookAndFeelChanged`,
-  which lays the view out again (`jam_TextEditor.cpp:1066-1070`).
-- Parse error at launch: EVE starts with defaults and shows
-  `config error: <file>:<line> — <message>` in the status area; never fails to launch
+  which lays the view out again.
+- Parse error at launch: EVE starts with defaults and shows the validation message in
+  `EVEView::messageOverlay`; never fails to launch
 
 ## State Model
 
@@ -489,6 +522,12 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   - The marks come from EVE's own shell integration, from the TTY bytes. No
     rule names a prompt framework. ARCHITECT: *"CLI is CLI, OSC 133 is
     deterministic"*.
+- **Saved cursor.** The decoder keeps one saved cursor and one saved pen for each
+  screen (`savedCursors`, `savedPens`). A nested `?1049h` saves into the
+  alternate slot, so the normal slot keeps the position that the first `?1049h`
+  saved. Each `?1049l` restores the normal slot. A CLI that opens an editor on the
+  alternate screen thus returns to its own cursor. ARCHITECT: *"edit in nvim with
+  ctrl+g, going back to claude code the history is broken"*.
 - **Resize.** ARCHITECT: *"dont conflate about 2 size. Window size (component
   size) and winsize (tty side)"*; *"sole author of ALL is Window size"*.
   1. The GUI side, on the message thread: the window resize reaches the
@@ -514,13 +553,25 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
     3. The TextEditor computes the winsize from the cells of its terminal area
        (the viewport less the scroll bar). It writes the winsize only while
        `isResizing` is false, and only when the winsize is valid.
-    4. The Model `winsize` row defaults to 80 columns by 24 rows. Thus the
-       winsize is valid before the first layout, and `audioDeviceAboutToStart`
-       asserts it.
+    4. The Model `winsize` row has no default. `audioDeviceAboutToStart` prepares
+       the grid and opens the TTY only with a valid winsize (`parameters.md:59`,
+       `EVETerminalProcessor.cpp:300-301`). ARCHITECT: *"Amend SPEC (Recommended)"*.
+       A fresh start has no valid winsize until a layout writes one. The view
+       builds the TextEditor with its gate open (`jam_ViewEditor.h:127-130`), and
+       that first write forks the shell. A restored state forks at the restored
+       size. Each later size goes through the final stop.
+    5. A frame change from outside the window, such as a window manager, runs no
+       `resizeStart`. EVEView coalesces it: when its timer runs or the gate is
+       open, `EVEView::resized` closes the gate and starts the timer again, before
+       the layout. The timer runs `resizeEnd`, which is the final stop. A live
+       resize and an open panel hold the gate with no timer, so `resized` adds
+       nothing. ARCHITECT: *"Both (Recommended)"*.
   - **Active prompt anchor.** ARCHITECT: *"clear: draw active prompt at 0"*.
     A prepare puts the cursor at home. The shell redraws its prompt there on
     `SIGWINCH`. For oh-my-posh, the user's zshrc repaints the prompt in
-    `TRAPWINCH`.
+    `TRAPWINCH`. The zshrc arms that trap at the first prompt, because
+    `_omp_status` has no value before the first `_omp_precmd`. ARCHITECT:
+    *"Both (Recommended)"*.
   - **Column reflow.** A column grid in history reflows at the TextEditor width
     (the column reflow plan, done and deleted, END `carol/SPRINT-LOG.md:186`). ARCHITECT: *"no hardcode about ls nor eza"*.
 - **Record:** `TerminalSwap` writes each history row once to its index and
@@ -531,8 +582,7 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   TextEditor calls the view getter. The getter flushes the terminal Model and
   gives the swap. The TextEditor builds the history blocks it shows
   (`TerminalSwap::linesPerBlock` lines each) and the live block, then sets the
-  content size, then scrolls to the tail in terminal mode
-  (`jam_TextEditor.cpp:55-70`, `:836-914`).
+  content size, then scrolls to the tail in terminal mode (`TextEditor::addBlocks`).
 - **Layout state** (advances, rows, row heights) lives on each line as value
   data.
 - **Geometry:** the TextEditor keeps one `Document::Index` for each resident
@@ -540,13 +590,12 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   decoded images. It also keeps the line count of every history block. One
   cursor line space covers the history lines, then the live lines.
 - **Scroll:** the viewport shows a whole number of rows. `resized` sets the
-  viewport height to the pixel height of the cell rows that fit
-  (`jam_TextEditor.cpp:1023-1039`). The scroll position is the view position of
-  the viewport, in pixels. `getRowOffset` gives the distance from the top of
-  the first visible row to the view top, and the content paints shifted by it
-  (`:1208-1230`, `:1342-1344`). At the tail the offset is 0. In TERMINAL mode,
-  new output moves the view to the tail (`:859-860`). The wheel goes to the
-  mouse encoder first; otherwise the viewport scrolls it (`:1398-1407`).
+  viewport height to the pixel height of the cell rows that fit. The scroll position
+  is the view position of the viewport, in pixels. `getRowOffset` gives the distance
+  from the top of the first visible row to the view top, and the content paints
+  shifted by it. At the tail the offset is 0. In TERMINAL mode, new output moves the
+  view to the tail. The wheel goes to the mouse encoder first; otherwise the viewport
+  scrolls it.
 - **Read only:** the history is not editable. ARCHITECT: *"return to terminal,
   history should not be editable. read only, copy only"*.
 
@@ -554,8 +603,8 @@ Editor state is ONE `juce::ValueTree`: the TextEditor's component node in the
 plugin state, from `AudioModel::getOrCreateComponentState (componentID)`. The
 node carries `mode` (a `map::EditorMode` key: 0 `normal`, 1 `visual`,
 2 `terminal`, 3 `open`, 4 `list`). The key 5 `panel` belongs to the markdown panel
-node. The node's `mode` is the host parameter `Mode`, attached in both
-directions (`jam::Model::ValueAttachment`, `TextEditor::bindToModel`); its default
+node. The node's `mode` follows the `mode` Model row in both directions
+(`TextEditor::valueTreePropertyChanged`); its default
 is `terminal` (`Source/layout/parameters.md`). `visualMode` (a `map::VisualMode` value:
 `character`, `line`, `block`), `cursorLine`, `cursorColumn`,
 `cursorWantedColumn`, `anchorLine`, `anchorColumn`, `count`, `numOperatorRepeats`,
@@ -565,9 +614,13 @@ rest of the plugin state.
 `TextEditor` is a `juce::ValueTree::Listener`. Its `valueTreePropertyChanged`
 dispatches the changed property through a `Function::Map`.
 `TextEditorStatusBar` binds the same node. It shows the mode and the
-`line:column` ruler in `normal` and `visual` mode. Its colours are its own
-colour ids, `--TextEditorStatusBar--backgroundColourId` and
-`--TextEditorStatusBar--textColourId`.
+`line:column` ruler in `normal` and `visual` mode. The left segment holds the mode in
+bold, and the right segment holds the ruler. A visual label is `VISUAL`, `V-LINE` or
+`V-BLOCK`. Its colours are EVE's, in `Source/textEditor.css`: one colour id for each
+shown mode, the label text, the ruler segment, the ruler text, and the bar. ARCHITECT:
+*"NORMAL, VISUAL, INSERT, etc could have its own unique colour, while the text colour
+remains contrast"*; *"visual line should be V-LINE not VISUAL LINE, as V-BLOCK not
+VISUAL BLOCK"*; *"remove the unused END's colours. add to EVE"*.
 
 The unnamed register is `juce::SystemClipboard`.
 
@@ -582,15 +635,23 @@ terminal/Model.h:17-28`). ARCHITECT: *"you could learn how endless manage its
 terminal state machine … factually raw bytes test beats all terminal in
 comparison"*.
 
-- **Schema.** `Source/layout/parameters.md`, table `## model` (`:24-68`), columns
+- **Schema.** `Source/layout/parameters.md`, table `## model` (`:24-74`), columns
   `id`, `type`, `max`, `default`, `description`. `jam::ModelLayout` (jam_plugin_bootstrap) reads it,
   the sibling of `jam::ParameterLayout` for `parameters.md`.
-- **Rows.** `applicationCursor`, `bracketedPaste`, `mouseTracking`,
+- **Rows.** `applicationCursor`, `bracketedPaste`, `mouseTracking`, `cursorShape`,
   `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited`,
   `cursor`, `numCommands`, `numPrompts`, `outputBlock`, `url`, `preview`, `previewBox`,
-  `winsize`, `cwd`, `title`, `foregroundProcess`, `syncOutput`, `clipboard` and `background`
-  (`parameters.md:29-67`). `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
-  the column change together.
+  `winsize`, `cwd`, `title`, `foregroundProcess`, `syncOutput`, `clipboard`, `background`,
+  `zoom`, `width`, `height`, `mode`, `focus`, `autoWrap`, `originMode`, `insertMode`,
+  `isWrapPending`, `activeLink`, `scrollingRegion`, `savedCursorNormal`, `savedCursorAlternate`,
+  `pen`, `savedPenNormal`, `savedPenAlternate`, `keyboardFlagsInactive`, `keyboardModesNormal`,
+  `keyboardModesAlternate`, `numKeyboardModesNormal`, `numKeyboardModesAlternate`, `syncStart`,
+  `numYanks` and `pendingClipboard` (`parameters.md`, `## model`). ARCHITECT: *"everything should
+  be Parameter, no strays ana manual state management allowed"*. `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
+  the column change together. `cursorShape` is a key of `map::CursorShape`, from
+  `CSI Ps SP q`. In TERMINAL, the caret paints a block, an underline, or a bar from this
+  row. A blink key paints as its steady key. ARCHITECT: *"block char only at normal mode,
+  entering insert mode it changed to | pipe cursor by default following nvim"*.
 - **Producer.** The decoder (`jam::TerminalProcessor`) keeps its working state
   and fires one event per value at the end of each drain. The owner's handlers
   write the Model with `storeValue`: an atomic store and a dirty mark. The
@@ -645,7 +706,7 @@ later sprints implement it.
 | Enter normal | | | `` `] `` |
 | Enter visual (character) | `v` | `v` | |
 | Enter visual (line) | `V` | `V` | |
-| Enter visual (block) | `ctrl+v` | `ctrl+v` | |
+| Enter visual (block) | `ctrl+v` | `ctrl+v` | `ctrl+v` |
 | Yank | `y` | `y` | |
 | Copy | `cmd+c` / `ctrl+shift+c` | `cmd+c` / `ctrl+shift+c` | |
 | Paste | | | `cmd+v` / `ctrl+shift+v` |
@@ -669,7 +730,7 @@ and their keys, modes and layers are jam tables (`jam/cast/terminal.md`); zoom a
 settings are the plugin editor's (`jam/cast/plugin_bootstrap.md`). The first key
 of a Copy or Paste cell is macOS, the second Windows, so `ctrl+c` still sends
 `\x03`. Paste sends the clipboard to the shell, wrapped in the bracketed-paste
-markers while the shell sets DEC 2004 (`TextEditor` paste action). A row of
+markers while the shell sets DEC 2004 (`TextEditor::applyPaste`). A row of
 `eve.md`'s `keys` table replaces every default row of its command name
 (`PluginEditor::addCommands`). A value of one or two characters is matched by text
 character and is case-sensitive; a two-character cell (`gg`) is a sequence. A JUCE
@@ -678,10 +739,21 @@ the keys. The prefix key (`` ` ``) enters the prefix layer, and `]` there enters
 NORMAL from TERMINAL; `` ` `` pressed twice types `` ` `` in the shell. Any other key
 in the layer is dropped. `sequenceTimeout` (jam default 1000 ms; a `keys` row
 overrides it) ends a sequence or a layer. Under END, END's own prefix layer and
-`normal` command drive NORMAL through EVE's `mode` host parameter, and the hosted
-EVE drops its own `prefix` and `normal` rows (`jam_ENAXClientExtensions.cpp:33-39`).
-END also tells EVE its keyboard focus through the `focus` host parameter; EVE takes
-keyboard focus when it turns on (`PluginEditor::addCallbacks`).
+`normal` command drive NORMAL through EVE's `mode` Model row, and the hosted
+EVE drops its own `prefix`, `normal`, `open` and `list` rows (`jam_ENAXClientExtensions.cpp`).
+END also tells EVE its keyboard focus through the `focus` Model row; EVE takes
+keyboard focus when it turns on and gives it up when it turns off
+(`EVEView::registerTerminalEvents`). `commandManager` is EVE's, not `jam::PluginEditor`'s, and
+zoom and size are EVE's contract: `zoom`, `width` and `height` are Model rows, `resized` writes no
+row, and `resizeEnd` writes `width` and `height` at the final stop. ARCHITECT: *"CommandManager is
+EVE's, NOT PLUGIN EDITOR"*; *"no fucking applyGesture at resized(). never call atomic on message
+thread. why branching on message thread. this is EVE's CONTRACT. not PluginEditor."*. The TextEditor paints its caret only while it holds the
+keyboard focus, and `focusOfChildComponentChanged` repaints it on each change. A pane
+paints its focused and unfocused colours from END's theme. ARCHITECT: *"TextEditor
+cursor should only visible when it was in focus ... no poking layers, END already
+responsible for tracking and forwarding focus to its PANE. full event driven, no manual
+state machine management"*; *"backgroundColourId config driven state like focus
+outline"*.
 
 **Config.** `eve.md` follows END's contract. The binary carries the defaults
 (`default-eve.md` plus the binary css, written by `PluginEditorLayout::getDefaultSettings`);
@@ -727,7 +799,7 @@ An end-user can:
 - ❌ Widget-owned content; paint-path writes
 - ❌ Wrapped grid as truth; baked colours in state; ANSI beyond the two edges
 - ❌ Terminal mental model from training data — `PLAN-Grand-Scheme.md` §0/§1 govern
-- ❌ Terminal state as a host parameter: `parameters.md` rows are automatable only
+- ❌ State as a host parameter: `bypass` is the one host parameter. ARCHITECT: *"we dont need to expose any `parameter` that should be just internal host-client contract"*
 - ❌ `setValueNotifyingHost` or any lock on the clock. ARCHITECT: *"using
   setValueNotifyingHost is smell"*
 - ❌ A second copy of a truth: a counter beside a row's atom count, a member

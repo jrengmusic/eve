@@ -3,10 +3,16 @@
 .appearance {
     --TextEditor--backgroundColourId: var(--blank);
     --TextEditor--textColourId: var(--crystal);
-    --TextEditor--highlightColourId: var(--endCodeHighlight);
+    --TextEditor--highlightColourId: var(--codeHighlight);
     --TextEditor--linkLabelBackgroundColourId: var(--crystal);
     --TextEditor--linkLabelTextColourId: var(--blank);
-    --TextEditorStatusBar--backgroundColourId: var(--endCodeHighlight);
+    --TextEditorStatusBar--backgroundColourId: var(--bunker);
     --TextEditorStatusBar--textColourId: var(--crystal);
+    --TextEditorStatusBar--normalColourId: var(--paradiso);
+    --TextEditorStatusBar--visualColourId: var(--preciousPersimmon);
+    --TextEditorStatusBar--openColourId: var(--silkStar);
+    --TextEditorStatusBar--listColourId: var(--blueBikini);
+    --TextEditorStatusBar--labelTextColourId: var(--bunker);
+    --TextEditorStatusBar--rulerColourId: var(--mediterranea);
     --CaretComponent--caretColourId: var(--crystal);
 }

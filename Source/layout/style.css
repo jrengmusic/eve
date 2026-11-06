@@ -35,6 +35,20 @@
 }
 
 @font-face {
+    font-family: "--notoSymbols";
+    src: url(fonts/NotoSansSymbols2-Regular.ttf);
+    --height: 12;
+    --kerning: 0;
+}
+
+@font-face {
+    font-family: "--notoEmoji";
+    src: url(fonts/NotoEmoji-Regular.ttf);
+    --height: 12;
+    --kerning: 0;
+}
+
+@font-face {
     font-family: "--text";
     --typefaceName: Display;
     --typefaceStyle: Book;

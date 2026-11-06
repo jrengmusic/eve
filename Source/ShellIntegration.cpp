@@ -120,3 +120,8 @@ void ShellIntegration::appendPath (std::string& output, const juce::String& shel
     if (quotedPaths.contains (key)) quotedPaths.get (key, output, path);
     else jam::Format::appendQuoted (output, path, static_cast<char> (Chars::singleQuote), posixEscapedQuote);
 }
+
+bool ShellIntegration::hasControlByte (std::string_view path)
+{
+    return std::any_of (path.begin(), path.end(), [] (char byte) { return std::iscntrl (static_cast<unsigned char> (byte)) != 0; });
+}

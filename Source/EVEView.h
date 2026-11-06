@@ -2,6 +2,7 @@
 #include <JuceHeader.h>
 #include "generated/Generated.h"
 #include "EVETerminalProcessor.h"
+#include "EVEProcessor.h"
 
 /**
  * @class EVEView
@@ -19,7 +20,10 @@
 class EVEView
     : public jam::PluginEditor
     , public juce::ComponentBoundsConstrainer
+    , public juce::FileDragAndDropTarget
+    , public juce::ApplicationCommandTarget
     , private juce::FileBrowserListener
+    , private juce::Timer
 {
 public:
     /**
@@ -36,9 +40,34 @@ public:
     /** @brief Paints the transition over the children. @param g Graphics context to paint into. */
     void paintOverChildren (juce::Graphics& g) override;
 
+    /**
+     * @brief Lays out the view.
+     *
+     * A frame change from outside the window runs no `resizeStart()`. The call closes the winsize gate, and it restarts the coalesce timer when the timer runs or the gate is open.
+     */
     void resized() override;
 
     void lookAndFeelChanged() override;
+
+    /**
+     * @brief Reloads the settings through the base class, then registers the commands again.
+     * @param file   File that changed.
+     * @param event  Type of change.
+     */
+    void fileChanged (const juce::File& file, jam::File::Watcher::Event event) override;
+
+    /**
+     * @brief Returns the first command target among the parent components of this view.
+     * @return The parent command target, or nullptr when no parent is a command target.
+     */
+    juce::ApplicationCommandTarget* getNextCommandTarget() override;
+
+    /**
+     * @brief Runs the registry callback whose key is the name of the command.
+     * @param info  Invocation that carries the command id.
+     * @return True when a registry callback exists for the name of the command.
+     */
+    bool perform (const InvocationInfo& info) override;
 
 private:
     /**
@@ -55,30 +84,71 @@ private:
      */
     bool keyPressed (const juce::KeyPress& key) override;
 
-    /** @brief Runs as the constrainer of this editor when a user resize starts. It marks the text editors as resizing, so that they keep the winsize unchanged until the resize ends. */
+    /**
+     * @brief Accepts a file drag unless a path holds a control byte, because the shell quote does not escape a control byte.
+     * @param files  The absolute paths of the drag.
+     * @return       `true` when every path has no control byte.
+     */
+    bool isInterestedInFileDrag (const juce::StringArray& files) override;
+
+    /**
+     * @brief Returns each text editor to terminal mode, and pastes the quoted paths as one text at the active prompt.
+     *
+     * The call sends no carriage return.
+     *
+     * @param files  The dropped paths.
+     * @param x      Not used.
+     * @param y      Not used.
+     */
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
+
+    /**
+     * @brief Runs as the constrainer of this editor when a user resize starts. It marks the text editors as resizing, so that they keep the winsize unchanged until the resize ends.
+     *
+     * It stops the coalesce timer, because the live resize now owns the gate.
+     */
     void resizeStart() override;
 
     /**
-     * @brief Ends the resize. It sets the resizing mark of the text editors to `true` when the left panel shows, and to `false` otherwise.
+     * @brief Ends the resize. It sets the resizing mark of the text editors to `true` when a text editor is in the list mode, and to `false` otherwise.
      *
-     * The winsize gate stays on while the left panel shows.
+     * It writes the width and the height of the view to the `width` and `height` rows of the terminal state.
+     * It stops the coalesce timer. The timer also runs this call as the final stop of a frame change from outside the window.
      */
     void resizeEnd() override;
 
     /**
      * @brief Writes `Id::isResizing` to the component property of each text editor in the view.
-     * @param isResizing  `true` while the user resizes the window.
+     * @param newIsResizing  `true` holds the winsize unchanged.
      */
-    void setResizing (bool isResizing);
+    void setResizing (bool newIsResizing);
+
+    /**
+     * @brief Answers whether a text editor holds the winsize gate closed. It reads the component state, and it creates the `Id::isResizing` property of a text editor when that property is absent.
+     * @return `true` when the `Id::isResizing` property of any text editor is true.
+     */
+    bool isResizing() const;
+
+    /**
+     * @brief Answers whether a text editor is in the list mode. It reads the component state, and it creates the `Id::mode` property of a text editor when that property is absent.
+     * @return `true` when the `Id::mode` property of any text editor is `map::EditorMode::list`.
+     */
+    bool isListMode() const;
+
+    /**
+     * @brief Ends a coalesced frame change by running `resizeEnd()`.
+     */
+    void timerCallback() override;
 
     /**
      * @brief Reacts to a change of a property in the model tree.
      *
      * A change of a property of the `terminal` tree runs the handler of `terminalEvents` for that property, when a handler exists.
-     * The handlers cover `Id::numCommands`, `Id::clipboard`, `Id::url`, the report properties of `jam::TerminalProcessor::getReports()`,
+     * The handlers cover `Id::numCommands`, `Id::clipboard`, `Id::url`, `Id::numYanks`, `Id::shellExited`, `Id::zoom`, `Id::focus`,
      * and, in a profile build, `Id::numPrompts`.
      *
-     * A change of `Id::mode` on any tree shows the file panels when the mode is `map::EditorMode::list`, and hides them otherwise.
+     * A change of `Id::mode` on the component state of a text editor shows the file panels when the mode is `map::EditorMode::list` and the panels are hidden.
+     * It hides them when the mode is not `map::EditorMode::list` and the panels show.
      * The constructor sets the `panel` mode and a false `Id::value` on the markdown state, before `initialise()` runs.
      * This keeps a restored state from swallowing the first show.
      * The base class gets every change.
@@ -101,6 +171,28 @@ private:
     void initialiseView() override;
 
     /**
+     * @brief Sets the editor to be resizable, then sets its size from the width and height rows of the terminal state.
+     *
+     * The window is made resizable without the bottom-right corner resizer. The function writes no row.
+     */
+    void setScaling() override;
+
+    /**
+     * @brief Registers the commands of the view with the command manager, and sets the key presses from the keys sheet.
+     *
+     * A view default key is added only when the config holds no key of the same type. Then every config key is appended to the keys sheet.
+     * The call registers each child of the view, then the view itself, and gives the view the keyboard focus.
+     * It runs after initialise() in the constructor, and again after each settings file change in fileChanged().
+     */
+    void addCommands();
+
+    /**
+     * @brief Writes the zoom row of the terminal state, clamped to the range of 0.25 to 4.0.
+     * @param newZoom  Zoom value to write.
+     */
+    void setZoom (float newZoom);
+
+    /**
      * @brief Returns the default keys of the text editor for the view commands.
      *
      * The keys come from jam::TextEditor::getDefaultKeys().
@@ -110,16 +202,16 @@ private:
      *
      * @return The default key sheet of the text editor.
      */
-    juce::ValueTree getViewDefaultKeys() const override;
+    juce::ValueTree getViewDefaultKeys() const;
 
     /**
-     * @brief Adds the id of every command of the editor: the commands of the plugin editor and the commands of `map::CommandId`.
+     * @brief Adds the id of every command of the `map::CommandId` map.
      * @param commands  Array that receives the ids.
      */
     void getAllCommands (juce::Array<juce::CommandID>& commands) override;
 
     /**
-     * @brief Describes a command of `map::CommandId` by its name. Any other command goes to the plugin editor.
+     * @brief Describes a command by the name of its `map::CommandId` entry.
      * @param commandID  Command to describe.
      * @param result     Info to fill.
      */
@@ -145,6 +237,8 @@ private:
      *
      * The clear command runs clear(). The open file command runs openFile(). The markdown command runs openMarkdown().
      * The dismiss command runs setMarkdownVisible() with `false`.
+     * The zoomIn command adds the `zoomStep` of the display sheet to the zoom row, and the zoomOut command subtracts it, both through setZoom().
+     * The zoomReset command sets the zoom row to 1.0 through setZoom().
      * The markdown visibility callback sets the visibility of each markdown child to the `value` of the markdown state.
      * It grabs the keyboard focus for the markdown child when the value is `true`, and for the editor when the value is `false`.
      * The message callback shows the settings message when its text is not empty.
@@ -174,7 +268,7 @@ private:
     /**
      * @brief Opens a decoded file path of the terminal.
      *
-     * A missing file shows a message. A file runs its command when the command is a registered command.
+     * A missing file shows a message. An existing file runs its command when the command is a registered command.
      * Otherwise the file starts as a process when the open command is empty, when the terminal records or uses the alternate screen, or when the path holds a control byte.
      * Otherwise the text editor returns to terminal mode, so that the program gets the keys, and the shell receives the open command with the path.
      *
@@ -241,7 +335,9 @@ private:
     /**
      * @brief Returns the local file that the url of the terminal names.
      *
-     * @return File of the decoded url path. The default file when the url gives no decoded path.
+     * The file is empty when the url is not a local file.
+     *
+     * @return File of the decoded url path. An empty file when the url is not a local file.
      */
     juce::File getUrlFile() const;
 
@@ -257,8 +353,10 @@ private:
     /**
      * @brief Shows or hides the file panels. The first show builds the panels.
      *
-     * A show sets the folder of the file tree, then shows both side panels.
-     * The call lays out the view, sets the resizing mark of the text editors to `isVisible`, and selects the file of the url.
+     * A show sets the resizing mark, sets the folder of the file tree, then shows both side panels.
+     * A hide hides both side panels, and it sets the resizing mark to the running state of the coalesce timer.
+     *
+     * The call lays out the view, then runs setPanelFile().
      *
      * @param isVisible  `true` shows the panels.
      */
@@ -284,12 +382,62 @@ private:
     template <typename Callback>
     void applyToMarkdown (Callback&& callback)
     {
-        jam::Component::applyFunctionRecursively (view.get(), [&callback] (juce::Component* child)
+        applyToChildren<jam::MarkdownComponent> (Id::markdown, std::forward<Callback> (callback));
+    }
+
+    /**
+     * @brief Runs the callback on each text editor of the view.
+     *
+     * The call finds each child by its `type` property.
+     *
+     * @tparam Callback  Callable that takes a `jam::TextEditor&`.
+     * @param callback   Runs once for each text editor.
+     */
+    template <typename Callback>
+    void applyToTextEditors (Callback&& callback) const
+    {
+        applyToChildren<jam::TextEditor> (Id::textEditor, std::forward<Callback> (callback));
+    }
+
+    /**
+     * @brief Runs the callback on the view and on each of its descendants whose `type` property holds the text of @p type.
+     *
+     * The walk is depth-first, and it visits the view before its children.
+     * The cast to `ChildType` is not checked. The caller names the type that the `type` property denotes.
+     *
+     * @tparam ChildType  Component type of the matching children.
+     * @tparam Callback   Callable that takes a `ChildType&`.
+     * @param type        Value of the `type` property to match.
+     * @param callback    Runs once for each matching component.
+     */
+    template <typename ChildType, typename Callback>
+    void applyToChildren (const juce::Identifier& type, Callback&& callback) const
+    {
+        jam::Component::applyFunctionRecursively (view.get(), [&type, &callback] (juce::Component* child)
         {
-            if (jam::Component::hasProperty (child->getProperties(), Id::type, Id::markdown))
-                callback (*static_cast<jam::MarkdownComponent*> (child));
+            if (jam::Component::hasProperty (child->getProperties(), Id::type, type))
+                callback (*static_cast<ChildType*> (child));
         });
     }
+
+    /**
+     * @brief Returns the processor that owns the editor, cast to `EVEProcessor`.
+     *
+     * The cast is static. The constructor requires that the owner processor is an `EVEProcessor`.
+     *
+     * @return The `EVEProcessor` of the editor.
+     */
+    EVEProcessor& getEVEProcessor() const;
+
+    /**
+     * @brief Returns the `terminal` child of the model state.
+     *
+     * The result is a reference to that tree, not a copy. A write through the result changes the model.
+     * The result is invalid when the model state has no `terminal` child.
+     *
+     * @return The `terminal` tree of the model.
+     */
+    juce::ValueTree getTerminalState() const;
 
     EVETerminalProcessor& getTerminalProcessor() const;
 
@@ -301,23 +449,19 @@ private:
      * The `numCommands` handler runs the commands of the command FIFO.
      * The `clipboard` handler copies the text of the image record that the property names to the system clipboard.
      * The `url` handler runs setPanelFile(), so that the file panel shows the file of the url.
-     * Each report property gets a handler that forwards its text through `applyTerminalReport()`.
-     * In a profile build, the `numPrompts` handler repaints the view when the count is 1, and it reports `Id::promptPainted` to the processor.
+     * The `numYanks` handler returns each text editor to terminal mode. The terminal mode sits above the vim modes of the editor, so its owner decides this.
+     * The `shellExited` handler shows the `Id::failShellExited` message when the property is true, then invokes the quit command of the command manager.
+     * The `zoom` handler sets the zoom of the view and lays it out again.
+     * The `focus` handler grabs the keyboard focus when the property is true, and gives it away when the property is false.
+     * In a profile build, the `numPrompts` handler repaints the view when the count is 1, and it sets the `Id::promptPainted` rule of the processor.
      */
     void registerTerminalEvents();
 
-    /**
-     * @brief Sends the name and the text of a report property to the processor.
-     *
-     * The text goes through the `Id::terminalReport` setter of the processor.
-     *
-     * @param terminal  The `terminal` tree that holds the property.
-     * @param id        Report property that changed.
-     */
-    void applyTerminalReport (const juce::ValueTree& terminal, const juce::Identifier& id);
-
     /** Shared instance of the `map::CommandId` map. */
     jam::SharedInstance<map::CommandId> commandId { std::in_place };
+
+    /** Command manager of the view. It registers the commands of the view and matches the key presses against the key sheet from addCommands(). */
+    jam::SharedInstance<jam::CommandManager> commandManager { std::in_place };
 
     /** Index of the file preview in `panels`. */
     static constexpr int filePreview { 0 };

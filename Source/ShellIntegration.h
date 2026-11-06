@@ -70,4 +70,14 @@ public:
      * @param path    Path to quote.
      */
     static void appendPath (std::string& output, const juce::String& shell, std::string_view path);
+
+    /**
+     * @brief Tells whether a path holds a control byte.
+     *
+     * A byte is a control byte when `std::iscntrl` classifies it as a control character.
+     *
+     * @param path  Path to test.
+     * @return      `true` when any byte of the path is a control byte.
+     */
+    static bool hasControlByte (std::string_view path);
 };

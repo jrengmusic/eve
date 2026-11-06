@@ -7,6 +7,7 @@ class EVEProcessor
     , public juce::AudioProcessorARAExtension
 #endif
     , public jam::ENAXClientExtensions
+    , private juce::ValueTree::Listener
 {
 public:
     EVEProcessor();
@@ -65,7 +66,9 @@ public:
     /**
      * @brief Restores the model state from host data.
      *
-     * When the data holds a valid tree, the call restores the state inside `terminalProcessor.restart`.
+     * A tree of the `terminal` type sets each of its properties on the terminal Model through `EVETerminalProcessor::setRows()`.
+     * It does not restart the clock.
+     * Any other valid tree restores the state inside `terminalProcessor.restart`.
      * The clock is stopped while the terminal Model and the APVTS take the restored tree.
      * The clock then starts again when it ran before.
      *
@@ -82,6 +85,17 @@ public:
 
 private:
     juce::AudioProcessorEditor* createEditor() override;
+
+    /**
+     * @brief Tells the host that the display changed, when a host-visible terminal row changed.
+     *
+     * The rows `title`, `foregroundProcess`, `cwd`, `zoom` and `shellExited` call `updateHostDisplay()` with the
+     * parameter info and the non-parameter state flagged as changed. Any other row has no effect.
+     *
+     * @param tree      Tree that changed. Not used.
+     * @param property  Property that changed.
+     */
+    void valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
 
     jam::debug::Log::Scope logScope { jam::File::getDebugLog() };
     Generated generated;
@@ -103,13 +117,7 @@ private:
 
     jam::AudioModel model { parameterManager,
                             *this,
-                            jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }),
-                                                       [this]
-                                                       {
-                                                           jam::HashMap<juce::Identifier, juce::Range<int>> ranges;
-                                                           set (Id::size, [] (jam::HashMap<juce::Identifier, juce::Range<int>>&) {}, ranges);
-                                                           return ranges;
-                                                       }()) };
+                            jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
 
     jam::SharedInstance<jam::StyleManager> styleManager;
 

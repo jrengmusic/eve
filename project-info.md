@@ -201,11 +201,11 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +-------------------------+---------------+--------------------------------+--------------------------------+---------------------------------------------------------+
 | unusedParameter         | all           | -Wno-unused-parameter          | -Wno-unused-parameter          | Debug/template code may not use all parameters          |
 +-------------------------+---------------+--------------------------------+--------------------------------+---------------------------------------------------------+
-| floatEqual              | all           | -Wno-float-equal               | -Wno-float-equal               | DSP exact float comparisons for bypass detection        |
+| floatEqual              | all           | -Wno-float-equal               | -Wno-float-equal               | Exact float comparison for bypass detection             |
 +-------------------------+---------------+--------------------------------+--------------------------------+---------------------------------------------------------+
 | signConversion          | all           | -Wno-sign-conversion           | -Wno-sign-conversion           | Array indexing, safe in this context                    |
 +-------------------------+---------------+--------------------------------+--------------------------------+---------------------------------------------------------+
-| switchEnum              | all           | -Wno-switch-enum               | -Wno-switch-enum               | Not every filter type needs every case handled          |
+| switchEnum              | all           | -Wno-switch-enum               | -Wno-switch-enum               | A switch on an enum may handle some cases               |
 +-------------------------+---------------+--------------------------------+--------------------------------+---------------------------------------------------------+
 | floatToDoubleConversion | all           | -Wno-implicit-float-conversion | -Wno-implicit-float-conversion | DSP double/float conversions                            |
 +-------------------------+---------------+--------------------------------+--------------------------------+---------------------------------------------------------+
@@ -442,7 +442,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +----------+----------------------------------------------------+---------------------------------------------------+
 | fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`   | Shared JAM Display and DisplayMono TrueType fonts |
 +----------+----------------------------------------------------+---------------------------------------------------+
-| symbols  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf`   | Bundled Nerd Font symbol face                     |
+| symbols  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf`   | Bundled Nerd Font and Noto symbol faces           |
 +----------+----------------------------------------------------+---------------------------------------------------+
 | shell    | `${CMAKE_CURRENT_SOURCE_DIR}/Source/shell/*`       | Shell integration hook scripts                    |
 +----------+----------------------------------------------------+---------------------------------------------------+

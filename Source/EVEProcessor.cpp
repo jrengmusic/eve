@@ -17,10 +17,13 @@ EVEProcessor::EVEProcessor()
 
     layout.populateTree (model, settings);
     styleManager.create (layout.fonts, settings);
+    model.state.addListener (this);
 }
 
 EVEProcessor::~EVEProcessor()
 {
+    model.state.removeListener (this);
+
 #if JAM_USING_PROFILER
     if (wrapperType == juce::AudioProcessor::wrapperType_Standalone)
     {
@@ -157,14 +160,29 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto state { juce::ValueTree::readFromData (data, sizeInBytes) }; state.isValid())
     {
-        suspendProcessing (true);
-        terminalProcessor.restart ([this, &state]
-                                   {
-                                       terminalProcessor.setState (state);
-                                       model.setState (state);
-                                   });
-        suspendProcessing (false);
+        if (state.hasType (jam::Format::toType (Id::terminal)))
+        {
+            terminalProcessor.setRows (state);
+        }
+        else
+        {
+            suspendProcessing (true);
+            terminalProcessor.restart ([this, &state]
+                                       {
+                                           terminalProcessor.setState (state);
+                                           model.setState (state);
+                                       });
+            suspendProcessing (false);
+        }
     }
+}
+
+void EVEProcessor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier& property)
+{
+    static const std::array hostRows { Id::title, Id::foregroundProcess, Id::cwd, Id::zoom, Id::shellExited };
+
+    if (std::find (hostRows.begin(), hostRows.end(), property) != hostRows.end())
+        updateHostDisplay (ChangeDetails {}.withParameterInfoChanged (true).withNonParameterStateChanged (true));
 }
 
 EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept { return terminalProcessor; }
