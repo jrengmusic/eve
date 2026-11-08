@@ -147,21 +147,21 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
 | vst          | cast    | ../jam/cast/spell.md                                                                                                            |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
-| vst          | cmake   | -S . -B Builds/Release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=ON -UCMAKE_OSX_ARCHITECTURES -DCAST_PLUGIN_FORMAT=       |
+| vst          | cmake   | -S . -B Builds/Release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=ON -UCMAKE_OSX_ARCHITECTURES -DCAST_PLUGIN_FORMAT=VST    |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
-| vst          | ninja   | -C Builds/Release EVE_VST                                                                                                       |
+| vst          | ninja   | -C Builds/Release                                                                                                               |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
 | vst3         | cast    | ../jam/cast/spell.md                                                                                                            |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
-| vst3         | cmake   | -S . -B Builds/Release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=ON -UCMAKE_OSX_ARCHITECTURES -DCAST_PLUGIN_FORMAT=       |
+| vst3         | cmake   | -S . -B Builds/Release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=ON -UCMAKE_OSX_ARCHITECTURES -DCAST_PLUGIN_FORMAT=VST3   |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
-| vst3         | ninja   | -C Builds/Release EVE_VST3                                                                                                      |
+| vst3         | ninja   | -C Builds/Release                                                                                                               |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
 | au           | cast    | ../jam/cast/spell.md                                                                                                            |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
-| au           | cmake   | -S . -B Builds/Release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=ON -UCMAKE_OSX_ARCHITECTURES -DCAST_PLUGIN_FORMAT=       |
+| au           | cmake   | -S . -B Builds/Release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=ON -UCMAKE_OSX_ARCHITECTURES -DCAST_PLUGIN_FORMAT=AU     |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
-| au           | ninja   | -C Builds/Release EVE_AU                                                                                                        |
+| au           | ninja   | -C Builds/Release                                                                                                               |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
 | vst-debug    | cast    | ../jam/cast/spell.md                                                                                                            |
 +--------------+---------+---------------------------------------------------------------------------------------------------------------------------------+
