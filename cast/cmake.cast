@@ -32,9 +32,10 @@ endif()
 set(CMAKE_OSX_DEPLOYMENT_TARGET :::deploymentTarget::: CACHE STRING "macOS deployment target")
 
 if(APPLE)
-    set(CMAKE_OSX_ARCHITECTURES ":::architecture:::" CACHE STRING "macOS architectures")
+    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "macOS architectures")
 elseif(WIN32)
     set(CMAKE_MSVC_RUNTIME_LIBRARY :::msvcRuntime:::)
+    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:Embedded>")
     set(CMAKE_RC_FLAGS "/C65001")
     set(CMAKE_NINJA_CMCLDEPS_RC OFF)
 endif()
@@ -49,8 +50,26 @@ project(:::targetName:::
     DESCRIPTION :::projectDescription:::
 )
 
+find_program(CAST_CCACHE ccache NO_CACHE REQUIRED)
+get_property(CAST_LANGUAGES GLOBAL PROPERTY ENABLED_LANGUAGES)
+
+foreach(CAST_LANGUAGE ${CAST_LANGUAGES})
+    set(CMAKE_${CAST_LANGUAGE}_COMPILER_LAUNCHER "${CAST_CCACHE}")
+endforeach()
+
 set(CAST_FORMATS :::[list]:::)
 set(CAST_INSTALLER_FORMATS :::[list]:::)
+
+set(CAST_PLUGIN_FORMAT "" CACHE STRING "Plugin format")
+
+if(CAST_PLUGIN_FORMAT)
+    if(NOT CAST_PLUGIN_FORMAT IN_LIST CAST_FORMATS)
+        message(FATAL_ERROR "CAST: plugin format ${CAST_PLUGIN_FORMAT} not in ${CAST_FORMATS}")
+    endif()
+
+    set(CAST_FORMATS ${CAST_PLUGIN_FORMAT})
+    list(FILTER CAST_INSTALLER_FORMATS INCLUDE REGEX "^${CAST_PLUGIN_FORMAT}$")
+endif()
 
 message(STATUS "CAST: configuring ${PROJECT_NAME} ${PROJECT_VERSION}")
 
@@ -162,11 +181,15 @@ target_sources(${PROJECT_NAME} PRIVATE
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:<:::precompiledHeader:::$<ANGLE-R>>")
 
+if(APPLE)
+    target_compile_options(${PROJECT_NAME} PRIVATE "SHELL:-Xclang -fno-pch-timestamp")
+endif()
+
 file(GLOB CAST_MODULE_SOURCES
     "${CAST_JUCE_PATH}/modules/*/*.cpp"
     "${CAST_JUCE_PATH}/modules/*/*.mm"
-    ":::userModulePath:::/*/*.cpp"
-    ":::userModulePath:::/*/*.mm"
+    "${CAST_USER_MODULE_PATH}/*/*.cpp"
+    "${CAST_USER_MODULE_PATH}/*/*.mm"
 )
 
 set_source_files_properties(${CAST_MODULE_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
@@ -427,7 +450,7 @@ if(APPLE)
                 endif()
             endif()
 
-            if(NOT CAST_PROFILE AND CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
+            if(NOT CAST_PROFILE AND CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT CAST_PLUGIN_FORMAT AND CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
                 add_custom_command(TARGET ${PROJECT_NAME}_${CAST_FORMAT} POST_BUILD
 :::install-directory:::
 :::install-copy:::
@@ -457,7 +480,7 @@ elseif(WIN32)
                 endif()
             endif()
 
-            if(NOT CAST_PROFILE AND CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
+            if(NOT CAST_PROFILE AND CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT CAST_PLUGIN_FORMAT AND CAST_INSTALL_DIRECTORY_${CAST_FORMAT} AND CAST_FORMAT IN_LIST CAST_SIGNING_installFormats)
                 if(CAST_FORMAT STREQUAL "VST")
                     add_custom_command(TARGET ${PROJECT_NAME}_${CAST_FORMAT} POST_BUILD
 :::install-directory:::
