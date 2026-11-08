@@ -16,7 +16,7 @@ ARCHITECT can shift a design at any part: *"plausible at execution on each plan,
 | Part | Plan | Status | Depends on |
 |---|---|---|---|
 | 0 | this file | Steps 1, 2 and 3 done. | |
-| 1 | `PLAN-finder-1-markdown.md` | Locked 2026-11-07. In execution. | 0 |
+| 1 | `PLAN-finder-1-markdown.md` | Done 2026-11-08. Steps 1-7 implemented; Step 8 closed: acceptance passed on the release build, audit and doxygen covered by the 2026-11-08 sprints. | 0 |
 | 2 | `PLAN-finder-2-preview.md` | Written. Not locked. | 1 |
 | 3 | `PLAN-finder-3-modes.md` | Superseded by `PLAN-text-editor-absorption.md` rulings 30 to 36 (Canon note below). File deleted 2026-11-08. | |
 | 4 | `PLAN-finder-4-column-list.md` | Superseded, as Part 3. File deleted 2026-11-08. | |

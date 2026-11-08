@@ -36,6 +36,51 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Claude Code Cursor — Caret Gate on the Grid, Inverse Video in the Glyph Painter, Debt Captured, Doxygen Pass ✅
+
+**Date:** 2026-11-08
+**Duration:** one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"there something fishy with this build with claude code full screen (alternate), now there's no cursor at all with Claude code"*; *"why cursor hidden with Claude Code? although no issue with vim, because we let vim handle all cursor drawing? why eve disagree with whatever claude sent? why we hide the cursor?"*; *"caret still should be visible on normal screen too"*; *"cursor fixed. both fullscreen and normal shows caret with claude code."*; *"add to DEBT.md ctrl+l destroys CC active prompt rendering with normal screen"*; *"clean up instrumentations"*; *"update doxygen docs if necessary to methods you have just changed"*; *"/log"*.
+
+### Agents Participated
+- COUNSELOR — the caret and paint-path reads, the log-driven diagnosis, both fixes, the instrumentation and its removal, the DCF filter on the doxygen pass, this log.
+- Pathfinder (haiku) — the caret-path and git-history traces, the Claude Code 2.1.319 binary analyses (three runs), the doxygen pass on `jam_GlyphArrangement.h` and `jam_TextEditor.h`.
+- Engineer (sonnet) — the `carol debt add` capture.
+
+### Files Modified (5 total)
+- `jam/jam_gui/widgets/jam_TextEditor.cpp` — the terminal caret gate reads the grid: `isVisible = isCursorVisible and cursor.y < winsize.rows` (`Id::winsize` unpacked, the form of the mouse path). `getCellBounds (const TextBlock&, int, int)` extrapolates the cell for a line at or past the last line: the last row's bottom plus one cell height per row past, at the plain grid x, mono cell size.
+- `jam/jam_graphics/fonts/jam_GlyphArrangement.cpp` — `addGlyph` resolves the default foreground (`juce::TextEditor::textColourId`) and default background (`juce::ResizableWindow::backgroundColourId`) and swaps them when the entry's inverse flag is set. `addBackground` adds the rectangle for an inverse entry even when its bgColourId is colourIdNone.
+- `jam/jam_graphics/fonts/jam_GlyphArrangement.h`, `jam/jam_gui/widgets/jam_TextEditor.h` — doxygen synced to the two changes.
+- `eve/DEBT.md` — `DEBT-20261108T145906` (Ctrl+L destroys the Claude Code prompt on the normal screen), captured with `carol debt add`.
+- Ephemeral diagnostics (ODE §VI): `debug::Log` sites in `jam_TerminalProcessor.cpp` (`privateMode`, `bytes`), `jam_TextEditor.cpp` (`caretEmpty`, `caretFocus`) and a `Log::Scope` with `eveInstance` in `EVETerminalProcessor.cpp` — added, read, and removed this sprint. No trace remains (verified by search).
+
+### Alignment Check
+- [x] BLESSED principles followed
+- [x] NAMES.md adhered — no new name.
+- [x] MANIFESTO.md principles applied
+- [x] Validated by ARCHITECT's build and run: the caret shows in Claude Code on both screens.
+- [ ] Zero doxygen warnings unconfirmed: regeneration is ARCHITECT's (`<leader>bd` in jam).
+
+### Problems Solved
+- **No caret with Claude Code, root cause.** The terminal caret gate compared the cursor grid row against the live document's line count (`cursor.y < live.index->getNumLines()`). Claude Code parks its prompt cursor on the empty row right after the content, where `y == lines`, so a cursor shown by DECTCEM painted nothing. Vim and the shell keep the cursor on a written row, so only Claude Code hit the boundary. The gate now reads the grid height (`Id::winsize` rows), and the cell geometry extrapolates past the last line.
+- **Inverse video had no paint-path consumer.** Claude Code hides the native cursor in both screens and draws its own as an SGR 7 inverse cell (`"\x1B[7m"+char+"\x1B[27m"` in the 2.1.319 bundle). The `inverse` flag reached only the atlas key. `addGlyph` now swaps the resolved foreground and background, and `addBackground` fills the cell, per xterm semantics.
+- **Evidence method.** Temporary `debug::Log` sites captured the DECTCEM traffic and the caret-gate inputs; the logs showed `visible true` with an empty caret at `y == lines`, and later that Claude Code hides the native cursor and paints its own.
+- **Mistakes owned.** I second-guessed ARCHITECT's test runs twice, and misread the diagnostic log path after the config directory moved to `~/.config/dev`.
+
+### State for Continuation
+- ARCHITECT runs `<leader>bd` in jam and confirms zero warnings; the doxygen pass changed two headers and did not regenerate the index.
+- Delete `~/eve-caret.log` — the diagnostic log is dead. `~/.config/end/END.ode` and `~/.config/dev/END.ode` hold only headers.
+- `DEBT-20261108T145906` (Ctrl+L destroys the Claude Code prompt on the normal screen) enters the next sprint scope (JRENG law).
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261108T145906` — Ctrl+L destroys the Claude Code active prompt rendering on the normal screen (ARCHITECT, captured this sprint).
+- `DEBT-20261105T000000` — Windows runtime test (unchanged).
+
+---
+
 ## Sprint: END Crashes at Init and after a Pane Split — MessageOverlay Null Read, One Split Path, Grid Events Lane off the Record Writer, Audit, Doxygen Pass ✅
 
 **Date:** 2026-11-08
@@ -299,81 +344,3 @@
 ### Debts Deferred
 - None
 
----
-
-## Sprint: Host Client State Seam — Every State a Model Row, One Seam for All Formats, commandManager the One Registry, `exit` Closes Its Pane ✅
-
-**Date:** 2026-11-06
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"`exit` should close END's pane (exit eve)"*; *"standalone eve should exit, close the app. why cant this be SSOT?"*; *"there's no \"report\" it's all terminal state. a Model parameter. its state changes, terminal command is the sole author. Listener react, always UNIDIRECTIONAL, always SSOT, no copy, no shadow state, there's no such thing as `report`"*; *"commandManager is the SSOT of `operation`"*; *"must be cross format. hence this is END's contract as host to have ONE EXACT SEAM to handle all format, the only exceptions when there's a format that legitimately could not adhere to design, then ENAX is the path"*; *"CommandManager is EVE's, NOT PLUGIN EDITOR"*; *"never call atomic on message thread"*; *"everything should be Parameter, no strays ana manual state management allowed"*. Plan: `PLAN-host-client-state.md`.
-
-### Agents Participated
-- COUNSELOR: reads of the host, client and format paths; the plan; validation of each step; the atomic fixes, the spell fix and the restore fix; `SPEC.md` of EVE and END; this log.
-- Engineer (sonnet): the report path removal, the Model rows, the `PluginEditor` split, the END seam, the `ENDActions` removal, the stray rows.
-- Pathfinder (haiku): file sets, the exit path trace, the binary scan for the malloc message, the plan inventory, three doxygen runs.
-- Librarian (haiku): neovim redraw and child stdio source.
-- Auditor: three runs stopped by the 15-minute watchdog, with no findings. ARCHITECT then ruled *"no audit"*.
-
-### Files Modified (46 total)
-- `eve/Source/layout/parameters.md` — `## parameter` holds `bypass` only; `zoom`, `width`, `height`, `mode`, `focus` and the stray rows join `## model`.
-- `eve/Source/layout/default-eve.md` — `scaling` row deleted, one scaling contract; `zoom in`, `zoom out`, `zoom reset`, `settings` key rows.
-- `eve/cast/identifiers.md` — `startDirectory`, `zoom`, `zoomStep`; `zoomIn`, `zoomOut`, `zoomReset`, `settings` in `CommandId`.
-- `eve/Source/EVEProcessor.h`, `.cpp` — listens to the state tree; `hostRows` signal the host through `updateHostDisplay` with two flags; a `terminal` tree in `setStateInformation` sets rows with no restart.
-- `eve/Source/EVETerminalProcessor.h`, `.cpp` — `setRows`; `setState` uses `setValuesFrom`; `openTTY` starts in the `cwd` row; quit listener and `pendingClipboard` atomic deleted; stray rows registered; `syncOutput` and `winsize` read the tree.
-- `eve/Source/EVEView.h`, `.cpp` — owns `commandManager`, `addCommands`, the command target overrides, `setScaling`, `setZoom`; `resized` writes no row; `resizeEnd` writes `width` and `height`; `shellExited` invokes the quit command; `zoom`, `focus`, `numYanks` events; `applyTerminalReport` deleted.
-- `eve/SPEC.md`, `end/SPEC.md`, `eve/PLAN-host-client-state.md` — rulings and the new contract.
-- `jam/jam_plugin_bootstrap/view/jam_PluginEditor.h`, `.cpp` — commands, keys, zoom, size and focus deleted; `setScaling` virtual.
-- `jam/cast/plugin_bootstrap.md`, `jam/cast/spell.md`, `jam/cast/core.md`, `jam/cast/terminal.md`, `jam/cast/gui.md` — `PluginEditorCommandId`, `pluginEditorKeys` and the ENAX state ids deleted; stray ids and `numYanks` added.
-- `jam/jam_plugin_bootstrap/enax/jam_ENAXClientExtensions.h`, `.cpp` — `terminalReport`, `startDirectory`, `size`, `paneUuid` deleted; `engine`, `keys`, profile rules unchanged.
-- `jam/jam_plugin_bootstrap/parameter/jam_ModelLayout.h`, `.cpp` — `floatingPoint` row.
-- `jam/jam_data_structures/model/jam_AudioModel.cpp` — page copies read the state tree, no atomic.
-- `jam/jam_gui/widgets/jam_TextEditor.h`, `.cpp` — `modeAttachment` deleted; `mode` follows the row; a yank counts on `numYanks`.
-- `jam/jam_terminal/processor/jam_TerminalProcessor.h`, `.cpp` — `getReports` deleted; `getPackedPen`, `getPackedModes`; `applyEvents` reports the decoder state; `hyperlink` event deleted.
-- `end/Source/plugins/PluginState.h`, `.cpp` — new: the one seam, `stateReads` and `stateWrites` by format name.
-- `end/Source/plugins/Session.h`, `.cpp` — `pluginStates`, `hasPluginState`, `setRows`, gate by company name; `loadingPanes` deleted.
-- `end/Source/plugins/Nexus.h`, `.cpp` — state extensions deleted; `sessions` declared after `graph`; `onPromptPainted`.
-- `end/Source/ui/ENDView.h`, `.cpp` — `commands` table, `addSession`, `addPane`; `actions` and `registerTerminalActions` deleted.
-- `end/Source/ui/EditorView.h`, `.cpp` — a command target for `closePane`; `setRows`; parameter writes deleted; `shellExited` invokes `closePane` on itself.
-- `end/Source/ui/TabView.h`, `.cpp` — `addPane`, `loadPlugin`, command ids in place of action names.
-- `end/Source/ui/SessionView.h`, `.cpp` — the `terminal` child gives the tab name; quit through `commandManager`.
-- `end/Source/Main.h` — `ENDActions` member deleted. `end/Source/action/` deleted.
-- `end/cast/identifiers.md` — zoom rows restored, 26 rows that `map::CommandId` names deleted.
-
-### Alignment Check
-- [x] BLESSED principles followed, with the exceptions below.
-- [x] NAMES.md adhered: `PluginState`, `setRows`, `hostRows` by plan approval.
-- [x] MANIFESTO.md principles applied.
-- [ ] `mode` exists in the Model row and the component state (`jam_TextEditor.cpp:817`, `:854-855`), because `CommandManager::isInMode` reads the component state (`jam_CommandManager.cpp:67-69`). This breaks *"no shadow state"*.
-- [ ] Atomics stay on the message thread at `Model::flush` (`jam_Model.cpp:29-39`) and on `handleAsyncUpdate` when `prepare` runs `handleUpdateNowIfNeeded`.
-- [ ] No Auditor run, on ARCHITECT's word: *"no audit"*.
-- [ ] Not validated by a clean run. The last report was the `zoom` assert, fixed after that build.
-
-### Problems Solved
-- **The `exit` wiring was a second report path.** It is deleted. `shellExited` is a row, END holds the state of its plugin, and `EditorView` invokes `closePane` on itself.
-- **Each binary has its own `juce::Identifier` pool** (`juce_StringPool.cpp:170-174`), so END cannot read a live EVE tree. `getStateInformation` bytes rebuild in END's pool (`juce_ValueTree.cpp:1066-1069`).
-- **The hosted formats wrap state differently.** One lookup holds a read and a write for VST2, VST3, AU and CLAP (`PluginState.cpp`).
-- **VST2 drops `nonParameterStateChanged`** (`juce_audio_plugin_client_VST2.cpp:1217-1218`), so EVE sends two flags.
-- **`Nexus` destroyed `graph` before `sessions`.** `PluginState` refers to an instance of the graph, so `sessions` moved after it.
-- **`getValue` is an atomic read too** (`juce_AudioParameterFloat.h:154`, `:161`). My earlier claim of a non-atomic path was wrong. The page copies read the tree.
-- **The zoom assert.** `replaceState` removed rows that a saved state lacks (`jam_Model.cpp:107`). `setState` now uses `setValuesFrom`.
-- **The `MallocStackLogging` remnant.** nvim compares each cell with its own grid (`grid.c:622-630`). Bytes that bypass that grid stay on cells nvim holds as blank. EVE has no dirty mark on this path. CTRL-L clears; this is not run.
-- **Mistakes owned.** A second audit round of 15 minutes each. A question that a ruling had already answered. A `removePane` action, a report fallback and a manual `AsyncUpdater` that the framework already supplied. Cast rows deleted with the spell rows left in place.
-
-### State for Continuation
-- ARCHITECT runs `cast` in `jam`, `eve`, `end`, builds EVE, repackages `EVE.vst` into `end/Source/plugins/`, then builds END. Run `<leader>bd` and `ninja doxygen`.
-- Test the Verification list of `PLAN-host-client-state.md`. Test `exit` in a focused pane, an unfocused pane, the last pane, and standalone.
-- Read `EVEView::setScaling`: `width` and `height` rows give the window size when no saved state holds them.
-- Read `EVEView::resized`: it does not call the base, so `panel` bounds do not run. `EVE` has no `PanelLayout.html` in `Source/layout`.
-- Open: the `commands` FIFO is not a row. A row holds one value, and `flush` writes only the last (`jam_Model.cpp:29-39`).
-- Open: the `mode` shadow above.
-- Open: `background` and `winsize` members stay as synced working copies (`jam_TerminalProcessor.h:190`, `:205`).
-- WHELMED does not build: `WHELMEDView` uses the commands and zoom that `PluginEditor` lost. ARCHITECT: *"Exclude WHELMED"*.
-- The `engine`, `keys` and profile ENAX rules are unchanged. ARCHITECT has not ruled on them.
-- The `MallocStackLogging` emitter is not identified. `claude` and `bun` hold the bare word only.
-- The AU and VST3 paths of `PluginState` have no test.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
