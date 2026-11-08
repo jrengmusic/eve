@@ -134,6 +134,11 @@ void EVEView::registerTerminalEvents()
         getTerminalProcessor().applyCommands ([this] (const juce::Identifier& name) { invokeCommand (name); });
     });
 
+    terminalEvents.add<const juce::ValueTree&> (Id::numGridEvents, [this] (const juce::ValueTree&)
+    {
+        getTerminalProcessor().applyGridEvents();
+    });
+
     terminalEvents.add<const juce::ValueTree&> (Id::clipboard, [this] (const juce::ValueTree& terminal)
     {
         getTerminalProcessor().copyToClipboard (static_cast<juce::int64> (terminal.getProperty (Id::clipboard)));

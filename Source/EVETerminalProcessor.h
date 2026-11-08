@@ -14,7 +14,7 @@
  * @par Model lane
  * The object owns a terminal `jam::Model`, `state`. Its tree is the `terminal` child of the APVTS state of the model.
  * The constructor adds the parameters of the `parametersLayout` document to `state` through `jam::ModelLayout::addParameters`.
- * On each clock of the terminal processor, the events call `storeValue` on `state`. They store the terminal modes and the cursor.
+ * The events call `storeValue` on `state`. The decoder fires them on the clock. The swap write in `handleAsyncUpdate()` fires the grid events.
  * The Model does not run its own timer. The text editor getter in `userInterfaceGetters` flushes it, and `flush()` flushes it under the message manager lock.
  *
  * @par Clock
@@ -114,7 +114,7 @@ public:
     /**
      * @brief Delivers each complete command name in the command FIFO to a callback.
      *
-     * The shell writes the command names to the FIFO. Each name ends with a zero byte.
+     * The command event writes the command names to the FIFO. Each name ends with a zero byte.
      * The ring can split a name between two pending blocks.
      * The call joins the parts of a split name.
      * The call skips an empty name.
@@ -123,6 +123,14 @@ public:
      * @param callback  Receives the name of each complete command.
      */
     void applyCommands (const std::function<void (const juce::Identifier&)>& callback);
+
+    /**
+     * @brief Applies the grid events of the gridEvents lane to the gridStarts child of state.
+     *
+     * One write of the swap can queue several grid events, so the call applies each complete event in the lane.
+     * The view runs the call when the numGridEvents property changes. The tree of state changes only on the message thread, so the call runs there.
+     */
+    void applyGridEvents();
 
     /**
      * @brief Copies the text of an image record to the system clipboard.
@@ -192,7 +200,7 @@ private:
                                            int,
                                            const juce::AudioIODeviceCallbackContext&) override;
 
-    /** @brief Sizes the input lane, the command FIFO and the decoder with `virtualBlockSize`. When the winsize is valid, it prepares the buffer, the swap and the TTY. */
+    /** @brief Sizes the input lane, the command FIFO, the gridEvents lane and the decoder with `virtualBlockSize`. When the winsize is valid, it prepares the buffer, the swap and the TTY. */
     void audioDeviceAboutToStart (juce::AudioIODevice*) override;
 
     /** @brief Does nothing. */
@@ -208,7 +216,7 @@ private:
     void handleAsyncUpdate() override;
 
     /**
-     * @brief Adds the event setters that copy the terminal state to the Model lane, then adds the image events.
+     * @brief Adds the event setters that copy the terminal state to the Model lane.
      *
      * Each setter calls `storeValue` on `state`. The bool events store 0 or 1. They are `applicationCursor`, `bracketedPaste`,
      * `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited`, `syncOutput`, `autoWrap`, `originMode`,
@@ -232,10 +240,13 @@ private:
     void registerImageEvents();
 
     /**
-     * @brief Adds the grid events that keep the `gridStarts` child of the `state` tree.
+     * @brief Adds the setters of the grid events: gridStart, removedGridStart and firstLine.
      *
-     * The `gridStart` event appends the line to that child and sets `activeGridStart`. The `removedGridStart` event removes the line.
-     * The `firstLine` event removes the entries before the given line. When `activeGridStart` is before that line, it takes the value of the first remaining entry, or `noGridStart` when none remains.
+     * The setters run on the serial context of handleAsyncUpdate().
+     * Each setter writes its name and its line to gridEvents when the lane has room for both parts.
+     * It then flushes the lane and raises numGridEvents with storeValue.
+     *
+     * A Model row keeps only the last value stored before a flush. The lane carries every event of a write instead.
      */
     void registerGridEvents();
 
@@ -274,7 +285,8 @@ private:
     /**
      * @brief Prepares the buffer, the swap, the decoder and the TTY for a window size.
      *
-     * The call first writes the pending history rows to the swap.
+     * The call runs triggerAsyncUpdate() and handleUpdateNowIfNeeded() before the preparation, and again after the buffer and the swap are prepared.
+     * Each run writes the pending history rows to the swap. The second run emits the firstLine event for the prepared swap.
      * It sizes the buffer for the blocks of one vblank, prepares the swap, resets the decoder, and sets the history capacity.
      * It then opens the TTY and sets its window size.
      *
@@ -343,6 +355,7 @@ private:
     std::string pendingInput;    ///< Input bytes that wait for room in the input lane.
     jam::TerminalFIFO input;///< Input lane from the view to the TTY.
     jam::TerminalFIFO commands;///< Command names from the shell to the view.
+    jam::TerminalFIFO gridEvents;///< @brief Carries the grid events from handleAsyncUpdate() to applyGridEvents().
     jam::VirtualDevice device {
         jam::VirtualDeviceType::virtualDeviceTypeName,
         jam::VirtualDeviceType::virtualDeviceTypeName

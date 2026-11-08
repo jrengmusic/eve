@@ -36,6 +36,62 @@
 
 ## SPRINT HISTORY
 
+## Sprint: END Crashes at Init and after a Pane Split — MessageOverlay Null Read, One Split Path, Grid Events Lane off the Record Writer, Audit, Doxygen Pass ✅
+
+**Date:** 2026-11-08
+**Duration:** one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"latest end's built, always crash related to config. deleted config, crash. adding files, crash. always crash at init"*; *"there are multiple instances of END crashing, after splitting pane. both case either with click drag from corner or with keyboard shortcut"*; *"i believe there are also race when setting winsize"*; *"fix it"*; *"1-2 supposed to call the exact SSOT commandId, same flow, same path, ONE path. only differs in interaction source"*; *"there are always only 2 split, either horizontal/vertical. keyboard shortcut pass them explicitly, while drag from corner decide when mouse up should split either vertical/horizontal"*; the concurrency contract: *"Processor (audio thread) ALWAYS LOCK FREE; the exception is only at chain where we have no control, such as OS tty; message thread always use juce::Value accessor; other thread other than message thread, may access through atomic accessor"*; *"dont create new pattern, no new semantics. what pattern already exists? no manual handroll anything new. just follow verbatim, nothing to reinvent. we only fix the contract adherence. DESIGN BY CONTRACT"*; the chosen pattern *"Lane + counter"*; *"doxygen until /log"*.
+
+### Agents Participated
+- COUNSELOR — crash-report triage, the reads of JAM, END, EVE, JUCE and SPEC behind each claim, every delegation, the read-back of every edit, the DCF filter on 26 audit findings and 9 doxygen-pass findings, this log.
+- Pathfinder — the faulting-thread stacks of 21 `END-*.ips` reports; all-thread stacks of the two split crashes; git history of the grid handlers in EVE and JAM; the doxygen pass in two runs.
+- Engineer — the MessageOverlay fix; the drag split on the command path; the grid events lane; the audit fixes; the scope and separator fixes.
+- Auditor — one sweep over the three sprint changes, 26 findings.
+
+### Files Modified (10 total)
+- `jam/jam_gui/widgets/jam_MessageOverlay.h:34-65` — the `axisLineStyle` default is `{}`. The old default `map::OverlayAxisLine::getInstance()->getDefault()` ran at the call site before any `SharedInstance` holder existed, and `getInstance()` returned null in Release (`jam_SharedInstance.h:69-75`). New `regionSeparator` beside `noSplitLine`. Doxygen synced.
+- `jam/jam_gui/widgets/jam_MessageOverlay.cpp:11-111` — the style lookup runs only inside the split branch, through the function-static holder. One `axisLines.get` call. Each constant lives in the one function that uses it; `textPadding` stays at file scope (two users). The split token is `regionSeparator`.
+- `end/Source/ui/TabView.cpp:19-28` — `addPane` has no `proportion`; it calls `split (edge)`.
+- `end/Source/ui/TabView.cpp:137-159` — an inward drag invokes `map::CommandId::splitVertical` or `splitHorizontal` through `commandManager`, the commands of the keyboard shortcut (`ENDView.cpp:333-348`).
+- `end/Source/ui/TabView.cpp:226-228` — the split preview joins its sizes with `jam::regionSeparator`.
+- `end/Source/ui/TabView.h` — `addPane` declaration; `addPane` and `mouseUp` doxygen synced.
+- `eve/Source/EVETerminalProcessor.cpp` — `nullTerminatorBytes`; file-static `applyNames` (the in-place parse of zero-terminated names, shared by `applyCommands` and `applyGridEvents`); `registerGridEvents` writes `<event>\0<line>\0` to the `gridEvents` lane and raises `numGridEvents` with `storeValue`; `applyGridEvents` applies the three `gridStarts` row bodies (moved unchanged) on the message thread through `listUpdates`; both lane writers assert when full; `getWinsize` reads the atomic `Parameter<int64_t>`; `prepare` runs the record writer again after the swap prepare, so `firstLine` comes from the writer's queue (`jam_TerminalSwap.cpp:145`).
+- `eve/Source/EVETerminalProcessor.h` — `applyGridEvents`, `gridEvents`; doxygen synced.
+- `eve/Source/EVEView.cpp:137-140` and `EVEView.h` — the `numGridEvents` handler runs `applyGridEvents()`; doxygen synced.
+- `eve/cast/identifiers.md:26` — `numGridEvents`.
+- `eve/Source/layout/parameters.md:43` — `numGridEvents`, `int64`.
+
+### Alignment Check
+- [x] BLESSED principles followed
+- [x] NAMES.md adhered
+- [x] MANIFESTO.md principles applied
+- [ ] Not validated by a compile. No agent ran `cast` or a build.
+- [ ] Zero doxygen warnings not confirmed. Regeneration is ARCHITECT's.
+
+### Problems Solved
+- **Crash at init and on each config load.** `ConfigModel::loadFromPath()` always ends with `appModel.setMessage` (`ConfigModel.cpp:87-90`), runs in the constructor (`:20`) and on each `.md`/`.svg` change (`:110-113`). The message repaints `MessageOverlay`, and its paint read the null `OverlayAxisLine` instance (`.ips` frame `jam::MessageOverlay::paint + 84`, x1 `Bimap::getDefault()::none`).
+- **Crash after a pane split.** Both split crashes (`END-2026-11-08-172712.ips`, `-172814.ips`) caught the message thread in `jam::TextEditor::setWinsize()` → `ValueTree::setProperty` and a `libdispatch` thread in `EVETerminalProcessor::registerGridEvents()::$_2` → `ValueTree::setProperty` at the same instant; one then jumped to address 0 from a display link callback, the other hit *"memory corruption of free block"*. The grid handlers came in with `fe0465a` and wrote the tree from `jam::AsyncUpdater`'s serial GCD queue (`jam_AsyncUpdater.h:18-20`), against `SPEC.md:771-779` and `jam_Model.h:14-15`. The record writer fires one event per row (`jam_TerminalSwap.cpp:133-136`, `:185-195`), so a scalar Model row would drop events; the `commands`/`numCommands` lane + counter carries them.
+- **One split path.** The drag called `addPane` directly; it now runs the same command as the shortcut.
+- **Audit (26), resolved:** 1, 12 in-place drain shared with `applyCommands`; 2 `int64` counter; 3 one writer context for the lane; 5 asserts; 6 named terminator; 7, 8, 10 renames to the `events` family (`lists` kept, ARCHITECT's name from `fe0465a`); 17 `jam::Model::getOrCreateChildWithName`; 18 `getWinsize` only; 19; 22.
+- **Audit, rejected with the read:** 4 the flush runs under the message-manager lock (`SPEC.md:780-781`); 9 `applyPendingInput()` takes no target in the same class; 11 two uses, MANIFESTO S abstracts *"more than twice"*; 15 the counter is the Model change signal, as `numCommands` (`SPEC.md:151-153`); 16 the tree is the message-thread accessor (`jam_Model.h:15`, `jam_TextEditor.cpp:1861`); 20 the default serves the two callers that draw no split line and is never looked up there; 21 `getInstance` asserts a live holder (`jam_SharedInstance.h:67-73`), the call site was the defect; 23 different mappings (command → edge at `ENDView.cpp:335-338`, axis → command at `TabView.cpp:151`); 25 the invalid identifier is the documented add contract (`TabView.h:55`); 26 a registration table is the lookup form. 24 noted, the preview is ruled out of discussion.
+- **Doxygen-pass findings:** C6 (narrow scope) and C7 (`" | "` twice) resolved. C1, C2 rejected (MANIFESTO E's CORRECT example: `jassert` then the same positive check). C3 rejected (the table is the lookup). C8 rejected (`theme.md:216-218` allows only `solid, dash, bracket`, the keys at `jam_Gui.h:314-318`). C9 rejected (`ValueTree` is not a container).
+- **Mistakes owned.** I offered the MessageOverlay fix as an A/B disposition when CONTRACT answered it. I asked a preview question that was ruled out. My `/ask` answer said no open questions before the race evidence came in.
+
+### State for Continuation
+- Run `cast cast/spell.md --debug` in `eve` so `Source/generated/` gets `Id::numGridEvents` (`cast/identifiers.md:26`). Then build `jam`, `eve`, `end`. No compiler has seen this sprint.
+- JAM already holds `c5587c6a7` *"Stop the message overlay crash on its first paint"*; the later JAM edits (one axis call, constant scope, `regionSeparator`, doxygen) are uncommitted.
+- Run `<leader>bd` (JAM) and `ninja doxygen` (EVE, END), and confirm zero warnings. LSP on JAM files returned wrong or empty targets this session.
+- Open, presented to ARCHITECT, no ruling yet: (a) audit 18 rest — `getHistoryCapacity` and the `cwd` read in `openTTY` read the tree on the `start()` caller's thread; `ParameterText::getValue` is consumer-thread only (`jam_ParameterText.h:24-26`) and `historyCapacity` has no atomic accessor. (b) audit 13, C4, C5 — `EVETerminalProcessor.cpp` is 510 lines with four jobs; `openTTY` is 35 lines. (c) audit 14 — `SPEC.md:198-200` lists the lanes without `gridEvents`, and `:755-764` lacks `numGridEvents`; writing SPEC is gated.
+- Fact noted, ruled out of discussion: the split preview paints at the cursor (`TabView.cpp:193-232`); the command splits at `Id::right` or `Id::bottom` with the default proportion.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
+---
+
 ## Sprint: Scrollbar Width from END's Theme, Drag and Autoscroll Fixed, Alternate-Screen Bar Discarded, Plan Hygiene, Wholesale Audit of the Uncommitted Tree, Doxygen Pass ✅
 
 **Date:** 2026-11-08
@@ -321,64 +377,3 @@
 
 ### Debts Deferred
 - None
-
----
-
-## Sprint: Terminal Bugs, V-BLOCK, Noto Text Symbols and Cluster Widths, CoreText Outlines, PLAN-2 Closed, Audit of the Uncommitted Tree ✅
-
-**Date:** 2026-11-06
-**Duration:** one session across context compactions. The start and end times are not recorded.
-**Scope (ARCHITECT):** `PLAN-terminal-bugs.md`. *"V-BLOCK is weird ... ctrl+v rect block should be FREE"*. *"icons/mono emoji scaling is off"*. *"why small? scaled with magic numbers? why not just fit and obey its codepoints width"*. *"what do you mean by PingFang text stays blank? leave it broken?"*. *"what closes PLAN 2? what outstandings?"*. `/audit until /log no gate`. *"this includes everything pre-noto work. i havent commit anything, probably some already recorded at @carol/SPRINT-LOG.md but might be supersed"*. Finder Parity is committed (`bf9da04`, `efe070af0`, `20e2b13`), so the audit scope is the uncommitted tree: 18 EVE entries, 46 JAM entries, 10 END entries.
-
-### Agents Participated
-- COUNSELOR: the reads, each delegation, validation of each return, the triage of each audit finding, the SPEC, CLAUDE.md and END SPEC sync, this log.
-- Engineer (sonnet): the code of each step; seven parallel audit fix sets; one cross-file rename pass; two file operations.
-- Pathfinder (haiku): machine evidence; the file inventory; the doxygen pass in five runs.
-- Auditor (opus): one sweep in three parts over disjoint file sets, because one run does not fit 15 minutes.
-
-### Files Modified
-- `PLAN-terminal-bugs.md` Steps 1 to 7: `jam_TerminalProcessor.*`: `savedCursors`, `savedPens`, `cursorShape`. `jam_TextEditor.*`: `caretShapes`, `applyPaste`. `EVEView.*`: `juce::FileDragAndDropTarget`, `juce::Timer`, `applyToTextEditors`, `isResizing`. `EVETerminalProcessor.*`: `getQuotedPaths`. `Source/layout/parameters.md`, `jam/cast/terminal.md`.
-- V-BLOCK: `jam_TextEditor.*`: `isVisualBlock`, `getScreenCell`, `getBlockCursor`, `setWantedColumn`, `applyBlockStep`, `getBlockCursorBounds`, `getBlockBounds`, `getBlockText`, `blockSteps`. `jam_TextEditorStatusBar.*`. `jam/cast/terminal.md`: `visualBlock` also in `terminal`.
-- Fonts: `jam_GlyphArrangement.*`: `pointHeights`, one `getFontSize`, marks on the base, every codepoint of a cluster drawn. `jam_Typeface.*`, `native/jam_Typeface_mac.mm`: `createSystemFont`, `getSystemFontOutline`, `Entry::nativeFont`, `Entry::getOutline`. `jam_GlyphRasterizer.*`: `rasterizeSystem` deleted. `jam_GlyphConstraintTable.cpp`: the Noto arm, `ScaleMode::cover`. `jam_AttributedChar.*`, `jam_AttributedString.cpp`, `jam_ReflowDocument.cpp`, `jam_TerminalGraphicsContext.cpp`, `jam_TerminalProcessor.cpp`: VS16 and VS15 widths from the whole cluster. `jam_PdfLowLevelGraphicsContext.*`: the one outline owner.
-- Theme and pane: `jam_PaneComponent.*`, `jam_StyleCustom.*`, `jam/cast/style.md`, `eve/Source/layout/style.css`, `eve/Source/textEditor.css`, `end/Source/lookAndFeel/ENDLookAndFeel.*`, `end/Source/config/theme/gfx/theme.md`.
-- Tests: `eve/test/glyphs.sh`.
-- Assert from a config reload: `jam/patch/juce-vulkan-engine-hook.patch`: `CoreGraphicsContext::externalCoreGraphicsImageContextFactory`, the macOS sibling of the Direct2D image hook. `jam_CpuGraphicsEngine.cpp` installs it. `jam_CpuLowLevelGraphicsContext.h` drops its `SoftwareImageType` override.
-- Audit fixes: listed under Problems Solved.
-- `eve/PLAN-2-open-and-gesture.md` deleted: ARCHITECT's run passed all six Acceptance items.
-- `/Applications/NeoVim.app` moved to the Trash, on ARCHITECT's *"Delete the app"*.
-- Docs: `eve/SPEC.md`, `eve/CLAUDE.md`, `eve/PLAN-terminal-bugs.md`, `eve/project-info.md`, `end/SPEC.md`.
-- Doxygen: each new or changed declaration, in the audited scope.
-
-### Alignment Check
-- [x] BLESSED principles followed
-- [x] NAMES.md adhered
-- [x] MANIFESTO.md principles applied
-- [ ] Not validated by a compile. ARCHITECT built and ran up to the assert fix. No compiler has seen the audit fixes or the doxygen pass, and no agent ran `cast`.
-- [ ] Zero doxygen warnings not confirmed. Regeneration is ARCHITECT's.
-
-### Problems Solved
-- **OSC 8 links worked.** My item 2 never created the file, and item 4 gave no command. Acceptance was wrong, not the code. ARCHITECT: *"both link rendered, clickable. one opened in vim, one opened in browser"*.
-- **`-50` dialog.** EVE ran the default application as designed. The default for `.cpp` was the `/Applications/NeoVim.app` Automator stub, and its script calls the missing `/Applications/WezTerm.app`. The log shows no `-50` line, so the cause of that number stays likely, not proven. Item 5 passed on `.txt` with TextEdit.
-- **`jassert (styleFlags == 0)` on a config reload.** `setAppearance` takes a 1x snapshot. The scale change rebuilds the cached image of the viewport (`juce_StandardCachedComponentImage.h:47-51`) through a plain `CoreGraphicsContext`, which has no JAM glyph path. Windows already had the hook.
-- **Audit, 92 JAM findings, 37 EVE and END findings, 26 doc refutations.** Each was read before it went to a fix.
-- **Resolved, JAM fonts:** A-01 the atlas frame advances in `CpuGraphicsEngine::createContext`, once per peer paint. A-02 a grapheme atom reads `getCodepoint`, not its cluster index. A-03 a mark entry has advance 0 in both modes. A-04 a cell atom with more than one entry advances by its cell span. A-05 kerning scales from the role face. A-07 `nativeFont` builds in the mapped-file constructor, as a `unique_ptr`. A-08 `createSystemFallback`, and `Entry::isItalic` (other `juce::Font` sites have no `FontOptions` route). A-09, A-26 the context uses the typeface index argument. A-10 one glyph lookup. A-11 `applyToClusters` passes the byte offset. A-12. A-16 the `if (embolden)`. A-17 one `applyToGlyphs`. A-19 `getSpan`. A-20 five reserved fields and their table lines, and the orphan `HeightRef`. A-21. A-25. A-29. A-31. A-32. A-35 `applyGpuOperation`. A-36 `addSpacer`. A-37 `getWidth`. A-38 `Entry::getFontSize`.
-- **Resolved, JAM terminal and GUI:** B-01, B-02 `savedPens` as the plan says; RIS resets only `attributes`, so no `Pen` rebuilds on the tick. B-04 the `map::` names (`CSI > q` compares `Chars::lowerQ`, because the `CSI` table takes each key once). B-05 `pendingReplyBytes` keeps the unwritten reply. B-07 `applyImageStart`, `applyCarriageReturn`. B-08 the one-row table is a direct call; the literal is gone: OSC 133 D clears each row with its own argument pointer and length 0, the shape of the sibling rows. My `emptyText` name caused the crash at OSC 133 D. B-09 the owner writes `Id::visualMode` once. B-10 the clamp moved to the end of `addBlocks` and covers the anchor; the guard at `getCursorCell` stays, because an empty `Document::Index` has a null root. B-11 `copy` in `normal visual`. B-17 `setViewToEnd`, `getAnchor`, `isLinewise`. B-18, B-19, B-20, B-21, B-22, B-27, B-29, B-30, B-31, B-33, B-35 callbacks run after the lock, B-37, B-38, B-39, B-40, B-42, B-43, B-45 one cluster walker and `getColumns`, B-49.
-- **Resolved, EVE and END:** C-1 `process()` built a `juce::Identifier` on the tick; `terminalTag` is built once. C-2, C-3 a shell exit or a failed open reaches `messageOverlay`. C-4. C-5, C-6, C-7 only a move into or out of LIST writes the gate. C-8 a restored LIST shows the panels. C-9 `ShellIntegration::hasControlByte`. C-10. C-11 one path to TERMINAL. C-12, C-13, C-14 `getTerminalState`, `getEVEProcessor`, `getUrlFile`. C-16 `getProfilerTable`, `getDefaultShell`. C-17 `applyRotation`. C-18, C-25 the swap and the unused END rows. C-21, C-22, C-26, C-27, C-29, C-30, C-32, C-33, C-34, C-35, C-36. L-2 by C-16. DS-1 to DS-26.
-- **Rejected, each with its read.** B-06, B-12, L-1, the file rows of A-16: MANIFESTO L, *"decomposing it would only relocate the same lines across more files"*, and the Finder Parity ruling on M9. B-14: the table builders are the lookups that MANIFESTO L asks for, and `applyLinkLabel` needs its full count. B-03: PLAN Step 2 keeps `csiFunctions`. B-13: `perform` holds 3 branches, and the rest is a number alone. B-15: `history` holds only resident blocks (SPEC, *"builds only the blocks the view shows"*), so the walk is bounded by the view. B-16: `getBlockCursor` takes its x from the wanted column, so the selection is right. B-23: half page moves the view by its own amount. B-24: the bind empties the rows with the `images` tree. B-25: a closure over the owner's table is the established getter shape. B-26: the mode row is the editor's own. B-28: the labels are a named lookup. B-32: `getEdge` and `getCorner` have END callers. B-34, B-48, A-22, A-23, A-24: no read confirms a fault. B-36: the view calls the owner's API. B-44: `getToken` is the `jam::Document` parse contract. B-46: the generator input is positional. B-47: sibling headers have no `#pragma once`. B-50: EVE is the terminal unit hosted at END (`PLAN-Grand-Scheme.md:3`). B-07 third part: it wraps `getParameterValue`. A-13: `getNominalCodepoint` is the only route for an entry with no HarfBuzz font. A-14, A-27: a choice at discovery. A-15: `CoreGraphicsContext` holds no transform to read. A-18: `getStringBounds` needs one advance per atom. A-28: runs at discovery. A-30: FreeType's glyph slot is the owner API. A-33: the PDF reader is held for discussion. A-34: the two writers use different widths. A-39: the `.mm` split is the platform exception. A-40: `currentPeerDirtyBounds` is used (`jam_VulkanGraphicsEngine.cpp:419`). A-41: creation. A-42: the fonts are in SPEC. C-15: ENAX dispatch returns void by type. C-19: the `SafePointer` guards a `callAsync` that can outlive the menu window. C-20: the premise fails, `TabView.h` has `AreaOption`. C-23 was rejected wrongly: ARCHITECT, *"why hardcode the limit of pasting?"*; `pendingInput` now holds input past the lane, and each vblank moves the next part. C-24: themes differ by design. C-28: no read shows an alias in that table. C-31: `events.get` throws on an unregistered key. C-37: the naming contract is for C++.
-- **Mistakes owned.** My first Acceptance list carried a Mac-only row and two untestable items. *"For icon size, compare ..."* asked ARCHITECT to open a file for a test. `savedPens = {}` at RIS and a comma expression in the initializer list were accepted by Engineers and rejected on my read. `isComputedOnGpu` broke the verb contract until the doxygen pass showed it runs the operation. `/Applications/NeoVim.app` showed a window on ARCHITECT's screen from my `open` test. An Auditor's or a Pathfinder's background command and two read-only `git status` calls ran against their prompts, each disclosed.
-
-### State for Continuation
-- Run `cast` in `jam`, then `eve`, `end`. New: `failShellExited`, `keyboardFlags`. Removed: `colorMode`, `resizeBar`, `resizeBarHighlight`, END's `zoom*` rows. The patch changed, so JUCE repatches.
-- Then build `jam`, `eve`, `end`. Expect compile errors: no compiler has seen the audit fixes. Most risk: `savedPens` initialisation, the two `applyToClusters` overloads, `Entry::nativeFont` order in the initializer list, `applyToChildren` and `EVEProcessor.h` in `EVEView.h`, `jam::Array` in `ENDLookAndFeel::setColours`, the Windows `rasterizeNative` arm.
-- ARCHITECT tests: `PLAN-terminal-bugs.md` Verification, and the Acceptance lists of `PLAN-1`, `PLAN-3` to `PLAN-6`. Each plan stays until that run. `eve/test/glyphs.sh` passed on the pre-audit build.
-- Run `<leader>bd` and `ninja doxygen`, and confirm zero warnings. LSP on JAM `.cpp` files gave wrong targets: `.clangd` in `jam/` points at the EVE compile database.
-- `.cpp` resolves to `/Users/jreng/.Trash/NeoVim.app` until the Trash empties or a new handler is set (`duti -x cpp`).
-- Corrected after this log, by ARCHITECT. *"why smaller icon is acceptable?"*: I rejected A-06 wrongly, and `cover` now takes no `iconInset`. *"what's unclear about history preservation? why my rulings need to be second guessed?"*: the history item is withdrawn, because the ruling stands. B-41, *"Wire the protocol"*: `TerminalProcessor` decodes the progressive keyboard sequences and reports the `keyboardFlags` row.
-- Held for discussion: the `ls` click preview, the PDF reader.
-- Scratchpad backups may be deleted.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261105T000000` — Windows runtime test, by ARCHITECT. The Windows arms of this sprint have not built or run.

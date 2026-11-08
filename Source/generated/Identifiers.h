@@ -30,6 +30,7 @@ namespace Id
 extern const juce::Identifier args;
 extern const juce::Identifier button;
 extern const juce::Identifier numCommands;
+extern const juce::Identifier numGridEvents;
 extern const juce::Identifier deviceClock;
 extern const juce::Identifier historyCapacity;
 extern const juce::Identifier openWith;

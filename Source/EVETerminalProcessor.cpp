@@ -9,10 +9,40 @@ static constexpr std::string_view defaultShell { "powershell.exe" };
 static constexpr std::string_view defaultShell { "/bin/zsh" };
 #endif
 static constexpr int virtualBlockSize { 65536 };
+static constexpr int nullTerminatorBytes { 1 };
 
 static juce::String getDefaultShell()
 {
     return juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() });
+}
+
+static void applyNames (jam::TerminalFIFO& lane, const std::function<void (const juce::String&)>& callback)
+{
+    juce::String cut {};
+
+    lane.applyPendingData ([&callback, &cut] (const char* data, int size)
+    {
+        const char* const end { data + size };
+
+        while (data < end)
+        {
+            const char* const terminator { std::find (data, end, static_cast<char> (Chars::nullCharacter)) };
+
+            if (terminator == end)
+            {
+                cut += juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (end) };
+            }
+            else
+            {
+                const auto name { cut + juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (terminator) } };
+
+                cut = juce::String {};
+                callback (name);
+            }
+
+            data = juce::jmin (terminator + 1, end);
+        }
+    });
 }
 
 EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse)
@@ -100,7 +130,9 @@ void EVETerminalProcessor::registerEvents()
 
     events.add<const char*, int> (Id::command, [this] (const char* name, int size)
                                   {
-                                      const auto numBytes { size + 1 };
+                                      const auto numBytes { size + nullTerminatorBytes };
+
+                                      jassert (numBytes <= commands.getFreeSpace());
 
                                       if (size > 0 and numBytes <= commands.getFreeSpace())
                                       {
@@ -120,34 +152,22 @@ void EVETerminalProcessor::registerEvents()
 
 void EVETerminalProcessor::registerGridEvents()
 {
-    static const juce::Identifier listsType { jam::Format::toType (Id::gridStarts) };
+    for (const auto& id : { Id::gridStart, Id::removedGridStart, Id::firstLine })
+        events.add<juce::int64> (id, [this, id] (juce::int64 line)
+                                 {
+                                     const juce::String value { line };
+                                     const auto numBytes { static_cast<int> (id.toString().getNumBytesAsUTF8()) + nullTerminatorBytes + static_cast<int> (value.getNumBytesAsUTF8()) + nullTerminatorBytes };
 
-    events.add<juce::int64> (Id::gridStart, [this] (juce::int64 line)
-    {
-        auto lists { state.state.getOrCreateChildWithName (listsType, nullptr) };
+                                     jassert (numBytes <= gridEvents.getFreeSpace());
 
-        lists.appendChild (juce::ValueTree { Id::gridStart, { { Id::value, line } } }, nullptr);
-        lists.setProperty (Id::activeGridStart, line, nullptr);
-    });
-
-    events.add<juce::int64> (Id::removedGridStart, [this] (juce::int64 line)
-    {
-        auto lists { state.state.getOrCreateChildWithName (listsType, nullptr) };
-
-        lists.removeChild (lists.getChildWithProperty (Id::value, line), nullptr);
-        lists.setProperty (Id::activeGridStart, lists.getChild (lists.getNumChildren() - 1).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
-    });
-
-    events.add<juce::int64> (Id::firstLine, [this] (juce::int64 firstLine)
-    {
-        auto lists { state.state.getOrCreateChildWithName (listsType, nullptr) };
-
-        while (lists.getNumChildren() > 0 and static_cast<juce::int64> (lists.getChild (0).getProperty (Id::value)) < firstLine)
-            lists.removeChild (0, nullptr);
-
-        if (static_cast<juce::int64> (lists.getProperty (Id::activeGridStart, jam::TerminalBuffer::noGridStart)) < firstLine)
-            lists.setProperty (Id::activeGridStart, lists.getChild (0).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
-    });
+                                     if (numBytes <= gridEvents.getFreeSpace())
+                                     {
+                                         gridEvents.writeString (id.toString());
+                                         gridEvents.writeString (value);
+                                         gridEvents.flush();
+                                         state.storeValue (terminalTag, Id::numGridEvents, state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::numGridEvents)->getValue() + 1);
+                                     }
+                                 });
 }
 
 void EVETerminalProcessor::registerImageEvents()
@@ -160,31 +180,60 @@ void EVETerminalProcessor::registerImageEvents()
 
 void EVETerminalProcessor::applyCommands (const std::function<void (const juce::Identifier&)>& callback)
 {
-    juce::String cut {};
-
-    commands.applyPendingData ([&callback, &cut] (const char* data, int size)
+    applyNames (commands, [&callback] (const juce::String& name)
     {
-        const char* const end { data + size };
+        if (name.isNotEmpty())
+            callback (juce::Identifier { name });
+    });
+}
 
-        while (data < end)
+void EVETerminalProcessor::applyGridEvents()
+{
+    static const juce::Identifier listsType { jam::Format::toType (Id::gridStarts) };
+
+    static const auto listUpdates {
+        []
         {
-            const char* const terminator { std::find (data, end, static_cast<char> (Chars::nullCharacter)) };
+            jam::Function::Map<juce::Identifier, void> rows;
 
-            if (terminator == end)
+            rows.add<juce::ValueTree&, juce::int64> (Id::gridStart, [] (juce::ValueTree& lists, juce::int64 line)
             {
-                cut += juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (end) };
-            }
-            else
+                lists.appendChild (juce::ValueTree { Id::gridStart, { { Id::value, line } } }, nullptr);
+                lists.setProperty (Id::activeGridStart, line, nullptr);
+            });
+
+            rows.add<juce::ValueTree&, juce::int64> (Id::removedGridStart, [] (juce::ValueTree& lists, juce::int64 line)
             {
-                const auto name { cut + juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (terminator) } };
+                lists.removeChild (lists.getChildWithProperty (Id::value, line), nullptr);
+                lists.setProperty (Id::activeGridStart, lists.getChild (lists.getNumChildren() - 1).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
+            });
 
-                cut = juce::String {};
+            rows.add<juce::ValueTree&, juce::int64> (Id::firstLine, [] (juce::ValueTree& lists, juce::int64 firstLine)
+            {
+                while (lists.getNumChildren() > 0 and static_cast<juce::int64> (lists.getChild (0).getProperty (Id::value)) < firstLine)
+                    lists.removeChild (0, nullptr);
 
-                if (name.isNotEmpty())
-                    callback (juce::Identifier { name });
-            }
+                if (static_cast<juce::int64> (lists.getProperty (Id::activeGridStart, jam::TerminalBuffer::noGridStart)) < firstLine)
+                    lists.setProperty (Id::activeGridStart, lists.getChild (0).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
+            });
 
-            data = juce::jmin (terminator + 1, end);
+            return rows;
+        }()
+    };
+
+    auto lists { state.getOrCreateChildWithName (listsType) };
+    juce::Identifier event {};
+
+    applyNames (gridEvents, [&lists, &event] (const juce::String& name)
+    {
+        if (event.isNull())
+        {
+            event = juce::Identifier { name };
+        }
+        else
+        {
+            listUpdates.get (event, lists, juce::int64 { name.getLargeIntValue() });
+            event = juce::Identifier {};
         }
     });
 }
@@ -295,7 +344,7 @@ int EVETerminalProcessor::getHistoryCapacity() const
 
 jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
 {
-    return jam::TerminalWinsize::unpack (static_cast<juce::int64> (state.state.getProperty (Id::winsize)));
+    return jam::TerminalWinsize::unpack (static_cast<juce::int64> (state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::winsize)->getValue()));
 }
 
 void EVETerminalProcessor::prepare()
@@ -338,6 +387,7 @@ void EVETerminalProcessor::audioDeviceAboutToStart (juce::AudioIODevice*)
 {
     input.prepare (virtualBlockSize);
     commands.prepare (virtualBlockSize);
+    gridEvents.prepare (virtualBlockSize);
     terminalProcessor.prepare (virtualBlockSize);
 
     if (const auto winsize { getWinsize() }; winsize.isValid())
@@ -416,7 +466,8 @@ void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCap
     swap.prepare (winsize);
     terminalProcessor.reset (terminalBuffer, winsize);
     swap.setCapacity (historyCapacity);
-    events.get (Id::firstLine, juce::int64 { swap.getLines().getStart() });
+    triggerAsyncUpdate();
+    handleUpdateNowIfNeeded();
 
     const auto vblankMilliseconds { juce::RelativeTime::seconds (1.0 / jam::CpuGraphicsEngine::getRefreshRateHz()).inSeconds() * 1000.0 };
     openTTY (device.getCurrentBufferSizeSamples(), vblankMilliseconds, winsize);

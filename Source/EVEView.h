@@ -144,7 +144,7 @@ private:
      * @brief Reacts to a change of a property in the model tree.
      *
      * A change of a property of the `terminal` tree runs the handler of `terminalEvents` for that property, when a handler exists.
-     * The handlers cover `Id::numCommands`, `Id::clipboard`, `Id::shellExited`, `Id::zoom`, `Id::width`, `Id::height`,
+     * The handlers cover `Id::numCommands`, `Id::numGridEvents`, `Id::clipboard`, `Id::shellExited`, `Id::zoom`, `Id::width`, `Id::height`,
      * `Id::focus`, `Id::markdownFile`, and, when `JAM_USING_PROFILER` is set, `Id::numPrompts`.
      *
      * The base class gets every change.
@@ -373,6 +373,7 @@ private:
      * @brief Adds the handlers of the `terminal` tree properties to `terminalEvents`.
      *
      * The `numCommands` handler runs the commands of the command FIFO through invokeCommand().
+     * The `numGridEvents` handler runs applyGridEvents() of the terminal processor.
      * The `clipboard` handler copies the image record that the property names to the system clipboard.
      * The `shellExited` handler shows the `Id::failShellExited` message when the property is true, then invokes the quit command of the command manager.
      * The `zoom` handler sets the zoom of the view and lays it out again.

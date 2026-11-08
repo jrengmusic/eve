@@ -26,6 +26,7 @@ namespace Id
     const juce::Identifier args             { juce::String::fromUTF8 ("args") };
     const juce::Identifier button           { juce::String::fromUTF8 ("button") };
     const juce::Identifier numCommands      { juce::String::fromUTF8 ("numCommands") };
+    const juce::Identifier numGridEvents    { juce::String::fromUTF8 ("numGridEvents") };
     const juce::Identifier deviceClock      { juce::String::fromUTF8 ("deviceClock") };
     const juce::Identifier historyCapacity  { juce::String::fromUTF8 ("historyCapacity") };
     const juce::Identifier openWith         { juce::String::fromUTF8 ("openWith") };
