@@ -38,7 +38,7 @@ for (int level { 0 }; level < depth; ++level)
 
 **cd:** `applyOpenCommand` writes the command, the quoted path and a carriage return to the input (`EVETerminalProcessor.cpp:204-212`). `ShellIntegration::appendPath` takes the shell (`:209`). `getShell` gives the shell.
 
-**New names:** `getFiles`, returning the sorted list with no menu; `addFiles` calls it, the verb contract (`NAMES.md` Rule 1). `FinderItem`, one `TreeViewItem` over one Model row. `Id::selected`, the selected path row. `syncDirectory`, a command in `map::CommandId`. `clearLine`, a `@string` in `eve/cast/`.
+**New names:** the `@id` row `treeDepth` in `eve/cast/identifiers.md` returns with the `tree depth` row (Part 1 deleted both). `getFiles`, returning the sorted list with no menu; `addFiles` calls it, the verb contract (`NAMES.md` Rule 1). `FinderItem`, one `TreeViewItem` over one Model row. `Id::selected`, the selected path row. `syncDirectory`, a command in `map::CommandId`. `clearLine`, a `@string` in `eve/cast/`.
 
 ## Validation Gate
 

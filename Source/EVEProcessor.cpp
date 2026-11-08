@@ -118,7 +118,7 @@ bool EVEProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 
 bool EVEProcessor::supportsDoublePrecisionProcessing() const { return true; }
 
-template<typename SampleType>
+template <typename SampleType>
 void EVEProcessor::process (juce::AudioBuffer<SampleType>& buffer)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -157,6 +157,7 @@ void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
     juce::ValueTree pluginState { jam::Format::toType (Id::pluginState) };
 
     pluginState.copyPropertiesAndChildrenFrom (terminal, nullptr);
+    pluginState.removeChild (pluginState.getChildWithName (jam::Format::toType (Id::gridStarts)), nullptr);
     state.removeChild (terminal, nullptr);
     state.appendChild (pluginState, nullptr);
 
@@ -187,7 +188,7 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 
 void EVEProcessor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier& property)
 {
-    static const std::array hostRows { Id::title, Id::foregroundProcess, Id::cwd, Id::zoom, Id::shellExited };
+    static const std::array hostRows { Id::title, Id::foregroundProcess, Id::cwd, Id::zoom, Id::shellExited, Id::markdownFile };
 
     if (std::find (hostRows.begin(), hostRows.end(), property) != hostRows.end())
         updateHostDisplay (ChangeDetails {}.withParameterInfoChanged (true).withNonParameterStateChanged (true));

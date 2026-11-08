@@ -518,17 +518,6 @@ if(CAST_SHADER_SPV_FILES)
     target_link_libraries(${PROJECT_NAME} PRIVATE jam_vulkan_ShaderData)
 endif()
 
-file(GLOB CAST_FONT_FILES CONFIGURE_DEPENDS "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf")
-
-if(CAST_FONT_FILES)
-    juce_add_binary_data(jam_graphics_FontData
-        NAMESPACE   "jam::fonts"
-        HEADER_NAME "JamFontsBinaryData.h"
-        SOURCES     ${CAST_FONT_FILES}
-    )
-    target_link_libraries(${PROJECT_NAME} PRIVATE jam_graphics_FontData)
-endif()
-
 file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md"   # Component and parameter markdown tables
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css"  # View stylesheets
@@ -537,20 +526,14 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg"  # View layout graphics SVG
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/buttons/*.svg" # Product SVG button states — normal, over, down
     "${CAST_USER_MODULE_PATH}/resources/svg/*.svg"     # Shared JAM SVG icons
-    "${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf"   # Shared JAM Display and DisplayMono TrueType fonts
-    "${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf"   # Bundled Nerd Font and Noto symbol faces
+    "${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf"   # Bundled Display, DisplayMono, Nerd Font and Noto faces
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/shell/*"       # Shell integration hook scripts
-)
-
-file(GLOB CAST_BINARY_FILES CONFIGURE_DEPENDS
-    Source/textEditor.css
 )
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData
     NAMESPACE "BinaryData"
     SOURCES ${CAST_LAYOUT_FILES}
             ${CAST_SHADER_SPV_FILES}
-            ${CAST_BINARY_FILES}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_NAME}_BinaryData)

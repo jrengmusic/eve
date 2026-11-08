@@ -15,17 +15,26 @@ ARCHITECT can shift a design at any part: *"plausible at execution on each plan,
 
 | Part | Plan | Status | Depends on |
 |---|---|---|---|
-| 0 | this file | Written. Steps 1 and 3 done by ARCHITECT's instruction. Step 2 opens at the lock. | |
-| 1 | `PLAN-finder-1-markdown.md` | Written. Not locked. | 0 |
+| 0 | this file | Steps 1, 2 and 3 done. | |
+| 1 | `PLAN-finder-1-markdown.md` | Locked 2026-11-07. In execution. | 0 |
 | 2 | `PLAN-finder-2-preview.md` | Written. Not locked. | 1 |
-| 3 | `PLAN-finder-3-modes.md` | Written. Not locked. | 1 |
-| 4 | `PLAN-finder-4-column-list.md` | Written. Not locked. | 3 |
-| 5 | `PLAN-finder-5-list-open.md` | Written. Not locked. | 3, 4 |
-| 6 | `PLAN-finder-6-widget.md` | Written. Not locked. | 2, 3 |
+| 3 | `PLAN-finder-3-modes.md` | Superseded by `PLAN-text-editor-absorption.md` rulings 30 to 36 (Canon note below). File deleted 2026-11-08. | |
+| 4 | `PLAN-finder-4-column-list.md` | Superseded, as Part 3. File deleted 2026-11-08. | |
+| 5 | `PLAN-finder-5-list-open.md` | Superseded, as Part 3. File deleted 2026-11-08. | |
+| 6 | `PLAN-finder-6-widget.md` | Written. Not locked. | 2 (Part 3 superseded) |
 | 7 | `PLAN-finder-7-browse.md` | Written. Not locked. | 6 |
 | 8 | `PLAN-finder-8-fuzzy.md` | Written. Not locked. | 2, 6 |
 | 9 | `PLAN-finder-9-action.md` | Written. Not locked. | 8 |
 | 10 | `PLAN-finder-10-protocol.md` | Written. Not locked. A pty run proves the blocking read before Step 4. | 8 |
+
+Plans outside the numbered parts, tracked here:
+
+| Plan | Status |
+|---|---|
+| `PLAN-text-editor-absorption.md` | Locked 2026-11-07. Steps 11 and 13 superseded by `PLAN-style-isomorphism.md` (`:3`). Steps 14 to 16 discarded: ARCHITECT *"discard all alternate scrollbar. remove all instrumentation."* |
+| `PLAN-style-isomorphism.md` | Locked. Step 10 is open: `ENDLookAndFeel::setColours` still has its pairing table (`end/Source/lookAndFeel/ENDLookAndFeel.cpp:521-541`). Step 11's width is END's `## scrollbar` `thickness` row (`end/Source/config/theme/gfx/theme.md:108-120`). |
+| `PLAN-alternate-scrollbar.md` | Discarded 2026-11-08. ARCHITECT: *"janky. remove all scrollbar for alternate."* File deleted. |
+| `PLAN-Grand-Scheme.md` | Founding RFC and architecture rulings. Not a step plan. |
 
 ## The contract of every part
 
@@ -37,6 +46,8 @@ ARCHITECT, verbatim:
 - *"use Model as parameter, event driven registrable callback, with command manager, no handrolling anything"*
 
 ## Canon: rulings, verbatim
+
+**Superseded 2026-11-07.** `PLAN-text-editor-absorption.md` supersedes rulings 4, 5, 6, 10 and 13 and Parts 3, 4 and 5, with its rulings 30 to 36. ARCHITECT: *"the design is wrong. we dont need LIST mode at all. it's always only OPEN mode."* In rulings 17, 19, 20, 23, 24 and 27, `MarkdownComponent` names the read-only `jam::TextEditor`. ARCHITECT: *"MarkdownComponent could be deleted"*; *"TextEditor now serves as the SSOT of Text rendering widget. setReadOnly (true), becomes preview widget."*
 
 ### The list contract
 
@@ -67,6 +78,8 @@ ARCHITECT, verbatim:
 19. *"MarkdownComponent serves the same contract, if it's being called by open with, reset, addAndMakeVisible, toFront of TextEditor, so terminal actually still active in its backround, until user close the component with cmd+w (same shortcut with closing panel) BUT this must always WIN when there's Markdown file opened"*
 20. *"cmd+w should be MarkdownComponent (full panel) `exit`."*
 21. *"current markdown preview is garbage, clicking md file create component with wrong layout etc etc nothing need to be kept"*
+
+21a. *"cmd+w should close whelmed first."*; *"EVE could have parameter if whelmed is opened, END always know its chilren state"*
 
 ### Preview
 

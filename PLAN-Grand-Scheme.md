@@ -790,6 +790,11 @@ ARCHITECT's vision, verbatim. Each line is a ruling.
   (`:21-23`). EVE already builds `jam_markdown_graphics` and `jam_mermaid_diagram`
   (EVE `CLAUDE.md`, the module list).
 
+> **[AMENDED 2026-11-07 — Finder canon]** ARCHITECT: *"left/side panel as previously
+> planned as ls side panel idea discarded."*; *"current understanding is the CANON moving
+> forward"*. The side panels and the file list in the section below are history. The
+> canon is `PLAN-finder-0-tracker.md`, rulings 1 to 49.
+
 **Finder parity — the scope [ADDED 2026-10-30].**
 - ARCHITECT: *"finder parity features could be triggered by ls, native fzf, actual fzf
   cli, this include side panel of file tree, that could be clicked, jump to specific

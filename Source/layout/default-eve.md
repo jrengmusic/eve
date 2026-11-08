@@ -4,9 +4,9 @@ version: 0.0.1
 
 # EVE
 
-This file is the virgin configuration of EVE. It carries the display settings, the key bindings, the
-user configuration and the visual appearance. It is the binary default of ~/.config/end/eve.md, and
-it is written there when that file is missing or older. A valid disk copy overlays it row by row.
+This file is the virgin configuration of EVE. It carries only the app tables: the display settings,
+the key bindings and the user configuration. It is the binary default of ~/.config/end/eve/display.md,
+and it is written there when that file is missing or older. A valid disk copy overlays it row by row.
 Keys are lower-case words that the reader formats to the reserved identifiers.
 
 ## display
@@ -18,8 +18,6 @@ Editor scaling, initial window size and zoom step.
 +=======================+=========+==================+================+========================================================================================+
 | ligatures             | bool    | true             |                | Draw the ligature glyphs of the mono font.                                             |
 +-----------------------+---------+------------------+----------------+----------------------------------------------------------------------------------------+
-| preview width         | float   | 0.4              |                | Width of the preview panel, as a fraction of the window width at the first LIST entry. |
-+-----------------------+---------+------------------+----------------+----------------------------------------------------------------------------------------+
 | scroll duration       | numbers | 100, 200         |                | Wheel scroll animation duration range {short, long}, in milliseconds.                  |
 +-----------------------+---------+------------------+----------------+----------------------------------------------------------------------------------------+
 | scroll duration range | numbers | 120, 480         |                | Scroll distance at which the duration is long and short, in pixels.                    |
@@ -29,10 +27,6 @@ Editor scaling, initial window size and zoom step.
 | scroll step           | float   | 40               |                | Scroll distance per wheel notch, in pixels.                                            |
 +-----------------------+---------+------------------+----------------+----------------------------------------------------------------------------------------+
 | size                  | numbers | 800, 600         |                | Initial window size in pixels {width, height}.                                         |
-+-----------------------+---------+------------------+----------------+----------------------------------------------------------------------------------------+
-| tree depth            | int     | 2                |                | Folder levels above the terminal folder in the tree of LIST mode.                      |
-+-----------------------+---------+------------------+----------------+----------------------------------------------------------------------------------------+
-| tree width            | float   | 0.2              |                | Width of the tree panel, as a fraction of the window width at the first LIST entry.    |
 +-----------------------+---------+------------------+----------------+----------------------------------------------------------------------------------------+
 | zoom step             | float   | 0.1              |                | Zoom step of the zoom in and zoom out keys.                                            |
 +-----------------------+---------+------------------+----------------+----------------------------------------------------------------------------------------+
@@ -47,26 +41,25 @@ key (\`) enters the prefix layer, and ] there enters normal mode; press \` twice
 shell. sequence timeout (ms) ends a sequence or a layer. Under END, END owns the prefix layer and
 normal mode. In terminal mode every other key goes to the shell.
 
-+------------------+--------+--------------+-------+-----------------------------------+
-| key              | type   | value        | mode  | description                       |
-+==================+========+==============+=======+===================================+
-| clear            | string |              |       | Clear the screen and the history. |
-+------------------+--------+--------------+-------+-----------------------------------+
-| dismiss          | string | escape q     | panel | Close the panel.                  |
-+------------------+--------+--------------+-------+-----------------------------------+
-| open file        | string | return       | list  | Open the highlighted file.        |
-+------------------+--------+--------------+-------+-----------------------------------+
-| zoom in          | string | cmd+=        |       | Zoom the editor in.               |
-+------------------+--------+--------------+-------+-----------------------------------+
-| zoom out         | string | cmd+-        |       | Zoom the editor out.              |
-+------------------+--------+--------------+-------+-----------------------------------+
-| zoom reset       | string | cmd+0        |       | Reset the editor zoom.            |
-+------------------+--------+--------------+-------+-----------------------------------+
-| settings         | string | cmd+,        |       | Open the settings.                |
-+------------------+--------+--------------+-------+-----------------------------------+
-| sequence timeout | int    | 1000         |       | Time in ms to wait for the next   |
-|                  |        |              |       | key of a sequence or a layer.     |
-+------------------+--------+--------------+-------+-----------------------------------+
++------------------+--------+--------------+----------+-----------------------------------+
+| key              | type   | value        | mode     | description                       |
++==================+========+==============+==========+===================================+
+| clear            | string | ctrl+l       | terminal | Clear the screen and redraw the   |
+|                  |        |              |          | active prompt.                    |
++------------------+--------+--------------+----------+-----------------------------------+
+| dismiss          | string | cmd+w        | panel    | Close the panel.                  |
++------------------+--------+--------------+----------+-----------------------------------+
+| zoom in          | string | cmd+=        |          | Zoom the editor in.               |
++------------------+--------+--------------+----------+-----------------------------------+
+| zoom out         | string | cmd+-        |          | Zoom the editor out.              |
++------------------+--------+--------------+----------+-----------------------------------+
+| zoom reset       | string | cmd+0        |          | Reset the editor zoom.            |
++------------------+--------+--------------+----------+-----------------------------------+
+| settings         | string | cmd+,        |          | Open the settings.                |
++------------------+--------+--------------+----------+-----------------------------------+
+| sequence timeout | int    | 1000         |          | Time in ms to wait for the next   |
+|                  |        |              |          | key of a sequence or a layer.     |
++------------------+--------+--------------+----------+-----------------------------------+
 
 ## open with
 

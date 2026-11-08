@@ -36,6 +36,62 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Scrollbar Width from END's Theme, Drag and Autoscroll Fixed, Alternate-Screen Bar Discarded, Plan Hygiene, Wholesale Audit of the Uncommitted Tree, Doxygen Pass ✅
+
+**Date:** 2026-11-08
+**Duration:** one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"i want my scrollbar thickness at theme.md NOW"*; *"NO FUCKING BUMPING VERSION"*; *"let's fix why scrollbar now cant be dragged"*; *"always STAY at wherever the position of the scrollbar ... when at bottom, this automatically scroll down to bottom always ... when not at bottom ... DONT SCROLL AT ALL, stay"*; *"adding block and set view should always be DECOUPLED"*; *"i still wanna try alternate screen with scrollbar"*; then *"janky. remove all scrollbar for alternate."*; *"wholesale /audit all files touched from last sprints against contract"*; *"comprehensive doxygen pass"*; *"/log"*; *"NO GATE"*; *"check all plan, we want hygiene. what actually completed, supersed, can be deleted. the canon is numbered multi part PLAN. PLAN 0 is the tracker"*; *"no audit. audit later wholesale for the whole sprint (pre-handoff)"*.
+
+### Agents Participated
+- COUNSELOR — orchestration, every read-back of subagent edits, the DCF filter on every audit finding, two one-line fixes (`ENDView.cpp:259`/`ENDView.h:165` rename, `jam_MessageOverlay.h` dead member), PLAN writing.
+- Pathfinder — inventories (plans, `git status` of eight repos, the alternate-screen design reads) and the doxygen pass (four partitions, several rounds).
+- Librarian — alternate-screen research in the local neovim, ghostty, wezterm, iTerm2, kitty and alacritty trees (first run stopped by the watchdog for scope drift into a binary; second run narrowed).
+- Engineer — every code change: scrollbar theme row, drag and autoscroll fixes, the alternate-screen bar and its removal, the plan deletions, and twelve audit-fix batches.
+- Auditor — the wholesale audit in ten partitions (A1a, A1b, A2, A3, A4, A5a, A5b, A6; A1 and A5 stopped by the watchdog and re-run narrower).
+
+### Files Modified (key changes; the full set is the uncommitted tree of jam, eve, whelmed, stamp, cast, scout, ggwp, end)
+- **Scrollbar width (Task 1).** `end/Source/config/theme/gfx/theme.md:108-120` — `## scrollbar` gains `thickness | int | 8`, version unchanged. `jam/cast/style.md` — `@id thickness`. `jam/jam_style/jam_StyleCustom.cpp:256-262` — `getDefaultScrollbarWidth` reads END's `scrollbar/thickness` row under `isEND()`, else the STYLE `scrollBarThickness` metric. `jam/jam_plugin_bootstrap/layout/jam_PluginEditorLayout.cpp:697-702` — `addThemeTables` after `setValuesFrom`.
+- **Drag regression (Task 2).** Root cause: bar visibility tied to keyboard focus; focus moves during the press, so the bar hid mid-drag. `jam_StyleCustom.cpp:269-302` — focus gates only the paint. `jam_TextEditor.cpp:58-65` — `applyScrollBars` sets `setScrollBarsShown (not isAlternateScreen, false)`.
+- **Autoscroll (Task 3).** `jam_TextEditor.cpp` — `addBlock` and `removeHeadBlocks` no longer move the view; `addBlocks` follows the tail only when `isViewAtEnd()` was true before `setContentSize` (audit T4 replaced the bar-range read).
+- **Alternate-screen bar (built, then discarded).** `PLAN-alternate-scrollbar.md` Steps 1-6 (Model rows `programTop`/`programLines`, buffer counting, `applyScrollBars` range, event-driven drag) were executed, tested on vim, and removed entirely on ARCHITECT's ruling. No trace remains in `jam/jam_terminal`, `jam/jam_gui/widgets`, `eve/Source`, the cast tables or `SPEC.md`.
+- **Plan hygiene.** Deleted: `PLAN-alternate-scrollbar.md`, `PLAN-finder-3-modes.md`, `PLAN-finder-4-column-list.md`, `PLAN-finder-5-list-open.md`. `PLAN-finder-0-tracker.md` Status table marks Parts 3-5 superseded and deleted, and a second table tracks `PLAN-text-editor-absorption.md`, `PLAN-style-isomorphism.md`, `PLAN-alternate-scrollbar.md` (discarded) and `PLAN-Grand-Scheme.md`. `PLAN-text-editor-absorption.md` Steps 11 and 13 marked superseded, Steps 14-16 discarded.
+- **Audit fixes, END.** `Source/config/` — `ConfigShader.{h,cpp}` and `ConfigTheme.{h,cpp}` split out of `ConfigModel` (one object, one TU); `addFileFlex` extracted; `addFileTables`/`addDefaultTables` public statics of `ConfigDirectory`; `findChildFiles` parenthesised init (Windows clang-cl); guards without a threat removed; `getRowValue` reads the row once. `lookAndFeel/ENDLookAndFeel` — `applyBarRotation` extracted, `applyColours` (was `initialiseColours`), `getCommonFont` inlined, dead `tab` event and redundant include removed, `newGraphics` built whole. `ui/TabView` — `getJoinCommands` (was `getJoinDirections`), `class Preview`. `plugins/Nexus` — `class`, const getters. `ui/EditorView` — direct pane parent. `ui/ENDView` — direct `setMouseConfig`. `cast/identifiers.md` — `visible` deleted. `SPEC.md`, `README.md` — synced to the code.
+- **Audit fixes, jam.** `jam_gui` — `history.addOrReplace`, `copyPropertiesFrom`, one ±1 pair, typed `AnsiDocument` locals, destructor `= default`, `getLinkLabel` fills 52 labels per page, MessageOverlay bodies to the .cpp, `getSibling`/`isRotatable` const, dead `overlayAxisLine` member. `jam_markdown`/`jam_plugin_bootstrap`/`jam_style`/`jam_web`/`jam_graphics` — empty cells fail validation instead of asserting, result returns, `Format::appendWithSpace`, structured bindings, `jam::PluginHostType`, flex `fileCreated` reload, StyleManager and AttributedGraphics bodies to the .cpp, dead `colours` member, Typeface RAII for HarfBuzz and FreeType handles, stale font rows. `jam_markdown_graphics`/`jam_mermaid_diagram` — `Strings::getView`/`fromView`, `indexOfIgnoreCase`, `getMetrics<double>`, `addImage` deleted, dead `numEdges` and `setTreeRanks`, null-drawable bug, arrow-point and requirement-index bugs, namespace closers. `jam_terminal` — single assert per invariant, `placementsPerRow` sizing, `Id::end` in lines, in-place byte read, `stringTerminatorLength` from `.size()`; keyboard result returns, `Chars::` constants, constexpr tables; `cast/core.md` `fromUTF8Prefix`/`fromUTF8Suffix`. `jam_vulkan` — single `find`, positive-nesting failure blocks.
+- **Audit fixes, EVE.** `EVETerminalProcessor` — `terminalTag` member everywhere, exact refresh period, braces. `EVEView` — `getOrCreateMarkdownState` (was `getMarkdownState`). `CLAUDE.md`, `SPEC.md`, `README.md` — synced (one `style.css`, every history block built, `reader` mode, Model row list, ANSI palette source, OPEN mode keys).
+- **Audit fixes, small apps.** `stamp` — framework `Css::getValueTree`, result returns, one `getBoxProperty`, unused font removed. `whelmed` — unused fonts and palette entries removed. `cast`/`scout`/`ggwp` — style.css headers corrected, dead MermaidDiagram font ids removed.
+- **Doxygen pass.** Every touched header in END, EVE, cast/scout/ggwp `Help.h`, jam_gui, jam_terminal, jam_markdown, jam_plugin_bootstrap, jam_style, jam_web, jam_graphics, jam_markdown_graphics, jam_mermaid_diagram, jam_core text and jam_vulkan, each block read against its .cpp; unverifiable claims removed.
+
+### Alignment Check
+- [x] BLESSED principles followed — every accepted audit fix cites its clause; every rejection cites the read that refutes it.
+- [x] NAMES.md adhered — renames join their family (`applyColours`, `getJoinCommands`, `getSibling`, `getOrCreateMarkdownState`, `fromUTF8*`); no new domain term.
+- [x] MANIFESTO.md principles applied
+- [ ] Not every audit finding is resolved. The held set below needs ARCHITECT rulings (new object names under NAMES Rule -1, design choices, format changes).
+
+### Problems Solved
+- Drag broke because focus gated visibility; focus now gates only the paint.
+- Autoscroll fought the user because block insertion and head removal moved the view; they no longer do.
+- The alternate-screen bar flooded vim: JUCE's own range reset reached `scrollBarMoved` during the press, and one wheel report per row had a gain of `'mousescroll'` 3 (`neovim/runtime/doc/options.txt:4707`). Discarded by ARCHITECT.
+- COUNSELOR errors corrected in-sprint: Auditor A2's G1 deleted the Step 28 column-list keys (ruling 32, `PLAN-text-editor-absorption.md:66`, `:325-328`) — restored byte-for-byte; A3 item 35 changed layout behaviour — reverted.
+
+### State for Continuation
+- Nothing is built. ARCHITECT runs cast for jam (`cast/terminal.md`, `cast/style.md`, `cast/core.md`, `cast/gui.md`), EVE (`parameters.md`, `component.md`), Whelmed (`component.md`), stamp (font row removed) and END (`cast/identifiers.md`), then a CMake re-configure for END (new `ConfigShader.cpp`, `ConfigTheme.cpp`), then builds every product. `jam/generated/jam_Core.{h,cpp}` were hand-edited for the `fromUTF8*` rename; cast regenerates them.
+- Add `| thickness | int | 8 | ... |` by hand to `~/.config/end/themes/gfx/theme.md` `## scrollbar`.
+- Doxygen XML is not regenerated: `<leader>bd` (jam), `ninja doxygen` (EVE, END); confirm zero warnings.
+- Runtime checks: drag and autoscroll on the normal screen; OPEN mode `ctrl+shift+j`/`k`; whole-history reflow; a restored `flex/scrollbar.svg` reloads.
+- Held for ARCHITECT (each with its read):
+  - New object names (NAMES Rule -1): TextEditor split (A2 T1), MermaidDiagram/Layout/Graphics splits and one-object-per-TU (A4 1-3), ConfigDocument/Css/ViewManager/PluginEditorLayout splits (A3), ENDLookAndFeel typeface registry split (A6 21), Nexus jobs (A6 37), TerminalBuffer VT writer and TerminalSwap grid split (A1a 5, 16), Win32 key encoder (A1b 8), shared Help function (A5b 11).
+  - Design: END theme in the Step 9 shape and `ENDLookAndFeel::setColours` without its pairing table (A6 1-6, 66-69; `SPRINT-LOG` open question); commands owned by TabView/EditorView (A6 41); the popup menu through `addCommandItem` needs human labels and enable tests in `getCommandInfo` (`ENDView.cpp:78-81`); unzip failure path (A6 34); TextEditor block index instead of history scans (A2 T6, ruling 41); one truth for read-only (A2 T2); gridStarts as Model rows (A5a 3); TerminalSwap wrapped-row join and possible allocation on the clock thread (A1a 10, 11); links sharing the image record lane (A1a 25); Css parse keeping the tier (A3 7); AttributedString stream format (A1b 19); Cmd in the keyboard modifier code (A1b 4); MessageOverlay message storage (A2 M3).
+  - Facts: Windows `style` choices acrylic10/acrylic11/mica are not keys of `map::WindowFX` (`jam_Gui.h:233-234`); `EVEView.cpp:411` passes an empty callback to `set (Id::keys, ...)`; Whelmed harness path from `__FILE__` (A5b 1); `Session.h:137-158` doc claims (outside this scope).
+  - The remaining clause-backed items that need a new helper name are HELD-NAME in the fix reports (for example A6 35, 44, 45, 52; A1a 8, 15, 17, 23, 24, 26, 30; A2 T13; A4 13-21).
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261105T000000` — Windows runtime test (ARCHITECT, unchanged).
+
+---
+
 ## Sprint: Display Mono Faces, Paint Order under END, First Tab, One Config Load Path with Memoized Binary Defaults, Audit of Two Sprints ✅
 
 **Date:** 2026-11-06
@@ -326,183 +382,3 @@
 
 ### Debts Deferred
 - `DEBT-20261105T000000` — Windows runtime test, by ARCHITECT. The Windows arms of this sprint have not built or run.
-
----
-
-## Sprint: Finder Parity — Preview through the Terminal Protocol, openFile, File List, Markdown Panel, OPEN and LIST Modes, No Count, jam::Array ✅
-
-**Date:** 2026-11-05
-**Duration:** one session across a context compaction. The start and end times are not recorded.
-**Scope (ARCHITECT):** the six plans `PLAN-1-preview-protocol.md` to `PLAN-6-list-mode.md`. *"i actually think Preview should be the first to implement CORRECTLY, and wire thorugh the whole terminal protocol"*. *"we dont use "count" we use "num""*, *"no count anywhere. must be consistent"*, with the option *"Every count name in EVE and JAM becomes num, and END, TIT, CAKE and WHATDBG follow. External contract strings stay"*. *"dont use vector use jam::Array if possible anywhere"*. *"you can use jam::Array as sub for HeapBlock"*. *"and also implement for windows. runtime test still need to be tested when i get to windows. add to DEBT. implement now"*. *"complete outstanding until /log no gate"*.
-
-### Agents Participated
-- COUNSELOR: the six plans; the protocol reads; each delegation; validation of each return; the SPEC and grand scheme amendments; the triage of each audit finding by a read; this log.
-- Engineer (sonnet): the code of each plan; the count rename; the `jam::Array` sweep; the audit fixes.
-- Pathfinder (haiku): targeted reads; the old panel trim from `326387d`; the consumer check of the changed types; the doxygen pass in two scopes.
-- Auditor (opus): one run over PLAN-2 to PLAN-6 and the two sweeps. PLAN-1 had its own run before ARCHITECT's *"complete outstanding until /log no gate"*.
-
-### Files Modified
-- PLAN-1, confirmed by ARCHITECT's runs (*"works"*, *"all works"*): `jam/jam_gui/widgets/jam_PreviewComponent.*` replaces `jam_Preview.*` and `jam_PreviewOverlay.*`: one component paints every box in one call, `FrameJobs` decodes in parallel, one vblank clock runs each GIF. `jam/jam_terminal/image/jam_ImageDocument.*` replaces the GIF metadata headers: one complete document per image, with one child per frame. `jam_TextEditor.*`: `addPreview`, text paints in `Content::paintOverChildren`, `setImageBounds`, `setPreviewBounds`, the `images` tree. `jam_TerminalProcessor.*`: the `previewBox` row, the EVE preview arm, the alternate screen and blank cell rules. `jam_terminal/image/native/*`: `loadImageNative`, software images, `ComApartment` on Windows. `jam_core/text/jam_Format.*`: `toNativePath`. `jam_plugin_bootstrap/view/jam_ViewManager.h`: child snapshot in `applyToComponentRows`. `eve/Source/shell/eve` on `PATH`; `eve/Source/ShellIntegration.*`, `EVEView.cpp`, `EVETerminalProcessor.cpp`, `layout/component.md`, `layout/parameters.md`, `cast/files.md`.
-- PLAN-2: `jam/cast/core.md`, `gui.md`; `jam_markdown/document/jam_ConfigDocument.cpp`: a table with an `any` row takes any key. `jam_TextEditor.*`: `applyTerminalMouse`, `applyCellMouse` with `selectionThreshold { 2 }`, `applyLink`. `jam_Format.*`: `appendQuoted`. `jam_TerminalProcessor.*`: public `getUriPath`, `applyToDecodedText`. `eve`: the `## open with` table, the `url` row, `openFile`, `getOpenCommand`, `appendPath`, `addInput`, `applyOpenCommand`.
-- PLAN-3: `jam_AnsiDocument.*`: `addFileLinks`, `getText`, `isGridLine`, `isBlank`, `getEntryEnd`. `jam_TextEditor.*`: `getLastOutputBlock` reads the `outputBlock` row, `isLinkChanged` in `addBlocks`. `jam_TerminalProcessor.cpp`: the `outputBlock` report. `eve`: the `outputBlock` row, the `directory` row.
-- PLAN-4: `eve/Source/layout/component.md` row 2, `EVEView.*`: `openMarkdown`, `setMarkdownVisible`, `applyToMarkdown`, `keyPressed`. `jam/cast/gui.md`: `EditorMode` `panel`. `default-eve.md`: `dismiss`, `.md` takes `markdown`.
-- PLAN-5: `jam/cast/gui.md`, `terminal.md`, `spell.md`, `style.md`: `open`, colour rows, sizes 28. `jam_TextEditor.*`: `applyToVisibleLines`, `applyToVisibleLinks`, `applyLinkLabel`, `paintLinkLabels`, `Id::page`. `jam_ENAXClientExtensions.cpp`, `end/Source/config/keys.md`, `end/cast/bimaps.md`, `end/Source/ui/ENDView.cpp`, `EditorView.cpp`. `eve/Source/textEditor.css`, `layout/parameters.md`.
-- PLAN-6: new `jam/jam_markdown_graphics/component/jam_FilePreview.*`. `jam_PreviewComponent.*`: `bindToImages`. `jam_TextEditor.*`: `getLink`, `getListEntry`, `moveListEntry`, `setCursorToTerminal`, `paintColumns`, `paintListEntry`. `EVEView.*`: `panels`, `directoryThread`, `directoryList`, `addPanels`, `setPanelsVisible`, `setPanelFile`, the trim in `resized`, `juce::FileBrowserListener`. `default-eve.md`: `tree depth`, `tree width`.
-- Count rename: about 240 names over about 150 JAM files, 4 EVE sources, the cast tables and `user-modules-info.md`, then bare `count` in about 40 files. Examples: `Id::count` to `numRepeats`, `Grapheme::Entry::count` to `numCodepoints`, `HashMap::count` to `num_entries` (the fork keeps its snake case, NAMES Rule 5). Consumers changed where they use a JAM name: `end/Source/ui/ENDView.cpp`, `SessionView.cpp`, `lookAndFeel/ENDLookAndFeel.cpp`, `ARCHITECTURE.md`, `SHADERS.md`, `ggwp/Source/Build.cpp`.
-- `jam::Array` sweep: 133 declarations over 45 JAM files: `jam_graphics`, `jam_fuzzy`, `jam_animation`, `jam_dsp`, `jam_terminal`, `jam_clap`, `jam_core`, `jam_gui`, `jam_data_structures`, `jam_pdf`, plus `jam_VulkanMesh.h`. `endless/Source/terminal/action/ActionListSelection.cpp:40` takes parentheses.
-- `eve/SPEC.md`, `README.md`, `PLAN-Grand-Scheme.md`, `CLAUDE.md`, `DEBT.md`, `PLAN-1` to `PLAN-6`.
-- Doxygen: each new declaration and each stale block in the sprint scope.
-
-### Alignment Check
-- [x] BLESSED principles followed: a CLI signal is a Model row; widgets react to `juce::ValueTree` events; one component paints every image in one call; one command opens every target.
-- [x] NAMES.md adhered: each new name joins a family. `applyUrl` became `setPanelFile`, because `apply` pushes onto a target that the caller supplies.
-- [x] MANIFESTO.md principles applied
-- [ ] Not validated by a compile. Only PLAN-1 was built and run. PLAN-2 to PLAN-6, both sweeps and the audit fixes have seen no compiler. The doxygen zero-warning check has not run.
-
-### Problems Solved
-- **Terminal images on a Component.** ARCHITECT rejected the placement model: *"this is wrong mental model"*. A CLI signal is a registered row, and the widget only listens. The native lane sends a file as metadata, so no bytes cross the PTY: *"why not just the file as metadata? suffice?"*. The third-party lanes stay for compatibility. fzf treats any `ESC]1337;` as a full-window image and exits with `CSI J`, so `setBlankCells` clears the box.
-- **Isomorphism.** `ImageDocument` is the AST like `AnsiDocument`, the decoded frames are the runs, the `images` tree is the Model, and paint is one call. ARCHITECT: *"one component per image is costly"*.
-- **A parent is not an owner.** ARCHITECT: *"juce::Component hierarchy is decoupled from ownership"*. The view table owns the component, and `bindTo` reparents it into the content. `applyToComponentRows` reads a snapshot, because the reparent shifts each later z index. The panel lookup uses the `type` property for the same reason.
-- **Decode delay.** `FrameJob` decodes each GIF frame on its own pool, so the first frame shows at once and a same-pool wait cannot lock.
-- **File list.** OSC 133 D scrolls the output into history (`SPEC.md`, Resize), so the links build at creation in `addBlocks`. `history.erase` from PLAN-3 Step 3 is not used, because `addBlock` treats an absent block as new and shifts the cursor. `isLinkChanged` compares the block's stored number with the row.
-- **A command with no output brought the old list back (audit H3).** The fold over resident lines also ran on each vblank (H2). The processor's `outputBlock` became one Model row, so one read replaces the walk, and `true` or `cd` clears the list.
-- **Null read (audit H1).** A file that opens with an error keeps its range with a null address (`juce_SharedCode_posix.h:585`). `FilePreview::setFile` and `openMarkdown` test `getData()`, the shape of `jam_PreviewComponent.cpp:242`.
-- **Winsize in LIST (audit M1).** `resizeEnd` and each animator change cleared the gate. `resizeEnd` now keeps it while a panel shows, and `setPanelsVisible` sets the bounds, then the gate.
-- **No temporary container (audit M4, L6).** `getVisibleLinks` from PLAN-5 built and sorted an array on each paint. `applyToVisibleLines` and `applyToVisibleLinks` walk in place, and `applyToVisibleImages` uses the same walk.
-- **Audit findings also resolved.** M3, M6, M7, L1 to L7, L10, L11, L12 (bounds), L13, L14, L17, L20 (`applyUrl`), L21 to L24, and the link discovery part of M9: `AnsiDocument::addFileLinks` now holds the filesystem test, so the view holds none.
-- **Audit findings rejected, each with its read.** M2: `getVisibleLinks` holds only rows in view, so `j` past the view needs the line walk. M5: `isPanelShowing` is framework API, and the panel can differ from the mode. M8: PLAN-2 Step 5 and PLAN-4 Step 3, and the view holds no state. M9, the rest: MANIFESTO L, *"decomposing it would only relocate the same lines across more files"*, and the earlier ruling in this log. M10: `EVEView.cpp:12` writes before the listener exists (`jam_PluginEditor.cpp:210`). L8: `getMotions` and `getActions` are the lookup tables that MANIFESTO L asks for. L9: `TerminalSwap::linesPerBlock` bounds one build. L12 `isNew`: the three sites hold different payloads, and one helper would be a carrier. L15: `panels` is empty by design until the first LIST. L16: both sites call the one pair `getUriPath` and `applyToDecodedText`. L18: the z index shifts. L19: the row exists and is used. L20, other names: each was verbatim in a delegation prompt.
-- **Sweep rows kept.** `jam_HashMap.h` (allocator parameter), `Tokens` and `tokenGroups` (copied into a job), `ResourceFetchers` (a const lvalue is copied), `BrickWall::getCoefficients`, `FrequencyGrid::getBandRanges`, the `FrequencyGrid` tick tables, `SimdStackBlur` history (`jam_Array.h:797`), `juce::Typeface::getLayersForGlyph`, two `vk::ResultValue` returns, `juce::ColourGradient::createLookupTable`.
-- **Rename rulings from the read.** The unit string `"count"`, the message `count differs from the default: `, `FrameCount`, `frame_count_mod` and CSS `counter` stay as external strings. The `counter` family and `isCounterClockwise` stay: they are not `count`. English prose stays. Consumer-own names stay, by the option text: *"END, TIT, CAKE and WHATDBG follow"*.
-- **Mistakes owned.** The doxygen protocol skipped for `Model::Component`, with a false absence claim. The bytes recommendation. Text out of the terminal model. *"you delegate"*, after I pushed work back. One component per image. A watchdog armed late. A delegation prompt that said `carol apply --expect 0` writes nothing: on a file with no match it writes the same bytes, so Pathfinder rewrote 279 consumer files with identical content, and only their modification times changed.
-- **Watchdogs.** The array inventory and the `jam_graphics` sweep reached 15 minutes and were stopped. The cause was a read of every site in one prompt, and `carol apply` retries. Each resumed with a narrow task. ARCHITECT stopped the run once at a watchdog call and resumed with *"continue"*.
-
-### State for Continuation
-- Run `cast` in `jam`, then `eve`, `end`, `ggwp` and the other consumers: the `Id::` renames, `numRepeats`, `outputBlock`, `url`, `openFile`, `markdown`, `dismiss`, `open`, `list`, `listDown`, `listUp`, `created`, `modified`, `treeDepth`, `treeWidth`, `directory`, `any`, and the colour rows need it. Until then the generated headers hold the old names.
-- Then build `jam`, `eve`, `end`, `endless`. Expect compile errors. No compiler has seen PLAN-2 to PLAN-6, the rename or the sweep. Most risk: `jam_TextEditor.h` templates (`applyToVisibleLines`), `jam_Rotary.*`, `jam_Filter.h` loops, `jam_BonusMatrix.*`, `jam_AnsiDocument.cpp` header order for `juce::URL`, the `EVEView.cpp:12` use of `map::EditorMode::panel`.
-- 279 consumer files have new modification times. A build rebuilds them.
-- ARCHITECT tests, in plan order: the Acceptance list of PLAN-2 to PLAN-6. First: a click after `ls`, `` ` `` `o` labels, `` ` `` `l` panels with no SIGWINCH, `.md` panel with `escape`, hot reload of the theme in the panel.
-- The first LIST show animates from an empty rectangle: `juce::SidePanel` has no bounds until it is shown (`juce_SidePanel.cpp:109-121`). Read the result on a run.
-- `ls sub/` lists names that do not resolve against `cwd` (PLAN-3 Risks).
-- Run `<leader>bd` and `ninja doxygen`, and confirm zero warnings. LSP on JAM `.cpp` files gave wrong targets in this session: check `.clangd`.
-- `PLAN-1` to `PLAN-6` stay until ARCHITECT's run closes them.
-- `jam_TextEditor.cpp` `perform` keeps `isUsed`: a statement runs after it, so no result return fits. `Noise::Brown` and the fuzzy finder have no caller in EVE.
-- Windows: nothing in this sprint has built or run there.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261105T000000` — Windows runtime test of the preview path, by ARCHITECT: *"runtime test still need to be tested when i get to windows. add to DEBT."*
-
----
-
-## Handoff to COUNSELOR: EVE terminal protocol — one envelope, one path; measure and decode; Preview foundation
-
-**From:** COUNSELOR
-**Date:** 2026-10-30
-**Status:** In Progress. Every PLAN step through Step 17 is done except Step 14, which is ARCHITECT's runtime test. The sprint is not logged.
-
-### Read First
-1. `PLAN-eve-terminal-protocol.md`. This is the locked plan, approved with `/go`. It holds the Preview fold (Steps 12a–12g, `:226-275`) and the Step 17 audit resolution (`:309-343`).
-2. `PLAN-Grand-Scheme.md` §3.11 "File browser and Preview". This is the vision recorded in Step 12a.
-3. `SPEC.md`. It holds the protocol, the lanes, the dock and the mental model (Step 15).
-4. `DEBT.md:11-15` — `DEBT-20261025T214955`. The sprint pays it. It stays in the ledger until the log (PLAN `:298`).
-
-### Context
-- ARCHITECT's prompt: *"next sprint is 2-5"* (`jam/carol/SPRINT-LOG.md:62-66`).
-- Items 2, 3 and 4 measure and decode. Item 5 pays `DEBT-20261025T214955` as the foundation of EVE's own terminal protocol, with scope *"+ preview + image"* (PLAN `:11-15`).
-- On 2026-10-30, ARCHITECT folded the Preview foundation into the sprint (PLAN `:5`, `:28-36`).
-- Since then, COUNSELOR has resolved the Step 17 audit batches, run the final validation build and run the doxygen pass.
-
-### Completed
-- **Steps 0–13, 15–17.** The PLAN steps are done. The Step 4 criterion is missed (see Open Questions).
-- **Step 17 audit.** The Auditor reported 104 findings. Each one is resolved or rejected per DCF. The batches A1, B2a–B9 are listed at PLAN `:315-329`. The rejected findings, each with its read, are at PLAN `:331-343`.
-- **Dispositions written after PLAN `:343`:**
-  - #82 is resolved by B2a. `TerminalProcessor` owns the `images` lane and sizes it in `reset` (`jam_TerminalProcessor.cpp:24`). `audioDeviceAboutToStart` reaches `reset` through `prepare` (`EVETerminalProcessor.cpp:221-229`, `:261-270`).
-  - #63 is rejected. `imageBounds` is replaced whole on each vblank. MANIFESTO E: *"A complete state replaces a complete state."* The vblank tell also retries an image whose bytes are not yet in the record (PLAN `:75`).
-  - #86 is rejected. The dock visibility has one truth, the `preview` component property (`EVEView.cpp:112-120`).
-  - #87 is rejected. The base class also dispatches with `property ==` (`jam_PluginEditor.cpp:343`).
-  - #88 is rejected. A read of a Model row asks no object for its state (the same read as #79).
-  - #80, part, is rejected. `juce::Identifier { name }` is the Design's own call (PLAN `:81`).
-  - #84, part, is rejected. The base class owns the view bounds (`jam_PluginEditor.cpp:43-69`). Only the hand-written inverse transform changed, to `getLocalArea` (`EVEView.cpp:102`).
-- **Corrections in this session, now in the tree:**
-  - `writePendingData` and `handleAsyncUpdate` are back to their original form (`EVETerminalProcessor.cpp:167-179`). `setOverlays` calls no drain (`EVEView.cpp:122-145`).
-  - The raw RGB path uses the new `jam::simd::convertRgbPixel`, `convertRgb4` and `convertRgb`. They follow the RGBA sibling, with SSE2, NEON and scalar arms (`jam_SimdBlend.cpp:860-923`).
-  - `Lane::images` is renamed to `Lane::imageBounds` (NAMES Rule 3 and Rule 5).
-  - `setImageBounds()` runs at the end of `addLanes()` again.
-- **Final validation build.** Both builds exit 0. The logs have 0 `warning:`, 0 `error:` and 0 `FAILED` lines. Both reach `[65/66]` (`<scratchpad>/build-release.log:73`, `<scratchpad>/build-profile.log:73`; scratchpad `/private/tmp/claude-501/-Users-jreng-Documents-Poems-dev-eve/750cd3a0-9445-4670-9579-0d6cb7b98a57/scratchpad`).
-  - Release: `cast cast/spell.md --no-sign` (`project-info.md:138-142`).
-  - Profile: `cmake -S . -B Builds/Profile -G Ninja -DCMAKE_BUILD_TYPE=Release -DCAST_SIGN=OFF -DCAST_PROFILE=ON`, then `ninja -C Builds/Profile` (`benchmark/burn.md:34-36`).
-- **Doxygen pass.** The pass documents all 23 changed headers.
-  - jam: 0 warnings (`~/.config/nvim/doxygen/Doxyfile.lib`, run with `~/.config/nvim/scripts/build-doxygen.sh`).
-  - EVE: 0 warnings (`~/.config/nvim/doxygen/Doxyfile.project`).
-  - Both builds pass again after the pass.
-
-### Remaining
-1. **Step 14 — ARCHITECT.** Run EVE. Senders, with PNG, GIF and JPEG:
-   - `imgcat` (cells, `px`, `auto`);
-   - `kitten icat`, with and without `--unicode-placeholder`;
-   - `chafa`;
-   - fzf with `bin/fzf-preview.sh`;
-   - a full-screen CLI on the alternate screen.
-
-   The criteria are at PLAN `:284-288`. No run of the current build has exercised the overlays or the dock.
-2. **Step 11 and Step 12g checks — ARCHITECT, in the same run:**
-   - `printf '\e]1337;EVE;command;name=clear\a\e]1337;EVE;command;name=clear\a'` clears twice (PLAN `:224`).
-   - `eve preview <png>` and `eve preview <gif>` show in the dock. An empty path hides it. `ctrl+shift+P` toggles it (PLAN `:275`).
-3. **Log — COUNSELOR, on ARCHITECT's word only** (PLAN `:307`).
-   - Write the sprint block per `/log`.
-   - Then run `carol debt clear DEBT-20261025T214955`, with the receipt first.
-4. **Optional — COUNSELOR.** Check the doxygen prose for ASD-STE100 sentence length. The doxygen Engineer flagged this.
-
-### Key Decisions
-- *"be careful with the design we have been meticulously optimize to get fastest performance, don't fucking break working implementation. no fucking hack, DESIGN BY CONTRACT?"*
-- *"if you genuinely needed and doesn't exist, write one, follow established pattern verbatim, CROSSPLATFROM"* — about SIMD RGB.
-- *"why do we need specific RGB only? why not carry the alpha? RGB can use Alpha always opaque"*
-- *"that's the plan. why the fuck flip flop and fucking churn tokens? do you fucking need to ask what i have approved?"* — the overlay of PLAN `:75` and `:269` stands: the vblank tell, plus a retry when the bytes are not yet in the record.
-- *"TextEditor no image"*
-- *"so no images, hold no image data, and name it image? why not using RectangleList?"*
-- *"NAMES.md OBEY THE FUCKING PROTOCOL DESIGN BY CONTRACT CONTRACT NON NEGOTIABLE"*
-- *"final validation only. not fucking every turn"* — builds.
-- *"Percent-encode values"* — audit #89 (PLAN `:313`).
-- *"Siblings via owner"*; *"EVEView, like overlays"* (PLAN `:360-361`).
-- *"TextEditor only "reserve the space""* (PLAN `:32`).
-- *"keep for now, but NOT for native Preview (Component)."* — the EVE `image` operation (PLAN `:36`).
-- *"no fucking resume"* — never resume an agent. A correction goes to a fresh Engineer.
-- The earlier rulings of PLAN `:17-36` stay closed.
-
-### Files Modified
-eve (`git -C eve status --short`, 2026-10-30):
-- `Source/EVETerminalProcessor.h/.cpp` — lanes `commands` and `images`, `addCommand`, `getCommands`, `getSwap`, `registerEvents` additions, `prepare` drain via `triggerAsyncUpdate` + `handleUpdateNowIfNeeded`.
-- `Source/EVEView.h/.cpp` — `applyCommands`, `applyImage`, `setOverlays`, the dock (`resized`, `setPreview`, `setPreviewVisible`, `isPreviewVisible`).
-- `Source/EVEViewComponents.cpp` — the `onImages` binding.
-- `Source/EVEViewPanelCallbacks.cpp` — the `preview` callback.
-- `Source/layout/ViewLayout.md`, `Source/layout/parameters.md`, `cast/identifiers.md`, `Source/generated/Identifiers.*` — the model rows and the keys row; `commandCount` moved to EVE's cast.
-- `Source/shell/zsh_integration.zsh`, `bash_integration.bash`, `powershell_integration.ps1` — the `eve` function with percent-encoding.
-- `SPEC.md`, `PLAN-Grand-Scheme.md`, `comparison.md`, `carol/SPRINT-LOG.md:3`; new `README.md`, `LICENSE`, `PLAN-eve-terminal-protocol.md`.
-- `benchmark/` — the control, live and replay reports; new `cat.md`, `live-sample.md`, `live-where.md`, `replay-where.md` and their reports.
-
-jam (`git -C jam status --short`, 2026-10-30):
-- `jam_terminal/processor/jam_TerminalProcessor.h/.cpp` — payload mode, the OSC 1337, DCS and APC routes, the `images` lane, `eveOperations`, percent decoding, Kitty placements.
-- `jam_terminal/processor/jam_TerminalFIFO.h/.cpp` — the `maxBytes` overload and `applyPendingData`.
-- `jam_terminal/image/` — `jam_TerminalITerm2Decoder`, `jam_TerminalKittyDecoder` (restored, metadata only), `jam_TerminalSixelDecoder`, `jam_TerminalImageSequence.h`; new `jam_TerminalImageEncoding.h`. Deleted: `jam_TerminalSkit.h/.cpp`, `jam_TerminalDecodedImage.h`, `jam_TerminalPendingImage.h`.
-- `jam_terminal/document/` — `jam_TerminalSwap`, `jam_AnsiDocument` (`stringTerminator`, `getIndexedColour`, `dcs`/`apc`); new `jam_TerminalImageRecord.h/.cpp`.
-- `jam_terminal/buffers/jam_TerminalBuffer.h/.cpp` — `ImagePlacement {destination, image}`, placements on both grids, `removeImagePlacements`.
-- `jam_terminal/graphics/jam_TerminalGraphicsContext.h/.cpp` — the inline image branch removed.
-- `jam_gui/widgets/jam_TextEditor.h/.cpp` — reserved space only, `imageBounds`, `onImages`, `setImageBounds`.
-- New `jam_gui/widgets/jam_Preview.h/.cpp`; `jam_gui.h/.cpp`.
-- `jam_graphics/fonts/jam_SimdBlend.h/.cpp` — `convertRgbPixel`, `convertRgb4`, `convertRgb`.
-- `jam_data_structures/model/jam_Model.h/.cpp`, `jam_ParameterText.h`, new `jam_ParameterText.cpp`; `jam_plugin_bootstrap/parameter/jam_ModelLayout.cpp` — the `text` row and `store`.
-- `jam_core/text/jam_AttributedString.h/.cpp` — `setAtom`.
-- `cast/terminal.md`, `cast/gui.md`, `cast/plugin_bootstrap.md`, `cast/spell.md`, `generated/*`, `user-modules-info.md`.
-
-### Open Questions
-- **Step 4 criterion — ARCHITECT.** Decode = `terminalProcess` − `terminalRead`. It went from 15.38 s (Step 3, this session) to 15.49 s (`benchmark/live-report.md:19`, `:27`: 16.340 s − 0.853 s). That is +0.7%. The criterion was "no worse" (PLAN `:304`).
-- **Sixel caps — ARCHITECT ratifies.** 4096 × 4096 pixels, and 65535 for a parameter.
-- **`ninja doxygen` — ARCHITECT.** No EVE build directory defines the target. `CLAUDE.md` lists it. The pass ran `doxygen` direct on `Doxyfile.project`.
-- **scout kernel sampler — ARCHITECT.** There is a known bug at `scout/Source/Sampler.cpp:154`.
-
-### Next Steps
-- Start at Remaining item 1, when ARCHITECT reports the Step 14 run. Fix each runtime failure from a read, per CAROL.md Failure Protocol.
-- Log when ARCHITECT says "log sprint".
-

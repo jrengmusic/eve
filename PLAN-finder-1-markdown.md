@@ -8,6 +8,8 @@
 
 ## Overview
 
+[AMENDED 2026-11-07] `jam::MarkdownComponent` below names the read-only `jam::TextEditor`. ARCHITECT: *"MarkdownComponent could be deleted"*.
+
 A click on a `.md` file creates a `jam::MarkdownComponent` that EVEView owns. It renders as Whelmed renders, in front of the TextEditor, with the terminal live behind it. `cmd+w` closes it and destroys it, and that key wins while it is open. The side panels and the current markdown path go first.
 
 ## Language / Framework Constraints
@@ -125,6 +127,32 @@ Each step is validated by COUNSELOR before proceeding to the next — against MA
 - **Stateless:** the component holds the parsed document only. It is a materialisation of the row.
 - **Encapsulation:** `MarkdownComponent` does not know its context (ruling 27).
 - **Deterministic:** the same path gives the same view.
+
+## Corrections at execution
+
+Each correction follows from a read and a quoted clause. None changes a ruling.
+
+1. **`resizeEnd`.** Step 1 deletes `isListMode`, so `setResizing (isListMode())` (`EVEView.cpp:102`) becomes `setResizing (false)`. Ruling 7.
+2. **Step 4, constructor.** The write runs before `model.state.addListener` (`jam_PluginEditor.cpp:72`), so no callback runs, and a restored state can hold both rows. The constructor also removes `Id::mode`. This plan, BLESSED Alignment: *"the mode row exists only while markdown is open"*.
+3. **Step 6, `setAppearance`.** The first argument is `view.get()`, not `this`. The contract is *"Root of the previously-built component tree"* (`jam_ViewManager.h:89`), and the rows resolve against the children of that argument (`:416-420`).
+4. **Focus.** `focusGained` takes the first focusable child (`EVEView.cpp:57-64`), which is the TextEditor while `view` is child 0. A pane switch under END would give the keys to the TextEditor. Ruling 19: *"this must always WIN when there's Markdown file opened"*. The markdown sets `setExplicitFocusOrder (1)` (`juce_FocusTraverser.cpp:148-158`). `invokeCommand` then cannot use the traverser default, so it runs through `applyToTextEditors`. This keeps *"terminal actually still active in its backround"*.
+5. **Config version.** A version bump was applied and reverted. `SPEC.md:839`: *"agents never change a version."* A disk row with an unknown key rejects its whole table (`jam_ConfigDocument.cpp:470-471`, `:512-513`), and an older disk copy is replaced (`:426-438`). ARCHITECT's disk copy `~/.config/end/eve.md` keeps the old rows until ARCHITECT rewrites it.
+6. **Identifiers.** `previewWidth`, `treeDepth` and `treeWidth` leave `eve/cast/identifiers.md`, because Step 1 deleted their last use. Part 7 adds `treeDepth` again.
+
+Audit corrections, each from a finding validated by a read:
+
+7. **Mermaid sheet.** Step 3 kept `Source/layout/mermaid.css` and said *"no ruling names it"*. That sentence was wrong. The sheet has no `.metrics` block, and `StyleMermaid::getMetrics` reads that block (`jam_StyleMermaid.h:72`, `jam_StyleManager.h:150`). Ruling 28: *"a gui Style for actual Markdown preview, this is how whelmed rendered"*. EVE now takes Whelmed's `@mermaid-style` and `mermaidStyleSheet` rows, and the file is deleted.
+8. **Restore.** `model.setState` replaces the tree (`EVEProcessor.cpp:181`), so the view runs the `markdown` callback in `onSetState` and at the end of the constructor. The callback is the one writer of `Id::mode`. This replaces Correction 2.
+9. **Keys while open.** `EVEView::keyPressed` uses every key while `Id::mode` exists, because an unused Tab moves the focus (`juce_ComponentPeer.cpp:230-234`). Ruling 19.
+10. **Focus.** The component takes the focus only when the view had it, and the close path does the same. ARCHITECT: *"Plugin doesnt grab its own focus, only being told"* (`PLAN-Grand-Scheme.md:1146-1148`).
+11. **File that does not map.** `addMarkdown` writes the empty row and shows the `failNoOpenFile` message. MANIFESTO **E**: *"Prefer assert over silent fail"*.
+12. **Names.** `applyMarkdown` is `addMarkdown` (NAMES Rule 1). `getMarkdownState` is the sibling of `getTerminalState` (MANIFESTO **S**).
+13. **Faces.** `style.css` drops the seven faces that `jam/resources/markdown.css` gives with the same values. CODING: *"Project code configures only the difference"*.
+13a. **Palette collision.** ARCHITECT's run stopped at `jam_PluginEditorLayout.cpp:64`, which asserts the binary default. `eve/Source/layout/colours.css` and `jam/resources/mermaid.css` both define `--carbon`, and a row takes its type from the light value only (`jam_ConfigDocument.cpp:376`). So `getColourFailures` failed on the dark value `concrete`. `getTypeName` now treats an alias that its own table defines as a string. `StyleManager::getColour` resolves it (`jam_StyleManager.cpp:155-160`).
+13b. **`cmd+w` under END.** ARCHITECT: *"cmd+w should close whelmed first."*; *"EVE could have parameter if whelmed is opened, END always know its chilren state"*. The key hook gives END every key first (`juce_ComponentPeer.cpp:201-203`), so the path row moves to the terminal Model row `markdownFile` (`parameters.md`). This replaces Step 4's `Id::value` row and Correction 8. EVE reacts through `terminalEvents`, and `hostRows` sends the change to END. `EditorView::close` clears the row when it holds a path, and closes the pane only when it is empty. A shell exit still closes the pane directly (`EditorView.cpp:211-215`). The `Id::mode` row of the markdown state stays, because `CommandManager::isInMode` reads it (`jam_CommandManager.cpp:65-70`).
+13c. **Message overlay.** ARCHITECT: *"INVALID should show error message and continue to render with default value"*. `MessageOverlay::showMessage` faded out at once, from alpha 0, so no message was ever visible (`juce_ComponentAnimator.cpp:61`, `:165`, `:287`). `jam_MessageOverlay.h` takes back the hold of its sibling (`endless/.../MessageOverlay.h:93-101`, `:404-408`): `private juce::Timer`, `messageDelayMs` of 5000 ms, and the fade-out in `timerCallback`.
+13d. **Runtime fixes.** ARCHITECT's run showed tiny text and a see-through area. `getBaseFontSize` and `getLineWidth` read raw keys, and the tree keys are `Format::toType` (`jam_Css.cpp:413`), so both missed. They now wrap the key, as `jam_StyleManager.h:150` does. `MarkdownComponent::paint` fills the area under a short document.
+14. **Order.** `ephemerals.clear()` runs in the callback, and bounds come before `setDocument`, so layout runs once at the real width (`jam_MarkdownComponent.h:20`). These are implementation details of Steps 4 and 5.
 
 ## Risks / Open Questions
 

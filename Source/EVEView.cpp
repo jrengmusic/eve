@@ -7,11 +7,6 @@ EVEView::EVEView (jam::AudioModel& newModel,
     : jam::PluginEditor (processorToConnectTo, newModel, newLayout)
     , messageOverlay (newModel.getOrCreateComponentState (jam::Format::toTag (Id::message)), [this] { return theme->getMonoFont(); })
 {
-    auto markdownState { model.getOrCreateComponentState (jam::Format::toTag (Id::markdown)) };
-
-    markdownState.setProperty (Id::mode, static_cast<int> (map::EditorMode::panel), nullptr);
-    markdownState.setProperty (Id::value, false, nullptr);
-
     registerTerminalEvents();
     initialise (layout.getOrCreateSettings());
     addCommands();
@@ -20,9 +15,7 @@ EVEView::EVEView (jam::AudioModel& newModel,
     setScaling();
 
     registry->callbacks.get (jam::Format::toType (Id::message).toString(), static_cast<juce::Component&> (*this));
-
-    if (isListMode())
-        setPanelsVisible (true);
+    getTerminalState().setProperty (Id::markdownFile, juce::String {}, nullptr);
 }
 
 void EVEView::resized()
@@ -39,23 +32,20 @@ void EVEView::resized()
     view->setTransform (juce::AffineTransform::scale (zoom));
     messageOverlay.setBounds (getLocalBounds());
 
-    if (not panels.isEmpty())
-    {
-        const auto& left { getPanel (leftPanel) };
-        const auto& right { getPanel (rightPanel) };
-
-        if (left.isPanelShowing())
-            view->setBounds (view->getBounds().withTrimmedLeft (view->getLocalArea (this, left.getBounds()).getWidth()));
-
-        if (right.isPanelShowing())
-            view->setBounds (view->getBounds().withTrimmedRight (view->getLocalArea (this, right.getBounds()).getWidth()));
-    }
+    for (const auto& ephemeral : ephemerals)
+        ephemeral->setBounds (getLocalBounds());
 }
 
 void EVEView::lookAndFeelChanged()
 {
     jam::PluginEditor::lookAndFeelChanged();
     getTerminalState().setProperty (Id::background, juce::var { static_cast<juce::int64> (findColour (juce::ResizableWindow::backgroundColourId).getARGB()) }, nullptr);
+}
+
+void EVEView::setAppearance()
+{
+    jam::ViewManager::setAppearance (view.get(), ephemeralStyles, model.getAppearance());
+    jam::PluginEditor::setAppearance();
 }
 
 bool EVEView::isInterestedInFileDrag (const juce::StringArray& files)
@@ -85,9 +75,9 @@ void EVEView::focusGained (FocusChangeType)
 
 bool EVEView::keyPressed (const juce::KeyPress& key)
 {
-    auto markdownState { model.getOrCreateComponentState (jam::Format::toTag (Id::markdown)) };
+    auto markdownState { getOrCreateMarkdownState() };
 
-    return commandManager->invokeKey (key, markdownState);
+    return commandManager->invokeKey (key, markdownState) or markdownState.hasProperty (Id::mode);
 }
 
 void EVEView::resizeStart()
@@ -99,7 +89,7 @@ void EVEView::resizeStart()
 void EVEView::resizeEnd()
 {
     stopTimer();
-    setResizing (isListMode());
+    setResizing (false);
 
     auto terminal { getTerminalState() };
 
@@ -127,11 +117,6 @@ bool EVEView::isResizing() const
     return isAnyResizing;
 }
 
-bool EVEView::isListMode() const
-{
-    return static_cast<int> (getTerminalState().getProperty (Id::mode)) == map::EditorMode::list;
-}
-
 void EVEView::timerCallback() { resizeEnd(); }
 
 void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
@@ -152,13 +137,6 @@ void EVEView::registerTerminalEvents()
     terminalEvents.add<const juce::ValueTree&> (Id::clipboard, [this] (const juce::ValueTree& terminal)
     {
         getTerminalProcessor().copyToClipboard (static_cast<juce::int64> (terminal.getProperty (Id::clipboard)));
-    });
-
-    terminalEvents.add<const juce::ValueTree&> (Id::url, [this] (const juce::ValueTree&) { setPanelFile(); });
-
-    terminalEvents.add<const juce::ValueTree&> (Id::numYanks, [this] (const juce::ValueTree&)
-    {
-        applyToTextEditors ([] (jam::TextEditor& editor) { editor.setMode (map::EditorMode::terminal); });
     });
 
     terminalEvents.add<const juce::ValueTree&> (Id::shellExited, [this] (const juce::ValueTree& terminal)
@@ -194,12 +172,25 @@ void EVEView::registerTerminalEvents()
             giveAwayKeyboardFocus();
     });
 
-    terminalEvents.add<const juce::ValueTree&> (Id::mode, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add<const juce::ValueTree&> (Id::markdownFile, [this] (const juce::ValueTree& terminal)
     {
-        const auto isList { static_cast<int> (terminal.getProperty (Id::mode)) == map::EditorMode::list };
+        const auto path { terminal.getProperty (Id::markdownFile).toString() };
+        const auto hadFocus { hasKeyboardFocus (true) };
 
-        if (isList != (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing()))
-            setPanelsVisible (isList);
+        ephemerals.clear();
+        ephemeralStyles.clear();
+
+        if (path.isNotEmpty())
+        {
+            addMarkdown (juce::File { path }, hadFocus);
+        }
+        else
+        {
+            getOrCreateMarkdownState().removeProperty (Id::mode, nullptr);
+
+            if (hadFocus)
+                grabKeyboardFocus();
+        }
     });
 
 #if JAM_USING_PROFILER
@@ -284,7 +275,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
         r.registerComponent<jam::Selector> (Id::selector);
         r.registerComponent<jam::TextEditor> (Id::textEditor);
         r.registerComponent<jam::PreviewComponent> (Id::previewComponent);
-        r.registerComponent<jam::MarkdownComponent> (Id::markdown);
+        r.registerComponent<jam::TextEditor> (Id::markdown);
 
         r.registerConfig<jam::Selector> (Id::selector,
                                          jam::Format::toTag (Id::appearance),
@@ -299,13 +290,6 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
                                          {
                                              selector->addItemList (map::UIScaleMap::getInstance()->get());
                                          });
-
-        r.registerConfig<jam::MarkdownComponent> (Id::markdown,
-                                                  [] (jam::MarkdownComponent* markdown)
-                                                  {
-                                                      markdown->setVisible (false);
-                                                      markdown->setWantsKeyboardFocus (true);
-                                                  });
     };
 
     registration.events = [] (jam::Registry& r)
@@ -360,13 +344,15 @@ void EVEView::registerCallbacks()
     registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::markdown),
                                                 [] (juce::Component& c)
                                                 {
-                                                    static_cast<EVEView&> (c).openMarkdown();
+                                                    auto& editor { static_cast<EVEView&> (c) };
+
+                                                    editor.getTerminalState().setProperty (Id::markdownFile, editor.getUrlFile().getFullPathName(), nullptr);
                                                 });
 
     registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::dismiss),
                                                 [] (juce::Component& c)
                                                 {
-                                                    static_cast<EVEView&> (c).setMarkdownVisible (false);
+                                                    static_cast<EVEView&> (c).getTerminalState().setProperty (Id::markdownFile, juce::String {}, nullptr);
                                                 });
 
     registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::zoomIn),
@@ -391,24 +377,6 @@ void EVEView::registerCallbacks()
                                                     static_cast<EVEView&> (c).setZoom (1.0f);
                                                 });
 
-    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::markdown),
-                                                [] (juce::Component& c)
-                                                {
-                                                    auto& editor { static_cast<EVEView&> (c) };
-                                                    const auto isVisible { static_cast<bool> (editor.model.getOrCreateComponentProperty (jam::Format::toTag (Id::markdown), Id::value).getValue()) };
-
-                                                    editor.applyToMarkdown ([isVisible] (jam::MarkdownComponent& markdown)
-                                                    {
-                                                        markdown.setVisible (isVisible);
-
-                                                        if (isVisible)
-                                                            markdown.grabKeyboardFocus();
-                                                    });
-
-                                                    if (not isVisible)
-                                                        editor.grabKeyboardFocus();
-                                                });
-
     registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::message),
                                                 [] (juce::Component& c)
                                                 {
@@ -425,7 +393,7 @@ void EVEView::registerCallbacks()
                                                     auto& editor { static_cast<EVEView&> (c) };
 
                                                     jam::MessageBox::historyCleared (&editor);
-                                                    editor.clear();
+                                                    editor.clearHistory();
                                                 });
 }
 
@@ -532,9 +500,19 @@ juce::ValueTree EVEView::getTerminalState() const
     return model.state.getChildWithName (jam::Format::toType (Id::terminal));
 }
 
+juce::ValueTree EVEView::getOrCreateMarkdownState() const
+{
+    return model.getOrCreateComponentState (jam::Format::toTag (Id::markdown));
+}
+
 void EVEView::clear()
 {
     getTerminalProcessor().clear();
+}
+
+void EVEView::clearHistory()
+{
+    getTerminalProcessor().clearHistory();
 }
 
 juce::String EVEView::getOpenCommand (const juce::File& file) const
@@ -587,58 +565,6 @@ void EVEView::openFile (std::string_view path, const juce::ValueTree& terminal)
     }
 }
 
-void EVEView::openMarkdown()
-{
-    const auto file { getUrlFile() };
-    const juce::MemoryMappedFile source { file, juce::MemoryMappedFile::readOnly };
-
-    if (source.getData() != nullptr)
-    {
-        applyToMarkdown ([&source, &file] (jam::MarkdownComponent& markdown)
-        {
-            markdown.setDocument (jam::MarkdownDocument::parse (std::string_view { static_cast<const char*> (source.getData()), source.getSize() }, file.getFullPathName()));
-        });
-
-        setMarkdownVisible (true);
-    }
-}
-
-void EVEView::setMarkdownVisible (bool isVisible)
-{
-    model.getOrCreateComponentProperty (jam::Format::toTag (Id::markdown), Id::value).setValue (isVisible);
-}
-
-void EVEView::selectionChanged()
-{
-    const auto& tree { static_cast<const juce::FileTreeComponent&> (*getPanel (leftPanel).getContent()) };
-
-    if (tree.getNumSelectedFiles() > 0)
-        getTerminalState().setProperty (Id::url, juce::URL { tree.getSelectedFile() }.toString (false), nullptr);
-}
-
-void EVEView::fileClicked (const juce::File&, const juce::MouseEvent&) {}
-
-void EVEView::fileDoubleClicked (const juce::File&) { openFile(); }
-
-void EVEView::browserRootChanged (const juce::File&) {}
-
-juce::SidePanel& EVEView::getPanel (int index) const
-{
-    return static_cast<juce::SidePanel&> (*panels.at (index));
-}
-
-juce::File EVEView::getTreeRoot() const
-{
-    const auto display { styleManager->getConfig (jam::StyleManager::getDisplaySheet()) };
-    const auto depth { static_cast<int> (display.getChildWithName (jam::Format::toType (Id::treeDepth)).getProperty (Id::value)) };
-    juce::File root { getTerminalState().getProperty (Id::cwd).toString() };
-
-    for (int level { 0 }; level < depth; ++level)
-        root = root.getParentDirectory();
-
-    return root;
-}
-
 juce::File EVEView::getUrlFile() const
 {
     const auto url { getTerminalState().getProperty (Id::url).toString() };
@@ -655,74 +581,39 @@ juce::File EVEView::getUrlFile() const
     return file;
 }
 
-void EVEView::addPanels()
+void EVEView::addMarkdown (const juce::File& file, bool shouldGrabFocus)
 {
-    const auto display { styleManager->getConfig (jam::StyleManager::getDisplaySheet()) };
-    const auto getPanelWidth { [this, &display] (const juce::Identifier& row)
+    static constexpr int firstFocusOrder { 1 };
+
+    const juce::MemoryMappedFile source { file, juce::MemoryMappedFile::readOnly };
+
+    if (source.getData() != nullptr)
     {
-        return juce::roundToInt (static_cast<float> (getWidth()) * static_cast<float> (display.getChildWithName (jam::Format::toType (row)).getProperty (Id::value)));
-    } };
-    auto tree { std::make_unique<juce::FileTreeComponent> (directoryList) };
+        const auto markdownType { Id::markdown.toString() };
+        auto* markdown { static_cast<jam::TextEditor*> (jam::ViewManager::addComponent (ephemerals,
+                                                                                               ephemeralStyles,
+                                                                                               jam::Registry::getInstance(),
+                                                                                               markdownType,
+                                                                                               juce::String {},
+                                                                                               markdownType,
+                                                                                               juce::String {},
+                                                                                               juce::String {},
+                                                                                               model.getAppearance(),
+                                                                                               markdownType)) };
 
-    tree->addListener (this);
-    panels.add (std::make_unique<jam::FilePreview> (model.getOrCreateComponentState (jam::Format::toTag (Id::preview))));
-
-    applyToMarkdown ([this] (jam::MarkdownComponent& markdown)
-    {
-        panels.at (filePreview)->setLookAndFeel (&markdown.getLookAndFeel());
-    });
-
-    panels.add (std::make_unique<juce::SidePanel> (juce::String {}, getPanelWidth (Id::treeWidth), true, tree.release(), true));
-    panels.add (std::make_unique<juce::SidePanel> (juce::String {}, getPanelWidth (Id::previewWidth), false, panels.at (filePreview).get(), false));
-
-    for (const auto index : { leftPanel, rightPanel })
-    {
-        auto& panel { getPanel (index) };
-
-        panel.setTitleBarHeight (0);
-        juce::Desktop::getInstance().removeGlobalMouseListener (&panel);
-        panel.onPanelShowHide = [this] (bool) { resized(); };
-        addChildComponent (panel);
+        addAndMakeVisible (markdown);
+        markdown->setBounds (getLocalBounds());
+        markdown->setDocument (jam::MarkdownDocument::parse (std::string_view { static_cast<const char*> (source.getData()), source.getSize() }, file.getFullPathName()));
+        markdown->setWantsKeyboardFocus (true);
+        markdown->setExplicitFocusOrder (firstFocusOrder);
+        markdown->toFront (shouldGrabFocus);
+        messageOverlay.toFront (false);
+        getOrCreateMarkdownState().setProperty (Id::mode, static_cast<int> (map::EditorMode::panel), nullptr);
     }
-
-    directoryThread.startThread();
-}
-
-void EVEView::setPanelsVisible (bool isVisible)
-{
-    if (isVisible and panels.isEmpty())
-        addPanels();
-
-    if (not panels.isEmpty())
+    else
     {
-        if (isVisible)
-        {
-            setResizing (true);
-            directoryList.setDirectory (getTreeRoot(), true, true);
-        }
-
-        getPanel (leftPanel).showOrHide (isVisible);
-        getPanel (rightPanel).showOrHide (isVisible);
-        resized();
-
-        if (not isVisible)
-            setResizing (isTimerRunning());
-
-        setPanelFile();
-    }
-}
-
-void EVEView::setPanelFile()
-{
-    if (not panels.isEmpty() and getPanel (leftPanel).isPanelShowing())
-    {
-        const auto file { getUrlFile() };
-
-        if (file.exists())
-        {
-            static_cast<juce::FileTreeComponent&> (*getPanel (leftPanel).getContent()).setSelectedFile (file);
-            static_cast<jam::FilePreview&> (*panels.at (filePreview)).setFile (file);
-        }
+        getTerminalState().setProperty (Id::markdownFile, juce::String {}, nullptr);
+        messageOverlay.showMessage (Id::failNoOpenFile + file.getFileName().quoted (Chars::singleQuote));
     }
 }
 
@@ -730,10 +621,9 @@ void EVEView::invokeCommand (const juce::Identifier& name)
 {
     if (const auto* command { commandManager->getCommandForName (name) })
     {
-        if (auto traverser { createKeyboardFocusTraverser() })
+        applyToTextEditors ([command] (jam::TextEditor& editor)
         {
-            if (auto* defaultComponent { dynamic_cast<juce::ApplicationCommandTarget*> (traverser->getDefaultComponent (this)) })
-                defaultComponent->invoke (juce::ApplicationCommandTarget::InvocationInfo { command->commandID }, false);
-        }
+            editor.invoke (juce::ApplicationCommandTarget::InvocationInfo { command->commandID }, false);
+        });
     }
 }

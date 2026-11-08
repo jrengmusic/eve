@@ -413,36 +413,26 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | harfbuzz  | `${CAST_JUCE_PATH}/modules/juce_graphics/fonts/harfbuzz` | JUCE-bundled HarfBuzz headers    |
 +-----------+----------------------------------------------------------+----------------------------------+
 
-## binary
-
-+--------------------+-----------------------+---------------------------------------------+
-| name               | value                 | description                                 |
-+====================+=======================+=============================================+
-| terminalStyleSheet | Source/textEditor.css | Terminal stylesheet, embedded as BinaryData |
-+--------------------+-----------------------+---------------------------------------------+
-
 ## layout glob
 
-+----------+----------------------------------------------------+---------------------------------------------------+
-| name     | value                                              | description                                       |
-+==========+====================================================+===================================================+
-| markdown | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md`   | Component and parameter markdown tables           |
-+----------+----------------------------------------------------+---------------------------------------------------+
-| css      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css`  | View stylesheets                                  |
-+----------+----------------------------------------------------+---------------------------------------------------+
-| xml      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml`  | Default settings XML                              |
-+----------+----------------------------------------------------+---------------------------------------------------+
-| html     | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html` | Settings HTML layout                              |
-+----------+----------------------------------------------------+---------------------------------------------------+
-| svg      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg`  | View layout graphics SVG                          |
-+----------+----------------------------------------------------+---------------------------------------------------+
-| buttons  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/buttons/*.svg` | Product SVG button states — normal, over, down    |
-+----------+----------------------------------------------------+---------------------------------------------------+
-| jamSvg   | `${CAST_USER_MODULE_PATH}/resources/svg/*.svg`     | Shared JAM SVG icons                              |
-+----------+----------------------------------------------------+---------------------------------------------------+
-| fonts    | `${CAST_USER_MODULE_PATH}/resources/fonts/*.ttf`   | Shared JAM Display and DisplayMono TrueType fonts |
-+----------+----------------------------------------------------+---------------------------------------------------+
-| symbols  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf`   | Bundled Nerd Font and Noto symbol faces           |
-+----------+----------------------------------------------------+---------------------------------------------------+
-| shell    | `${CMAKE_CURRENT_SOURCE_DIR}/Source/shell/*`       | Shell integration hook scripts                    |
-+----------+----------------------------------------------------+---------------------------------------------------+
++----------+----------------------------------------------------+--------------------------------------------------------+
+| name     | value                                              | description                                            |
++==========+====================================================+========================================================+
+| markdown | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.md`   | Component and parameter markdown tables                |
++----------+----------------------------------------------------+--------------------------------------------------------+
+| css      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.css`  | View stylesheets                                       |
++----------+----------------------------------------------------+--------------------------------------------------------+
+| xml      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.xml`  | Default settings XML                                   |
++----------+----------------------------------------------------+--------------------------------------------------------+
+| html     | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.html` | Settings HTML layout                                   |
++----------+----------------------------------------------------+--------------------------------------------------------+
+| svg      | `${CMAKE_CURRENT_SOURCE_DIR}/Source/layout/*.svg`  | View layout graphics SVG                               |
++----------+----------------------------------------------------+--------------------------------------------------------+
+| buttons  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/buttons/*.svg` | Product SVG button states — normal, over, down         |
++----------+----------------------------------------------------+--------------------------------------------------------+
+| jamSvg   | `${CAST_USER_MODULE_PATH}/resources/svg/*.svg`     | Shared JAM SVG icons                                   |
++----------+----------------------------------------------------+--------------------------------------------------------+
+| symbols  | `${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf`   | Bundled Display, DisplayMono, Nerd Font and Noto faces |
++----------+----------------------------------------------------+--------------------------------------------------------+
+| shell    | `${CMAKE_CURRENT_SOURCE_DIR}/Source/shell/*`       | Shell integration hook scripts                         |
++----------+----------------------------------------------------+--------------------------------------------------------+

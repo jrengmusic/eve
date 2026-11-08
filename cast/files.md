@@ -20,7 +20,7 @@ resolved against the binary-data / asset search path at load time.
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
 | type    | name                          | format  | value                                  | format    | description                                         |
 +=========+===============================+=========+========================================+===========+=====================================================+
-| @string | view layout                   | toCamel | default-eve.md                         | toLiteral | Virgin settings, seeded to eve.md.                  |
+| @string | view layout                   | toCamel | default-eve.md                         | toLiteral | Virgin settings, seeded to eve/display.md.          |
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
 | @string | settings layout               | toCamel | SettingsLayout.html                    | toLiteral | Settings dialog layout.                             |
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
@@ -30,7 +30,7 @@ resolved against the binary-data / asset search path at load time.
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
 | @string | markdown settings directory   | toCamel | JUCE_STRINGIFY (CAST_CONFIG_DIRECTORY) |           | User settings directory, relative to home.          |
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
-| @string | markdown settings file name   | toCamel | eve.md                                 | toLiteral | User settings file name on disk.                    |
+| @string | markdown settings file name   | toCamel | eve/display.md                         | toLiteral | User settings file name on disk.                    |
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
 | @string | standalone settings file name | toCamel | EVE.settings                           | toLiteral | Standalone plugin state file name on disk.          |
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+

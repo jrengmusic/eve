@@ -69,13 +69,15 @@ cast cast/spell.md --debug
 
 `project-info.md` is the source of the build metadata; `CMakeLists.txt` is generated from it.
 
-On first launch, EVE writes its config to `~/.config/end/eve.md`: display settings, key bindings, settings, window chrome, and its theme — a `## colours` palette of named colours, one `light | dark` table per component, a `## terminal` table of the 16 ANSI colours plus index 16, which is blank for a transparent background, and the fonts. Markdown metrics are rows of `## markdown`. Every key is plain lower-case words. The binary carries the defaults; a valid copy on disk overlays them row by row. A file with an error keeps the defaults and shows the error in EVE's overlay.
+On first launch, EVE writes its app config to `~/.config/end/eve/display.md`: display settings, key bindings, settings, and window chrome. Inside END, EVE reads the theme of END from `~/.config/end/themes/<name>/theme.md` and writes nothing there. In any other host, EVE writes its own theme to `~/.config/end/eve/theme.md`. The theme is the tree of the one `Source/layout/style.css`: the `:root` palette of named colours, the `.appearance` colour ids and font ids (with the 16 ANSI colours plus index 16, which is blank for a transparent background), the `.metrics` rows, the fonts from the `@font-face` rules, and the `.markdown` overrides. A `.DARK` block gives the dark values of its base block. Every key is plain lower-case words. The binary carries the defaults; a valid copy on disk overlays them row by row. A file with an error keeps the defaults and shows the error in EVE's overlay.
 
 | Feature | Status |
 |---------|--------|
 | Preview column (images, GIF animation) | In progress |
 | Terminal images taken over from iTerm2, Sixel and Kitty, shown by Preview | In progress |
-| File Tree, `ls` as a Finder/Explorer | Planned |
+| Column lists from `ls`, in OPEN mode; `ctrl+shift+j` and `ctrl+shift+k` move the column list | Planned |
+| Native Finder widget: FUZZY, BROWSE, action list, program lists | Planned |
+| Markdown files open as a full view, rendered as Whelmed renders them | In progress |
 
 ---
 

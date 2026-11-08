@@ -11,9 +11,9 @@ navigation, built as a JUCE application on the MVP audio-plugin architecture.
 **Target End-User:** ARCHITECT (daily driver), then general release.
 
 **Core Workflow:** Launch EVE → shell session in the center terminal Component →
-navigate the filesystem via docked sidebars (vim keys) exactly like Finder/Explorer
-→ preview files → open with configured tools → resize/rearrange freely, content
-always intact, full history always reachable.
+navigate the filesystem with column lists, OPEN and the native Finder widget
+(vim keys) → preview files → open with configured tools → resize/rearrange freely,
+content always intact, full history always reachable.
 
 **Mental model (binding):** EVE is a JUCE application, NOT a terminal. Every widget
 is a `juce::Component`; all state belongs to `jam::Model`-family state (scalar/mode)
@@ -66,15 +66,15 @@ among ours.
      SHOULD NOT MATTER. what binary we're using as host-client. VirtualDevice
      as full throttle clock is EVE SPEC contract"*.
 3. **Non-destruction contract** — widget content is never destroyed by SIGWINCH or
-   resize. Only an explicit `clear` (ED 2 / ED 3 semantics, below) wipes the
-   *screen* — and history scrollback is still retained (tmux-like).
+   resize. The `clear` command (`ctrl+l`) and ED 2 blank the live screen and keep
+   history. Only ED 3, which the shell's `clear` program sends, erases history (below).
 4. **Terminal conformance at processor level** — VT100 spec correctness as the
    foundation, plus the xterm/modern extensions jam_terminal already encodes
    (SGR truecolor, bracketed paste, progressive keyboard, mouse SGR, and the reports in "Terminal reports"),
    and the image envelopes EVE takes over: OSC 1337 (iTerm2 `File=` and EVE's own
    envelope), DCS (Sixel) and APC (Kitty graphics).
-5. **Finder truth is the filesystem** — sidebars and file list read the FS
-   directly, keyed off OSC 7-reported cwd. The filesystem decides what is a file.
+5. **Finder truth is the filesystem** — column lists and the Finder widget read the
+   FS directly, keyed off OSC 7-reported cwd. The filesystem decides what is a file.
    Terminal output text is only the candidate for that test. No rule names a
    program. ARCHITECT: *"when ls "active", OSC 133 D after last called ls, mark
    "openable" file with underscore, hyperlink"*; *"must be SSOT, UNIVERSAL, GENERAL,
@@ -251,11 +251,11 @@ always UNIDIRECTIONAL, always SSOT, no copy, no shadow state"*.
 | Component | Position | Job |
 |---|---|---|
 | **Terminal** | center core | Renders the content SSOT + active grid; input → PTY |
-| **Tree** | left dock, show/hide | cwd-relative directory tree; vim navigation; jump anywhere in hierarchy |
-| **Preview** | right dock, show/hide | v1: images (SKiT decoder formats) + read-only text/code |
+| **Finder** | ephemeral, at the caret | Native widget: tree, file list and preview columns; vim navigation; jump anywhere in hierarchy |
+| **Preview** | a Finder column, or in the terminal cells | v1: images (SKiT decoder formats) + read-only text/code |
 
-All Components are peers in the app layout. Docks toggle without any effect on the
-terminal Component's content or the decoder on the clock (a dock toggle is a message-thread
+All Components are peers in the app layout. An ephemeral component comes and goes without
+any effect on the terminal Component's content or the decoder on the clock (a message-thread
 layout event only).
 
 ## Features
@@ -281,9 +281,16 @@ layout event only).
    (`TIOCSWINSZ`); the widget re-derives the wrapped layout from logical lines.
    Acceptance: fill session with known content → resize narrow → resize back →
    SSOT and re-derived layout **byte-identical** to the original.
-2. **`clear` semantics:** ED 2 clears the visible screen — cleared lines retire to
-   history first (tmux behavior). ED 3 (xterm "clear scrollback") clears the
-   *view's* scrollback access but the SSOT retains the session record for the
+2. **`clear` semantics:** the `clear` command (default key `ctrl+l`) takes the path of
+   a resize. ARCHITECT: *"same path, same commandId, one SSOT with clear, WITHOUT
+   erasing any history"*; *"clear live buffer redraw active prompt with whatever
+   winsize parameter?"*. The chain restarts, ED 2 blanks the live screen, the cursor
+   goes home, and `SIGWINCH` makes the shell redraw its prompt. On the alternate
+   screen the command sends 0x0C to the program. ARCHITECT: *"with alternate, it
+   should be just CLI responsibility"*. ED 2 from a program blanks the live screen.
+   ED 3 (xterm "clear scrollback"), which the shell's `clear` program sends
+   (`ESC[3J ESC[H ESC[2J`), clears the *view's* scrollback access. ARCHITECT:
+   *"clear is erasing history yes"*. The SSOT retains the session record for the
    session lifetime. Alternate screen: app-owned, redrawn by the app per VT contract
    (`PLAN-Grand-Scheme.md` §1 boundary).
 3. **Scrollback:** block-resident in memory, bounded on disk by
@@ -302,8 +309,10 @@ layout event only).
      the same"*.
    - The swap keeps the last `HISTORY_CAPACITY` lines. It deletes the index
      and segment files of older lines (`jam_TerminalSwap.cpp:163-182`).
-   - The TextEditor is the receiver. It builds only the blocks the view shows
-     (`TerminalSwap::linesPerBlock` lines each) and keeps their line counts. A
+   - The TextEditor is the receiver. It builds every history block of the swap
+     (`TerminalSwap::linesPerBlock` lines each), from the tail block to the head
+     block, and it builds a resident block again when its line count, its open end
+     or its file links changed (`TextEditor::addBlocks`). A
      resize or a font change lays out the resident blocks again. ARCHITECT:
      *"can we make it always O(1)?"*
    - Full throttle. ARCHITECT: *"the events chain should not be manually
@@ -321,15 +330,18 @@ layout event only).
 
 ### Feature 3: Scrollback Navigation
 
-- Scroll wheel / trackpad: scrolls the view through history; new output moves the
-  view to the tail only in TERMINAL mode. In NORMAL, `G` returns to live tail.
+- Scroll wheel / trackpad: scrolls the view through history. In TERMINAL mode, new
+  output moves the view to the tail only when the view already sits at the tail.
+  ARCHITECT: *"user scroll up always win"*. A typed key returns the view to the tail.
+  In NORMAL, `G` returns to live tail.
 - Keyboard (terminal Component focused): the TextEditor starts in TERMINAL mode,
   where every key goes to the shell. `` ` `` then `]` enters NORMAL, a read-only,
   copy-only view of the history; `Esc` or `i a I A o O` return to TERMINAL. In NORMAL:
   `k`/`j` line up/down, `Ctrl+u`/`Ctrl+d` half-page, `gg` top of history, `G` live
-  tail, `v`/drag select, `y` yank. TextEditor keeps the vim contract: a yank ends in
-  NORMAL, and it sends `Id::yank` on the `terminal` tree. `EVEView` handles that event
-  and returns the editor to TERMINAL. ARCHITECT: *"` is bind key to enter TERMINAL
+  tail, `v`/drag select, `y` yank. TextEditor keeps the vim contract: a yank ends in its
+  default mode. The `defaultMode` row of the Model tells EVE's editor TERMINAL. ARCHITECT:
+  *"`default` mode is NORMAL, TERMINAL, READER. so returning to `default` with ESC from
+  modal state always return to NORMAL, TERMINAL, READER"*. ARCHITECT: *"` is bind key to enter TERMINAL
   modal mode. ` + ], TERMINAL modal mode is TextEditor NORMAL"*; *"return to terminal,
   history should not be editable. read only, copy only"*; *"enter NORMAL mode, VISUAL
   mode - yank should immediately back to TERMINAL. not staying in the mode"*;
@@ -355,50 +367,111 @@ layout event only).
 - Link click: the TextEditor writes the target to the `url` row and invokes the
   `openFile` command by name. The TextEditor knows no table. ARCHITECT: *"the open file
   must be a registered command, so clicking, jump open, or pressing enter on highlighted
-  at LIST mode will call the exact SSOT method of `open file`"*.
+  at LIST mode will call the exact SSOT method of `open file`"*. [AMENDED 2026-11-07]
+  ARCHITECT: *"the design is wrong. we dont need LIST mode at all. it's always only OPEN
+  mode."* A click and an OPEN label take this path (Feature 4). `Enter` on
+  a file in the Finder widget takes the same path. ARCHITECT: *"`Enter` on a known file
+  type will open the file with Open With (same contract) with `ls`"*.
 
 ### Feature 4: Finder Layer
 
+[AMENDED 2026-11-07] The canon of this feature is `PLAN-finder-0-tracker.md`, rulings 1
+to 49. ARCHITECT: *"current understanding is the CANON moving forward"*.
+
 **cwd tracking:** shell integration emits OSC 7; EVE updates `cwd` in the Model.
 
-**File list:** the last output block is the file list. ARCHITECT: *"when user run `ls`
-on active prompt, the last block of the list will serves as the file list"*; *"when ls
-"active", OSC 133 D after last called ls, mark "openable" file with underscore,
-hyperlink"*.
-1. After OSC 133 D, each entry of the last output block that names a real file gets a
-   link and an underline. The filesystem decides, against the `cwd` row. No rule names
-   a program.
+**Column lists:** the TextEditor tracks the column lists of the history. ARCHITECT:
+*"Left/Right Panel is NOT for ls/eza whatever CLI run as file list"*; *"ls can be
+clicked, but this should not be exclusive to list above active prompt."*; *"we should
+track as TextEditor state, whether there are "column list" exists on history"*; *"by
+default it always starts to show hyperlinks on for latest column list, but by entering
+let say LIST mode we could then traverse to shift the the "selected" active column list
+that we can operate OPEN mode, or clicking. the indicator is the hyperlinks
+(underline)"*.
+1. A column list is *"Any block with real files"*. The filesystem decides, against the
+   `cwd` row of that block. No rule names a program.
 2. A grid entry is one candidate. Any other line is one candidate, then each of its
    words. A range that holds an OSC 8 link stays as it is.
-3. The next command removes the links. A click opens the entry through `openFile`.
-4. A click on a directory takes the `directory` row of `## open with`: `cd`.
+3. [AMENDED 2026-11-07] Links cover the whole history. ARCHITECT: *"links always active
+   for whole history content including url, i dont think current url links works"*.
+   Each entry of a finished output block that names a real file gets a link and an
+   underline. A word with a web scheme gets a link. The `cwd` row of each output block
+   decides the file.
+4. A click opens the entry through `openFile`.
+5. A click on a directory takes the `directory` row of `## open with`: `cd`.
 
-**OPEN mode:** ARCHITECT: *"user can enter OPEN (jump) mode, this is similar to vim jump
-flash (?) so each file gets one character as keyboard shortcut to jump and open
-immediately"*; *"this is exclusive for "terminal modal", LIST mode and OPEN mode"*.
-1. `` ` `` then `o` shows one label, `a` to `z`, on each visible link.
+**OPEN mode:** [AMENDED 2026-11-07] OPEN is the only link mode. ARCHITECT: *"the design
+is wrong. we dont need LIST mode at all. it's always only OPEN mode."*; *"user can enter
+OPEN (jump) mode, this is similar to vim jump flash (?) so each file gets one character
+as keyboard shortcut to jump and open immediately"*.
+1. `` ` `` then `o` enters OPEN. ARCHITECT: *"show each openable file from its filename
+   unique chars a-z, A-Z, so 52 possibility `per page`, tab to cycle the page (look how
+   endless did this)"*. ARCHITECT: *"`active` column list to OPEN and cycle ALWAYS 1, the
+   selected only. tab cycle only on `active`"*. Each link of the active column list shows
+   one label: a char of its file name that no earlier link of the page holds. The first
+   char comes first. A link with no free char starts the next page.
 2. A label key opens its link through `openFile`, and the mode returns to TERMINAL.
-3. `space` moves to the next page of labels. A key that is not a label runs the rows of
-   the mode, so `escape` returns to TERMINAL. The mode consumes every key.
+3. `tab` moves to the next page of labels of the active column list. A key that is not a
+   label runs the rows of the mode, so `escape` returns to TERMINAL. The mode consumes
+   every key. Links do not depend on OPEN. ARCHITECT: *"LINK(s) should be enabled always
+   for the entire history"*.
+4. The active column list is the first list above the active prompt. ARCHITECT: *"active
+   selected column list is not what exactly above active prompt, but always first FOUND
+   above active prompt in history"*; *"OPEN mode `active` block always starts from latest
+   (bottom), found column list above active prompt, so marking `active` column block
+   always n-1 of num column list block found in history. -1 means no column list"*;
+   *"active column list, updated and back to n-1, when there's new column list being
+   added from terminal. so it always from latest to oldest, bottom to top."*
+5. [AMENDED] ARCHITECT: *"ctrl+shift+j/k for navigating blocks are inverted, j should be
+   down, k up"*. `ctrl+shift+j` (`listDown`) moves to the newer list below, and
+   `ctrl+shift+k` (`listUp`) moves to the older list above. The view scrolls to the active column list. ARCHITECT: *"switching enable
+   column list affects scroll, so it automatically scroll to "active" selected column
+   list"*.
+6. The selection shows only in OPEN. ARCHITECT: *"active selected column only for OPEN
+   mode"*.
 
-**LIST mode:** ARCHITECT: *"LIST mode UI/UX is identical with using Finder/Explorer"*;
-*"Both LEFT and RIGHT side panel is EVE native features, juce::Component pure gui"*;
-*"although we are not touching any terminal even not TextEditor at all"*; *"only show
-when user enter LIST mode, hence TextEditor content automatically reflow"*; *"EVEView
-could hold Owner<Component>, 3 members. 2 SidePanel"*; *"Side panel preview immediately
-dismissed when user exit modal mode"*; *"Preview is only the content"*.
-1. `` ` `` then `l` shows a left `juce::SidePanel` with a `juce::FileTreeComponent`, and
-   a right `juce::SidePanel` with `jam::FilePreview`.
-2. The panels do not touch the terminal. EVEView holds `isResizing` on while LIST runs,
-   so the TextEditor reflows and writes no winsize.
-3. `j` and `k` move the highlight between links. The `url` row is the one selection:
-   the tree and the preview follow it, and a click in the tree writes it.
-4. `return` opens the highlighted entry through `openFile`.
-5. An exit hides the panels, and the text unwraps.
-6. The tree root is `cwd`, up by the `tree depth` row of `## display`.
-7. A `juce::TimeSliceThread` of EVEView reads the directories, because
-   `juce::DirectoryContentsList` needs one. *"EVE starts no thread"* binds the chain.
-   ARCHITECT: *"Message thread free to spawn parallel job"*.
+**Finder widget:** ARCHITECT: *"a juce::Component, rendered with monospace font (the
+exact same font with EVE's terminal)"*; *"yes at jam. it has its own ValueTree,
+commandId, colourId, etc. isomorphic to TextEditor. style use is StyleTerminal, one
+Style for Finder and all its childern"*.
+1. `jam::FinderComponent` lays out in cells. *"pressing keyboard shortcut (default is
+   ctrl+F) will open a widget layout starts at active prompt"*. The first row is the
+   prompt row. ARCHITECT selected *"On the prompt row"*.
+2. *"ctrl+f always open Finder in `file` mode at cwd. for action list it could be
+   triggered by different shortcut"*.
+3. *"`File` Finder consists of 3 type of column."*: *"File list column from cwd (fzf
+   parity)"*; *"Preview column (PreviewComponent: ImagePreview, Markdown, FilePreview,
+   etc)"*; *"Tree column, with TreeViewItem"*.
+4. *"2 MODES: FUZZY and BROWSE. ALWAYS 2 COLUMN for each mode"*. FUZZY: *"LEFT column
+   file list"*; *"RIGHT column preview"*; *"top is text input for filter"*. BROWSE:
+   *"LEFT column tree hiearchy"*; *"RIGHT column file list (cwd)"*.
+5. *"switching mode with keyboard shortcut (prefix + tab), while Finder active"*.
+6. *"we can jump to browse to path in either column with `Tab` for switching column,
+   `Enter` to switch cwd if folder selected, and the column updated. if we exit
+   (dismiss) the Finder widget by pressing `Esc`, terminal cwd switch to latest cwd
+   selected on Finder, they always synced"*. With typed text at the prompt, `Esc`
+   clears the text, then runs `cd`. While a program runs, `Esc` closes the widget and
+   sends nothing.
+7. *"Finder is customizable, from eve table. user could set minimum row as the column
+   height"*. *"column height could be set as `AUTO` as num rows. AUTO is content aware.
+   if cwd have 5 items, only show 5 rows (whichever column left/right the most)."*;
+   *"or user can override with number, and the row number always set as that number.
+   more content than set row height, automatically create Viewport to scroll."*. In
+   FUZZY with `AUTO`, the height *"Follows matches"*.
+8. *"when active prompt at the bottom of the TextEditor viewport, it will create
+   temporary row as user config (auto or numrow), and scroll up while the Finder widget
+   opened. dismissing Finder widget will remove that emphemeral rows, then put the
+   active prompt back to bottom, and scroll"*.
+9. Each column is scrollable and content aware. ARCHITECT: *"only PreviewComponent with
+   ImagePreviewComponent content scale to fit, otherwise scroll"*.
+10. *"this also means the exact same Component could be the Finder for `Action` aka
+    registered commandId."*; *"it's list and callback could be File to operate, and
+    communicate with shell integration via EVE's protocol, or could list action to do
+    something in app level, from/to terminal"*.
+11. *"when everything could be wired, configured with md table, it could eliminate lots
+    of vim deps plugin, clis, while we could have access anywhere my caret located to
+    spawn Finder."* The list of a program is a markdown table. The reply carries the
+    columns of the selected row as key=value.
 
 **Open-with (configurable CLI):** the `## open with` table of the config maps an
 extension to a value. A row with no extension in its key matches a file name, such as
@@ -423,13 +496,25 @@ by extension to its config"*; *"Free rows: change jam"*.
    overlay.
 6. A target that is not a local file opens in the browser.
 
-**Preview (right panel):** `jam::FilePreview` holds a `jam::PreviewComponent` and a
-`jam::MarkdownComponent`. ARCHITECT: *"we could just use MarkdownComponent with
-frontmatter metadata"*.
+**Preview family** [AMENDED 2026-11-07]: ARCHITECT: *"what actually current
+PreviewComponent is ImagePreviewComponent"*; *"PreviewComponent content then could be
+contextual: FilePreviewComponent, MarkdownComponent, ImagePreviewComponent, PdfComponent
+etc"*. The name `jam::PreviewComponent` below is the image component until the rename.
+`jam::TextEditor` replaces `MarkdownComponent`. ARCHITECT: *"MarkdownComponent could be
+deleted"*; *"TextEditor now serves as the SSOT of Text rendering widget. setReadOnly
+(true), becomes preview widget."*; *"images, including mermaid now delegated to
+ImagePreviewComponent, TextEditor only holds the layout"*. Each `MarkdownComponent` below
+names the read-only `TextEditor`.
+- ARCHITECT: *"probably the metadata rows could use MarkdownComponent with frontmatter?
+  we dont need to reinvent nor handrolling anything"*; *"no. only metadata. no tags."*
+- Metadata is free data. ARCHITECT: *"frontmatter should be free to add/config, what
+  type of metadata we want to use/show, from as itself a metadata, it's all just data
+  key/value properties, including its icon"*; *"colourId better, the data is free.
+  closed table mean the slots fixed but still configurable for any svg / codepoints just
+  like colour and font"*.
 - Images: the image, with the metadata under it.
 - Text/code: the metadata and a fenced block of the first 1 MiB.
 - Binary: the metadata only.
-- Metadata: size, type, created and modified.
 
 **Preview is one component** [2026-10-30]. ARCHITECT: *"Preview need component,
 not inlined. Because we also want gif to be animated, that's need timer."*;
@@ -445,30 +530,50 @@ dictate the layout, and what command tell them to be visible."*
   each box. A cell write over an image removes it.
 - Markdown: ARCHITECT *"opening md from ls is telling View to load md and render
   Markdown like current whelmed render the harness, it's always read-only
-  anyway"* — `jam::MarkdownComponent` as a full-view sibling of the TextEditor.
+  anyway"* — a read-only `jam::TextEditor` (registered as `Id::markdown`,
+  `EVEView::registerViewComponents`) as a full-view sibling of the terminal TextEditor.
+  `EVEView::addMarkdown` loads the document with `setDocument`.
   ARCHITECT: *"MarkdownComponent basically done, tested, so we only need to wire
   the event driven mechanics"*.
+  [AMENDED 2026-11-07] ARCHITECT: *"MarkdownComponent serves the same contract, if
+  it's being called by open with, reset, addAndMakeVisible, toFront of TextEditor, so
+  terminal actually still active in its backround, until user close the component with
+  cmd+w (same shortcut with closing panel) BUT this must always WIN when there's
+  Markdown file opened"*; *"cmd+w should be MarkdownComponent (full panel) `exit`."*;
+  *"a gui Style for actual Markdown preview, this is how whelmed rendered"*.
   1. The `.md` row of `## open with` names the `markdown` command, so `openFile`
      runs that command, also while a program runs in the terminal.
-  2. The command reads the `url` row, parses the file, and writes the panel
-     visibility to its component state. The view reacts to that state.
-  3. The panel takes the keyboard focus. Its component state holds the `panel`
-     mode, so the `dismiss` row (`escape`, `q`) matches only there.
-  4. `dismiss` hides the panel, and the TextEditor takes the focus. The terminal
-     path does not change.
+  2. The command writes the path to the `markdownFile` row of the terminal tree. An
+     empty row means closed. The view reacts to that row.
+  3. The view creates the component on demand, in front of the TextEditor. The
+     component takes the keyboard focus. The component state holds the `panel` mode
+     only while the component exists, so the `dismiss` row (`cmd+w`) matches only then.
+  4. `dismiss` writes the empty row. The view destroys the component, and the
+     TextEditor takes the focus. The terminal path does not change.
+  5. Under END, END takes `cmd+w` first and reads the row from `pluginState`. ARCHITECT:
+     *"cmd+w should close whelmed first."*; *"EVE could have parameter if whelmed is
+     opened, END always know its chilren state"*. A non-empty row: END writes the empty
+     row. An empty row: END closes the pane. A shell exit closes the pane directly.
 
-### Feature 5: Panels
+### Feature 5: Ephemeral components
 
-- The panels show only in LIST mode (Feature 4). A panel is a layout event only —
-  the reader thread stays untouched, and the terminal reflows per Feature 2 rules
-  (nothing destroyed).
-- The `tree width` and `preview width` rows of `## display` give the panel widths.
+[AMENDED 2026-11-07] The side panels are gone. ARCHITECT: *"left/side panel as previously
+planned as ls side panel idea discarded."* The read-only `TextEditor` takes the place of
+`MarkdownComponent`. ARCHITECT: *"all project using MarkdownComponent migrated. runtime
+behaviour must be identical. we only swap the Component"*.
+
+- ARCHITECT: *"reminder juce::Component hierarchy is not the same with ownership.
+  completly different."*; *"EVEView could have pointer of FinderComponent,
+  PreviewComponent, MarkdownComponent, (future PdfComponent) for example"*; *"those
+  component always ephemeral driven by EVE's Model state. can be created anywhere,
+  anytime"*.
+- An ephemeral component is a layout event only — the reader thread stays untouched,
+  and the terminal keeps its winsize (nothing destroyed).
 - [2026-11-05] ARCHITECT: *"i actually think Preview should be the first to
   implement CORRECTLY, and wire thorugh the whole terminal protocol"*. This
   replaces the 2026-10-31 ruling *"NO PREVIEW COMPONENT"* and the 2026-10-30 Preview
   column in EVEView. One `jam::PreviewComponent` is a child of the TextEditor
-  content, and text paints over it. It paints every visible image in one call. The
-  right panel holds a second `jam::PreviewComponent`, through `jam::FilePreview`.
+  content, and text paints over it. It paints every visible image in one call.
 
 ### Feature 6: Configuration
 
@@ -564,8 +669,8 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
        `resizeStart`. EVEView coalesces it: when its timer runs or the gate is
        open, `EVEView::resized` closes the gate and starts the timer again, before
        the layout. The timer runs `resizeEnd`, which is the final stop. A live
-       resize and an open panel hold the gate with no timer, so `resized` adds
-       nothing. ARCHITECT: *"Both (Recommended)"*.
+       resize holds the gate with no timer, so `resized` adds nothing. ARCHITECT:
+       *"Both (Recommended)"*.
   - **Active prompt anchor.** ARCHITECT: *"clear: draw active prompt at 0"*.
     A prepare puts the cursor at home. The shell redraws its prompt there on
     `SIGWINCH`. For oh-my-posh, the user's zshrc repaints the prompt in
@@ -580,9 +685,10 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   new live file and drops a ready slot of the old one (`:25-37`).
 - **Pull:** on each vblank of its display (`juce::VBlankAttachment`), the
   TextEditor calls the view getter. The getter flushes the terminal Model and
-  gives the swap. The TextEditor builds the history blocks it shows
+  gives the swap. The TextEditor builds every history block of the swap
   (`TerminalSwap::linesPerBlock` lines each) and the live block, then sets the
-  content size, then scrolls to the tail in terminal mode (`TextEditor::addBlocks`).
+  content size, then scrolls to the tail in terminal mode when the view sat at the
+  tail before the update (`TextEditor::addBlocks`).
 - **Layout state** (advances, rows, row heights) lives on each line as value
   data.
 - **Geometry:** the TextEditor keeps one `Document::Index` for each resident
@@ -593,17 +699,25 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   viewport height to the pixel height of the cell rows that fit. The scroll position
   is the view position of the viewport, in pixels. `getRowOffset` gives the distance
   from the top of the first visible row to the view top, and the content paints
-  shifted by it. At the tail the offset is 0. In TERMINAL mode, new output moves the
-  view to the tail. The wheel goes to the mouse encoder first; otherwise the viewport
+  shifted by it. At the tail the offset is 0. In TERMINAL mode, new output keeps a view
+  at the tail there, and it does not move a view that the user scrolled up. The wheel goes to the mouse encoder first; otherwise the viewport
   scrolls it.
 - **Read only:** the history is not editable. ARCHITECT: *"return to terminal,
   history should not be editable. read only, copy only"*.
 
 The editor mode, `mode` (a `map::EditorMode` key: 0 `normal`, 1 `visual`, 2 `terminal`,
-3 `open`, 4 `list`), exists only as the `mode` Model row, with the default `terminal`
+3 `open`, 4 `reader`), exists only as the `mode` Model row, with the default `terminal`
 (`Source/layout/parameters.md`). `layer` and `sequence` are Model rows on the same tree.
 ARCHITECT: *"why copy? no copy allowed"*. The key 5 `panel` belongs to the markdown panel
 node.
+
+[AMENDED 2026-11-07] ARCHITECT: *"its NORMAL, VISUAL (block, line, etc), TERMINAL are the
+canon"*; *"but we can register arbitrary MODE, with callback."*; *"for example for
+FINDER, we could register OPEN mode (for jump with labeled keystroke), LIST mode (to
+switch column list in history)"*; *"the usage of Status bar as modal exactly the same.
+but EVE as owner could wire extra MODE and register the callback"*. Under END: *"EVE
+gives rows to END"*. [AMENDED 2026-11-07] ARCHITECT: *"the design is wrong. we dont need
+LIST mode at all. it's always only OPEN mode."*
 
 The rest of the editor state is the TextEditor's component node in the
 plugin state, from `AudioModel::getOrCreateComponentState (componentID)`: `visualMode`
@@ -616,7 +730,7 @@ dispatches the changed property through a `Function::Map`.
 `TextEditorStatusBar` binds the same two trees. It shows the mode and the
 `line:column` ruler in `normal` and `visual` mode. The left segment holds the mode in
 bold, and the right segment holds the ruler. A visual label is `VISUAL`, `V-LINE` or
-`V-BLOCK`. Its colours are EVE's, in `Source/textEditor.css`: one colour id for each
+`V-BLOCK`. Its colours are EVE's, in `Source/layout/style.css`, block `.appearance` (`:118-124`): one colour id for each
 shown mode, the label text, the ruler segment, the ruler text, and the bar. ARCHITECT:
 *"NORMAL, VISUAL, INSERT, etc could have its own unique colour, while the text colour
 remains contrast"*; *"visual line should be V-LINE not VISUAL LINE, as V-BLOCK not
@@ -635,18 +749,20 @@ terminal/Model.h:17-28`). ARCHITECT: *"you could learn how endless manage its
 terminal state machine … factually raw bytes test beats all terminal in
 comparison"*.
 
-- **Schema.** `Source/layout/parameters.md`, table `## model` (`:24-74`), columns
+- **Schema.** `Source/layout/parameters.md`, table `## model` (`:14-120`), columns
   `id`, `type`, `max`, `default`, `description`. `jam::ModelLayout` (jam_plugin_bootstrap) reads it,
   the sibling of `jam::ParameterLayout` for `parameters.md`.
 - **Rows.** `applicationCursor`, `bracketedPaste`, `mouseTracking`, `cursorShape`,
-  `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited`,
-  `cursor`, `numCommands`, `numPrompts`, `outputBlock`, `url`, `preview`, `previewBox`,
-  `winsize`, `cwd`, `title`, `foregroundProcess`, `syncOutput`, `clipboard`, `background`,
-  `zoom`, `width`, `height`, `mode`, `focus`, `autoWrap`, `originMode`, `insertMode`,
-  `isWrapPending`, `activeLink`, `scrollingRegion`, `savedCursorNormal`, `savedCursorAlternate`,
-  `pen`, `savedPenNormal`, `savedPenAlternate`, `keyboardFlagsInactive`, `keyboardModesNormal`,
-  `keyboardModesAlternate`, `numKeyboardModesNormal`, `numKeyboardModesAlternate`, `syncStart`,
-  `numYanks`, `layer`, `sequence` and `pendingClipboard` (`parameters.md`, `## model`). ARCHITECT: *"everything should
+  `keyboardFlags`, `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`,
+  `shellExited`, `cursor`, `numCommands`, `numPrompts`, `outputBlock`, `preview`,
+  `previewBox`, `winsize`, `cwd`, `title`, `foregroundProcess`, `url`, `markdownFile`,
+  `syncOutput`, `clipboard`, `background`, `zoom`, `width`, `height`, `mode`, `defaultMode`,
+  `focus`, `autoWrap`, `originMode`, `insertMode`, `isWrapPending`, `activeLink`,
+  `scrollingRegion`, `savedCursorNormal`, `savedCursorAlternate`, `pen`, `savedPenNormal`,
+  `savedPenAlternate`, `keyboardFlagsInactive`, `keyboardModesNormal`,
+  `keyboardModesAlternate`, `numKeyboardModesNormal`, `numKeyboardModesAlternate`,
+  `syncStart`, `layer`, `sequence` and `pendingClipboard` (`parameters.md`, `## model`).
+  ARCHITECT: *"everything should
   be Parameter, no strays ana manual state management allowed"*. `cursor` is one int: `jam::Cell::Point::pack()`, so the line and
   the column change together. `cursorShape` is a key of `map::CursorShape`, from
   `CSI Ps SP q`. In TERMINAL, the caret paints a block, an underline, or a bar from this
@@ -713,19 +829,17 @@ later sprints implement it.
 | Copy | `cmd+c` / `ctrl+shift+c` | `cmd+c` / `ctrl+shift+c` | |
 | Paste | | | `cmd+v` / `ctrl+shift+v` |
 | Enter OPEN | | | `` `o `` |
-| Enter LIST | | | `` `l `` |
 
-| Action | OPEN | LIST | Markdown panel |
-|---|---|---|---|
-| Open | label key | `return` | |
-| Next page of labels | `space` | | |
-| Move down | | `j` | |
-| Move up | | `k` | |
-| Return to terminal | `escape` | `escape` `i` `a` `I` `A` `o` `O` | |
-| Close the panel | | | `escape` `q` |
+| Action | OPEN | Markdown panel |
+|---|---|---|
+| Open | label key | |
+| Next page of labels | `tab` | |
+| Next column list | `ctrl+shift+k` | |
+| Previous column list | `ctrl+shift+j` | |
+| Return to terminal | `escape` | |
+| Close the panel | | `cmd+w` |
 
-Under END, END's prefix layer takes `o` for OPEN and `f` for LIST, because `l` there
-moves the focus to the right pane. The hosted EVE drops its own `open` and `list` rows.
+Under END, END's prefix layer takes `o` for OPEN. The hosted EVE drops its own `open` row.
 
 The default keys belong to the command's state owner. The text editor commands
 and their keys, modes and layers are jam tables (`jam/cast/terminal.md`); zoom and
@@ -742,7 +856,7 @@ NORMAL from TERMINAL; `` ` `` pressed twice types `` ` `` in the shell. Any othe
 in the layer is dropped. `sequenceTimeout` (jam default 1000 ms; a `keys` row
 overrides it) ends a sequence or a layer. Under END, END's own prefix layer and
 `normal` command drive NORMAL through EVE's `mode` Model row, and the hosted
-EVE drops its own `prefix`, `normal`, `open` and `list` rows (`jam_ENAXClientExtensions.cpp`).
+EVE drops its own `prefix`, `normal` and `open` rows (`jam_ENAXClientExtensions.cpp`).
 END also tells EVE its keyboard focus through the `focus` Model row; EVE takes
 keyboard focus when it turns on and gives it up when it turns off
 (`EVEView::registerTerminalEvents`). `commandManager` is EVE's, not `jam::PluginEditor`'s, and
@@ -759,22 +873,26 @@ responsible for tracking and forwarding focus to its PANE. full event driven, no
 state machine management"*; *"backgroundColourId config driven state like focus
 outline"*.
 
-**Config.** `eve.md` follows END's contract. The binary carries the defaults
-(`default-eve.md` plus the binary css, written by `PluginEditorLayout::getDefaultSettings`);
-a valid disk copy overlays them row by row (`ConfigDocument::addTables`,
+**Config.** `eve.md` follows END's contract. The binary carries the defaults.
+`default-eve.md` gives `display.md` (`PluginEditorLayout::getDefaultSettings`). The one
+`Source/layout/style.css` gives `theme.md`: `PluginEditorLayout::getThemeSettings` writes
+the tree that `Css::getValueTree` builds from the css document of the binary. A valid
+disk copy overlays the defaults row by row (`PluginEditorLayout::getSettingsTree`,
 `Model::setValuesFrom`). The front-matter version gates a rewrite of an older file
 (`ConfigDocument::getOrCreateDefaultFile`); agents never change a version. Every key
-is lower-case words; the reader formats it when it creates the row. One css file gives
-one table, named by the file (`Css::getValueTree`), and its `@font-face` rules give
-`## fonts`. `## colours` holds the named palette. The other theme tables use
-`light | dark` columns over that palette; an empty
-`dark` cell means the same as `light`. A validation or column error goes to
+is lower-case words; the reader formats it when it creates the row. Each product owns
+one `style.css`. In EVE it has these blocks: `:root` holds the named palette,
+`.appearance` holds the colour ids and font ids, `.metrics` holds the metrics,
+`@font-face` rules give `## fonts`, and `.markdown` holds the overrides of the
+markdown TextEditor. A `.DARK` block (`.appearance.DARK`, `.markdown.DARK`) gives the
+dark values of its base block. A validation or column error goes to
 `EVEView::messageOverlay`, the default stays, and nothing asserts on the disk file.
 
 **ANSI colours.** The cast table `AnsiColours` (`jam/cast/terminal.md`) gives the default
 of all 256 indexes (`map::defaultAnsiColours`). `jam::StyleTerminal` tells these defaults
-to the LookAndFeel, then applies `## terminal`, so a row of that table overrides a
-default. `## terminal` holds indexes 0–16; a row for any other index is an unknown key.
+to the LookAndFeel as indexed colour ids. The `.appearance` block of `Source/layout/style.css`
+(`:126-142`) then overrides indexes 0–16 with the keys `--Ansi--colour0ColourId` to
+`--Ansi--colour16ColourId`. The other indexes keep the defaults.
 Index 16 is blank: alpha 0, so a cell with that background fills nothing, and a glyph
 with that foreground takes the default text colour. An application asks for a
 transparent background with index 16. Index 0 stays `BUNKER`, so only index 16 is blank.
@@ -786,8 +904,8 @@ The system:
 - [ ] Passes vttest sections 1, 2, 3, 8, 11 (cursor, screen, characters, modes, xterm) with zero regressions vs endless
 - [ ] Zero locks on the state↔render path (audit: the only permitted lock is the suspendProcessing lifecycle gate)
 - [ ] Reader thread: zero allocations after session start (instrumented assert)
-- [ ] `clear` retains history; ED 2 lines reachable by scrollback
-- [ ] Dock toggles and resizes never alter SSOT content (hash check)
+- [ ] The `clear` command (`ctrl+l`) retains history and redraws the prompt; the shell's `clear` program erases history
+- [ ] Ephemeral components and resizes never alter SSOT content (hash check)
 
 An end-user can:
 - [ ] Run vim, fzf, lazygit, tmux inside EVE without visual defects

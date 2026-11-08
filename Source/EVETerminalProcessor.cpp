@@ -93,12 +93,12 @@ std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY()
 void EVETerminalProcessor::registerEvents()
 {
     for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited, Id::syncOutput, Id::autoWrap, Id::originMode, Id::insertMode, Id::isWrapPending })
-        events.add<bool> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (bool value) { state.storeValue (tag, id, static_cast<int> (value)); });
+        events.add<bool> (id, [this, id] (bool value) { state.storeValue (terminalTag, id, static_cast<int> (value)); });
 
     for (const auto& id : { Id::mouseTracking, Id::cursorShape, Id::keyboardFlags, Id::cursor, Id::numPrompts, Id::activeLink, Id::keyboardFlagsInactive, Id::numKeyboardModesNormal, Id::numKeyboardModesAlternate, Id::savedCursorNormal, Id::savedCursorAlternate })
-        events.add<int> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (int value) { state.storeValue (tag, id, value); });
+        events.add<int> (id, [this, id] (int value) { state.storeValue (terminalTag, id, value); });
 
-    events.add<const char*, int> (Id::command, [this, tag = jam::Format::toType (Id::terminal)] (const char* name, int size)
+    events.add<const char*, int> (Id::command, [this] (const char* name, int size)
                                   {
                                       const auto numBytes { size + 1 };
 
@@ -107,22 +107,55 @@ void EVETerminalProcessor::registerEvents()
                                           commands.write (name, static_cast<size_t> (size));
                                           commands.writeByte (static_cast<char> (Chars::nullCharacter));
                                           commands.flush();
-                                          state.storeValue (tag, Id::numCommands, state.getParameter<jam::Parameter<int>> (tag, Id::numCommands)->getValue() + 1);
+                                          state.storeValue (terminalTag, Id::numCommands, state.getParameter<jam::Parameter<int>> (terminalTag, Id::numCommands)->getValue() + 1);
                                       }
                                   });
 
     for (const auto& id : { Id::preview, Id::title, Id::foregroundProcess, Id::cwd })
-        events.add<const char*, int> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (const char* path, int size) { state.storeValue (tag, id, path, size); });
+        events.add<const char*, int> (id, [this, id] (const char* path, int size) { state.storeValue (terminalTag, id, path, size); });
 
     registerImageEvents();
+    registerGridEvents();
+}
+
+void EVETerminalProcessor::registerGridEvents()
+{
+    static const juce::Identifier listsType { jam::Format::toType (Id::gridStarts) };
+
+    events.add<juce::int64> (Id::gridStart, [this] (juce::int64 line)
+    {
+        auto lists { state.state.getOrCreateChildWithName (listsType, nullptr) };
+
+        lists.appendChild (juce::ValueTree { Id::gridStart, { { Id::value, line } } }, nullptr);
+        lists.setProperty (Id::activeGridStart, line, nullptr);
+    });
+
+    events.add<juce::int64> (Id::removedGridStart, [this] (juce::int64 line)
+    {
+        auto lists { state.state.getOrCreateChildWithName (listsType, nullptr) };
+
+        lists.removeChild (lists.getChildWithProperty (Id::value, line), nullptr);
+        lists.setProperty (Id::activeGridStart, lists.getChild (lists.getNumChildren() - 1).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
+    });
+
+    events.add<juce::int64> (Id::firstLine, [this] (juce::int64 firstLine)
+    {
+        auto lists { state.state.getOrCreateChildWithName (listsType, nullptr) };
+
+        while (lists.getNumChildren() > 0 and static_cast<juce::int64> (lists.getChild (0).getProperty (Id::value)) < firstLine)
+            lists.removeChild (0, nullptr);
+
+        if (static_cast<juce::int64> (lists.getProperty (Id::activeGridStart, jam::TerminalBuffer::noGridStart)) < firstLine)
+            lists.setProperty (Id::activeGridStart, lists.getChild (0).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
+    });
 }
 
 void EVETerminalProcessor::registerImageEvents()
 {
-    events.add<juce::int64> (Id::clipboard, [this, tag = jam::Format::toType (Id::terminal)] (juce::int64 image) { state.storeValue (tag, Id::pendingClipboard, static_cast<int64_t> (image)); });
+    events.add<juce::int64> (Id::clipboard, [this] (juce::int64 image) { state.storeValue (terminalTag, Id::pendingClipboard, static_cast<int64_t> (image)); });
 
     for (const auto& id : { Id::previewBox, Id::outputBlock, Id::scrollingRegion, Id::pen, Id::savedPenNormal, Id::savedPenAlternate, Id::keyboardModesNormal, Id::keyboardModesAlternate, Id::syncStart })
-        events.add<juce::int64> (id, [this, id, tag = jam::Format::toType (Id::terminal)] (juce::int64 value) { state.storeValue (tag, id, static_cast<int64_t> (value)); });
+        events.add<juce::int64> (id, [this, id] (juce::int64 value) { state.storeValue (terminalTag, id, static_cast<int64_t> (value)); });
 }
 
 void EVETerminalProcessor::applyCommands (const std::function<void (const juce::Identifier&)>& callback)
@@ -138,7 +171,9 @@ void EVETerminalProcessor::applyCommands (const std::function<void (const juce::
             const char* const terminator { std::find (data, end, static_cast<char> (Chars::nullCharacter)) };
 
             if (terminator == end)
+            {
                 cut += juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (end) };
+            }
             else
             {
                 const auto name { cut + juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (terminator) } };
@@ -232,7 +267,7 @@ bool EVETerminalProcessor::writePendingData()
     auto& images { terminalProcessor.getImages() };
     const auto hasImages { images.getNumReady() > 0 };
 
-    return swap.writeFromTerminalBuffer (terminalBuffer, images) > 0 or hasImages;
+    return swap.writeFromTerminalBuffer (terminalBuffer, images, events) > 0 or hasImages;
 }
 
 void EVETerminalProcessor::handleAsyncUpdate()
@@ -321,7 +356,7 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
         jassert (isOpen);
 
         if (not isOpen)
-            state.storeValue (jam::Format::toType (Id::terminal), Id::shellExited, 1);
+            state.storeValue (terminalTag, Id::shellExited, 1);
     }
     else
 #endif
@@ -329,7 +364,7 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
         if (not tty->isOpen())
         {
             const auto shell { getShell() };
-            const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
+            const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
             const auto isIntegrated { ShellIntegration::isShellIntegrated() };
 
             if (isIntegrated)
@@ -342,7 +377,7 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
             jassert (isOpen);
 
             if (not isOpen)
-                state.storeValue (jam::Format::toType (Id::terminal), Id::shellExited, 1);
+                state.storeValue (terminalTag, Id::shellExited, 1);
         }
     }
 }
@@ -381,8 +416,9 @@ void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCap
     swap.prepare (winsize);
     terminalProcessor.reset (terminalBuffer, winsize);
     swap.setCapacity (historyCapacity);
+    events.get (Id::firstLine, juce::int64 { swap.getLines().getStart() });
 
-    const auto vblankMilliseconds { static_cast<double> (juce::RelativeTime::seconds (1.0 / jam::CpuGraphicsEngine::getRefreshRateHz()).inMilliseconds()) };
+    const auto vblankMilliseconds { juce::RelativeTime::seconds (1.0 / jam::CpuGraphicsEngine::getRefreshRateHz()).inSeconds() * 1000.0 };
     openTTY (device.getCurrentBufferSizeSamples(), vblankMilliseconds, winsize);
     tty->setWinsize (winsize);
 }
@@ -400,6 +436,19 @@ void EVETerminalProcessor::process() noexcept
 }
 
 void EVETerminalProcessor::clear()
+{
+    if (static_cast<bool> (state.state.getProperty (Id::alternateScreen)))
+    {
+        const char formFeed { static_cast<char> (Chars::formFeed) };
+        addInput (&formFeed, 1);
+    }
+    else
+    {
+        clearHistory();
+    }
+}
+
+void EVETerminalProcessor::clearHistory()
 {
     restart ([this]
              {

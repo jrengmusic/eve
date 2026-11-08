@@ -27,7 +27,7 @@ namespace files
  * resolved against the binary-data / asset search path at load time.
  */
 
-    extern const juce::String viewLayout;                ///< Virgin settings, seeded to eve.md.
+    extern const juce::String viewLayout;                ///< Virgin settings, seeded to eve/display.md.
     extern const juce::String settingsLayout;            ///< Settings dialog layout.
     extern const juce::String parametersLayout;          ///< Parameter descriptor tables.
     extern const juce::String profileReport;             ///< Profile report, written on quit by a profile build.

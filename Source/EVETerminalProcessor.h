@@ -7,30 +7,25 @@
  * @brief Terminal chain of the plugin. It decodes the TTY output into the rows of a `jam::TerminalBuffer` and publishes them through a `jam::TerminalSwap`.
  *
  * `process()` runs the `jam::TerminalProcessor`. The processor decodes the TTY output into the rows of the buffer.
- * A row that leaves the live area stays in the ring of the buffer as a history row. `writePendingData()` moves the history rows into the swap,
- * and it moves the image records of the processor into the swap with them.
- * On each `process()` call, the processor writes a changed live area to the swap, unless synchronized output is on.
- * The processor does not decode images. The view reads the bytes of an image from the swap and decodes them.
- * The view pulls through the getter in `userInterfaceGetters`. The getter gives the swap, and the view reads the history lines and the live lines from it.
- * The view sends input bytes through the `terminalInput` event. The bytes wait in `pendingInput`, and they enter the fixed input lane as it has room, in order, on the message thread.
+ * `writePendingData()` moves the history rows of the buffer and the image records of the processor into the swap.
+ * The view pulls through the getter in `userInterfaceGetters`. The getter gives the swap.
+ * The view sends input bytes through the `terminalInput` event. The bytes wait in `pendingInput`, and they enter the fixed input lane as it has room, in order.
  *
  * @par Model lane
  * The object owns a terminal `jam::Model`, `state`. Its tree is the `terminal` child of the APVTS state of the model.
- * `jam::ModelLayout` adds the parameters of the `model` table in `parametersLayout` to it.
+ * The constructor adds the parameters of the `parametersLayout` document to `state` through `jam::ModelLayout::addParameters`.
  * On each clock of the terminal processor, the events call `storeValue` on `state`. They store the terminal modes and the cursor.
- * The Model does not run its own timer. The getter in `userInterfaceGetters` flushes it on each vblank, and `flush()` flushes it for the host.
+ * The Model does not run its own timer. The text editor getter in `userInterfaceGetters` flushes it, and `flush()` flushes it under the message manager lock.
  *
  * @par Clock
  * The object owns its clock, `jam::VirtualDevice device`. The object is the `juce::AudioIODeviceCallback` of the clock.
  * The tick, `audioDeviceIOCallbackWithContext`, runs `process()` on the serial context of the device.
  * The TTY readiness source runs on the same context. Its callback calls `device.clock (numSamples)`.
- * `numSamples` is the number of bytes that the TTY reports as ready. The TTY waits its period between two ticks.
+ * `numSamples` is the number of bytes that the TTY reports as ready.
  *
  * @par Thread contract
  * `process()` runs on the serial context of the device. It writes the input lane to the TTY, then decodes the TTY output.
- * `prepare()`, `releaseResources()`, `restart()` and `clear()` run on the message thread.
  * The winsize attachment of `state` calls `restart()` when the winsize changes. A stopped clock stays stopped, so a winsize change prepares the chain only while the clock runs.
- * `EVEProcessor::prepareToPlay` calls `prepare()`. `EVEProcessor::releaseResources` calls `releaseResources()`.
  */
 class EVETerminalProcessor
     : private jam::AsyncUpdater
@@ -41,10 +36,10 @@ public:
      * @brief Builds the Model lane, registers the events, the user interface getters and the chain events, then sets the TTY readiness to clock the device.
      *
      * The constructor binds `bypass` to the atomic of the bypass parameter in the model.
-     * It builds `state` on the `terminal` child of the model state, stops the timer of `state`, and adds the parameters of the `model` table in `parametersLayout` to it.
+     * It builds `state` on the `terminal` child of the model state, stops the timer of `state`, and adds the parameters of the `parametersLayout` document to it.
      *
      * @param processorToUse  Processor that owns this object. The object reads its wrapper type in profile builds.
-     * @param modelToUse      Model that holds the winsize, the bypass parameter and the history capacity. It must outlive this object.
+     * @param modelToUse      Model that holds the bypass parameter and the history capacity.
      */
     EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse);
 
@@ -54,12 +49,11 @@ public:
     /**
      * @brief Stops the clock, opens it at the fixed sample rate and the device buffer size of the OS, then starts it unconditionally.
      *
-     * The device buffer size is `virtualBlockSize` on Windows and 1024 on the other systems.
-     * The start runs `audioDeviceAboutToStart`, which prepares the chain.
+     * The sample rate is 48000 Hz. The device buffer size is `virtualBlockSize` on Windows and 1024 on the other systems.
      */
     void prepare();
 
-    /** @brief Stops the clock, then closes the device. `stop` waits for a tick in progress. */
+    /** @brief Stops the clock, then closes the device. */
     void releaseResources();
 
     /**
@@ -70,7 +64,7 @@ public:
      * @tparam Callback  Callable type with no argument.
      * @param callback   Callable that runs while the clock is stopped.
      */
-    template<typename Callback>
+    template <typename Callback>
     void restart (Callback&& callback)
     {
         const auto isPlaying { device.isPlaying() };
@@ -82,16 +76,23 @@ public:
             start();
     }
 
-    /** @brief Restarts with no change, so the chain prepares again from the Model winsize and history capacity. */
+    /** @brief Restarts with no change. The chain prepares again from the winsize of `state` and the history capacity of the model, when the clock starts. */
     void restart();
 
-    /** @brief Inside `restart`, writes the pending history rows to the swap, then blanks the screen and the saved lines. */
+    /**
+     * @brief Clears the screen. On the alternate screen, it sends a form feed to the input lane through addInput().
+     *
+     * Otherwise it runs clearHistory().
+     */
     void clear();
+
+    /** @brief Restarts the clock, then clears the history rows of the terminal buffer. */
+    void clearHistory();
 
     /**
      * @brief Joins the Model lane to a restored state tree.
      *
-     * When @p newState has a `pluginState` child, `state` takes the values of that child, and the child leaves @p newState. A row that the child lacks keeps its value.
+     * When @p newState has a `pluginState` child, `state` takes the values of that child, and the child leaves @p newState.
      * The tree of `state` then moves from its parent to @p newState.
      *
      * @param newState  State tree that the host restored. It receives the tree of `state`.
@@ -101,7 +102,7 @@ public:
     /**
      * @brief Copies each property of @p rows to the `terminal` tree of the Model.
      *
-     * The call sets the properties on the terminal tree without a restart of the clock.
+     * The call sets the properties on the terminal tree and does not restart the clock.
      *
      * @param rows  Tree whose properties are the rows to write.
      */
@@ -126,7 +127,7 @@ public:
     /**
      * @brief Copies the text of an image record to the system clipboard.
      *
-     * The view calls it when the `clipboard` property changes. The call copies nothing when the record holds no bytes.
+     * The view calls it when the `clipboard` property changes.
      *
      * @param image  Number of the image record that holds the text.
      */
@@ -159,14 +160,14 @@ public:
 #endif
 
     jam::ViewManager::Getters
-        userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter and a `previewComponent` getter. The `previewComponent` getter, keyed by `images`, gives the swap only. The text editor getter posts the history writer to the serial context of this object when synchronized output is off, flushes the Model lane, gives the swap, and asks for a process.
+        userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter and a `previewComponent` getter. The `previewComponent` getter, keyed by `images`, gives the swap only. The text editor getter, keyed by `winsize`, flushes the Model lane, triggers the async update when synchronized output is off, gives the swap, and runs applyPendingInput().
     jam::ViewManager::Events
         chainEvents;///< Events of the chain. The constructor adds the `terminalInput` event. It passes its bytes to `addInput()`.
 
 private:
     /**
      * @brief Moves the history rows of the buffer and the image records of the processor into the swap.
-     * @return `true` when the call wrote at least one line, or when image records were waiting.
+     * @return `true` when the swap wrote at least one line, or when image records were waiting.
      */
     bool writePendingData();
 
@@ -176,8 +177,8 @@ private:
     /**
      * @brief Runs on the tick of the clock.
      *
-     * It reads `bypass`. When `bypass` is 0, it writes the input lane to the TTY, then the terminal processor reads and decodes the TTY output until a read does not fill its read space.
-     * Each call of the terminal processor writes the changed live area to the swap, unless synchronized output is on. The live area has the row count of the current window size.
+     * It reads `bypass`. When `bypass` is 0, it writes the input lane to the TTY, then the terminal processor decodes the TTY output
+     * for as long as its call returns `true`.
      *
      * It reads the `background` parameter of the `terminal` tree through `terminalTag`, and it passes the value to the terminal processor.
      */
@@ -210,27 +211,38 @@ private:
      * @brief Adds the event setters that copy the terminal state to the Model lane, then adds the image events.
      *
      * Each setter calls `storeValue` on `state`. The bool events store 0 or 1. They are `applicationCursor`, `bracketedPaste`,
-     * `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited` and `syncOutput`.
-     * The `mouseTracking`, `cursorShape`, `cursor` and `numPrompts` events store an int.
+     * `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited`, `syncOutput`, `autoWrap`, `originMode`,
+     * `insertMode` and `isWrapPending`.
+     * The `mouseTracking`, `cursorShape`, `keyboardFlags`, `cursor`, `numPrompts`, `activeLink`, `keyboardFlagsInactive`,
+     * `numKeyboardModesNormal`, `numKeyboardModesAlternate`, `savedCursorNormal` and `savedCursorAlternate` events store an int.
      * The `preview`, `title`, `foregroundProcess` and `cwd` events store the text.
      * The `command` event writes the name and a zero byte to `commands`, then flushes `commands`. It then increments `numCommands` in `state`.
      * It does this only when the name is not empty and `commands` has room for it.
+     * The call then runs registerImageEvents() and registerGridEvents().
      */
     void registerEvents();
 
     /**
-     * @brief Adds the image events: `hyperlink`, `clipboard`, `previewBox` and `outputBlock`.
+     * @brief Adds the clipboard event and the events that store 64-bit values on the `terminal` tree of `state`.
      *
-     * The `hyperlink` event does nothing.
      * The `clipboard` event stores the image number in `pendingClipboard`. `handleAsyncUpdate()` then stores it in the Model lane.
-     * The `previewBox` event stores its value in the `previewBox` property of `state`.
+     * The `previewBox`, `outputBlock`, `scrollingRegion`, `pen`, `savedPenNormal`, `savedPenAlternate`, `keyboardModesNormal`,
+     * `keyboardModesAlternate` and `syncStart` events store their value on the `terminal` tree of `state`.
      */
     void registerImageEvents();
 
     /**
+     * @brief Adds the grid events that keep the `gridStarts` child of the `state` tree.
+     *
+     * The `gridStart` event appends the line to that child and sets `activeGridStart`. The `removedGridStart` event removes the line.
+     * The `firstLine` event removes the entries before the given line. When `activeGridStart` is before that line, it takes the value of the first remaining entry, or `noGridStart` when none remains.
+     */
+    void registerGridEvents();
+
+    /**
      * @brief Adds the text editor getter keyed by the winsize type, and the `previewComponent` getter keyed by the images type.
      *
-     * The text editor getter posts the history writer to the serial context of this object when synchronized output is off, flushes the Model lane, gives the swap, and asks for a process.
+     * The text editor getter flushes the Model lane, triggers the async update when synchronized output is off, gives the swap, and runs applyPendingInput().
      * The `previewComponent` getter gives the swap only.
      */
     void registerUserInterfaceGetters();
@@ -239,7 +251,7 @@ private:
     void registerChainEvents();
 
     /**
-     * @brief Adds bytes to `pendingInput`, then runs applyPendingInput(). Input of any size arrives whole and in order. Message thread.
+     * @brief Adds bytes to `pendingInput`, then runs applyPendingInput().
      *
      * @param bytes  Bytes to write.
      * @param size   Number of bytes.
@@ -249,14 +261,14 @@ private:
     /**
      * @brief Moves the bytes of `pendingInput` that fit into the input lane, then asks the device for a process.
      *
-     * The lane is the fixed lock-free handoff to the tick. `addInput()` and the text editor getter, on each vblank, run this call. Message thread.
+     * `addInput()` and the text editor getter run this call.
      */
     void applyPendingInput();
 
     /** @brief Returns the history capacity that the `historyCapacity` component of the model holds. */
     int getHistoryCapacity() const;
 
-    /** @brief Returns the winsize that the model holds. */
+    /** @brief Returns the winsize of the `terminal` tree of `state`, unpacked. */
     jam::TerminalWinsize getWinsize() const;
 
     /**
@@ -274,7 +286,7 @@ private:
     /**
      * @brief Opens the TTY on the serial context of the device.
      *
-     * In a profile standalone build, the shell, its arguments and its folder come from the `profiler` table of the manifest.
+     * In a profile standalone build, the shell, its arguments and its folder come from the `profiler` table of the manifest, and the TTY is opened without the check below.
      * In other builds, the shell is the `SHELL` variable, with the shell integration when it is available. The call opens the TTY only when it is not open.
      * In other builds, the shell starts in the directory of the `cwd` row of `state`. An empty `cwd` row keeps `ShellIntegration::getStartDirectory()`.
      *
@@ -309,22 +321,26 @@ private:
     juce::ValueTree getProfilerTable() const;
 #endif
 
-    /** @brief Returns the TTY of the platform. */
+    /**
+     * @brief Returns the TTY of the platform.
+     *
+     * When EVE_USING_REPLAY is set, the platform TTY is wrapped in a TerminalMemoryTTY.
+     */
     static std::unique_ptr<jam::TerminalTTY> createTTY();
 
     juce::AudioProcessor&
         processor;///< Processor that owns this object. The object reads its wrapper type in profile builds.
-    jam::AudioModel& model;///< Model that holds the winsize and the parameters.
+    jam::AudioModel& model;///< Model that holds the parameters, including the bypass parameter and the history capacity.
     const std::atomic<float>&
         bypass;///< Atomic of the bypass parameter in the model. `process()` runs only while it is 0.
     jam::Model
         state;///< Terminal Model. Its tree is the `terminal` child of the model state. The events store the terminal state into it, and the flush writes it to the tree.
-    const juce::Identifier terminalTag { jam::Format::toType (Id::terminal) };///< Identifier of the `terminal` tree. It is built at construction, off the clock, so that the tick of the clock does not build it.
+    const juce::Identifier terminalTag { jam::Format::toType (Id::terminal) };///< Identifier of the `terminal` tree, built at construction.
     std::unique_ptr<jam::Model::ParameterAttachment>
         winsizeAttachment;///< Listens to the winsize parameter of `state`. A change calls `restart()`, so the chain prepares again for the new grid only while the clock runs.
     jam::Function::Map<juce::Identifier, void>
         events;///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
-    std::string pendingInput;    ///< Input bytes that wait for room in the input lane. Message thread only.
+    std::string pendingInput;    ///< Input bytes that wait for room in the input lane.
     jam::TerminalFIFO input;///< Input lane from the view to the TTY.
     jam::TerminalFIFO commands;///< Command names from the shell to the view.
     jam::VirtualDevice device {
@@ -336,7 +352,7 @@ private:
         terminalProcessor;///< Decoder of the TTY output into the rows of `terminalBuffer`.
 
     jam::TerminalBuffer
-        terminalBuffer;///< Row grid that the terminal processor writes. Its ring holds the history rows until `writePendingData()` moves them. Its list of released images feeds the image records.
+        terminalBuffer;///< Row grid that the terminal processor writes. `writePendingData()` moves its history rows to the swap.
     jam::TerminalSwap swap;///< Store of the history lines and the live area. The view reads it.
 
     //==============================================================================

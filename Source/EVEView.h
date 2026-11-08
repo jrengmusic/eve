@@ -6,13 +6,13 @@
 
 /**
  * @class EVEView
- * @brief Plugin editor of EVE: the terminal view, the markdown component, and the file panels.
+ * @brief Plugin editor of EVE: the terminal view and the markdown components.
  *
  * The view is built from the markdown view layout.
  * The view shows the `jam::TextEditor` of the terminal, and it binds the editor to the terminal processor.
  * The view runs the commands that the shell writes through the command FIFO of the terminal processor.
- * The markdown component shows a parsed document. Its visibility follows the `value` property of the markdown state.
- * The file panels show the file tree and the file preview. They are built at the first switch to the list mode, and they stay in this view.
+ * A markdown component shows a parsed document. It is added when the `markdownFile` property of the terminal tree
+ * names a file that can be read, and it is removed when that property is empty.
  *
  * @par Thread contract
  * **MESSAGE THREAD** — all methods.
@@ -22,7 +22,6 @@ class EVEView
     , public juce::ComponentBoundsConstrainer
     , public juce::FileDragAndDropTarget
     , public juce::ApplicationCommandTarget
-    , private juce::FileBrowserListener
     , private juce::Timer
 {
 public:
@@ -47,7 +46,11 @@ public:
      */
     void resized() override;
 
+    /** @brief Runs the base class, then writes the background colour of the window to the `background` row of the terminal tree. */
     void lookAndFeelChanged() override;
+
+    /** @brief Applies the appearance of the model to the view and to the ephemeral styles, then runs the base class. */
+    void setAppearance() override;
 
     /**
      * @brief Reloads the settings through the base class, then registers the commands again.
@@ -80,7 +83,7 @@ private:
      * @brief Passes a key to the command manager, together with the markdown state.
      *
      * @param key  Key that the user pressed.
-     * @return     `true` when the command manager invoked a command for the key.
+     * @return     `true` when the command manager invoked a command for the key, or when the markdown state has a `mode` property.
      */
     bool keyPressed (const juce::KeyPress& key) override;
 
@@ -92,9 +95,9 @@ private:
     bool isInterestedInFileDrag (const juce::StringArray& files) override;
 
     /**
-     * @brief Returns each text editor to terminal mode, and pastes the quoted paths as one text at the active prompt.
+     * @brief Returns each text editor to terminal mode, and pastes the quoted paths as one text.
      *
-     * The call sends no carriage return.
+     * The pasted text holds no carriage return.
      *
      * @param files  The dropped paths.
      * @param x      Not used.
@@ -110,7 +113,7 @@ private:
     void resizeStart() override;
 
     /**
-     * @brief Ends the resize. It sets the resizing mark of the text editors to `true` when a text editor is in the list mode, and to `false` otherwise.
+     * @brief Ends the resize. It clears the resizing mark of the text editors.
      *
      * It writes the width and the height of the view to the `width` and `height` rows of the terminal tree.
      * It stops the coalesce timer. The timer also runs this call as the final stop of a frame change from outside the window.
@@ -124,19 +127,13 @@ private:
     void setResizing (bool newIsResizing);
 
     /**
-     * @brief Answers whether any text editor holds the winsize gate closed. It reads the `Id::isResizing` property of the component tree of each text editor, and creates nothing.
+     * @brief Answers whether any text editor holds the winsize gate closed. It reads the `Id::isResizing` property of the value tree of each text editor, and creates nothing.
      *
      * An absent `Id::isResizing` property reads as `false`.
      *
      * @return `true` when the `Id::isResizing` property of any text editor is true.
      */
     bool isResizing() const;
-
-    /**
-     * @brief Answers whether the terminal is in list mode. It reads the `mode` row of the `terminal` tree.
-     * @return `true` when the `mode` row of the `terminal` tree is `map::EditorMode::list`.
-     */
-    bool isListMode() const;
 
     /**
      * @brief Ends a coalesced frame change by running `resizeEnd()`.
@@ -147,8 +144,8 @@ private:
      * @brief Reacts to a change of a property in the model tree.
      *
      * A change of a property of the `terminal` tree runs the handler of `terminalEvents` for that property, when a handler exists.
-     * The handlers cover `Id::numCommands`, `Id::clipboard`, `Id::url`, `Id::numYanks`, `Id::shellExited`, `Id::zoom`, `Id::width`, `Id::height`,
-     * `Id::focus`, `Id::mode`, and, in a profile build, `Id::numPrompts`.
+     * The handlers cover `Id::numCommands`, `Id::clipboard`, `Id::shellExited`, `Id::zoom`, `Id::width`, `Id::height`,
+     * `Id::focus`, `Id::markdownFile`, and, when `JAM_USING_PROFILER` is set, `Id::numPrompts`.
      *
      * The base class gets every change.
      *
@@ -180,13 +177,14 @@ private:
      * @brief Registers the commands of the view with the command manager, and sets the key presses from the keys sheet.
      *
      * A view default key is added only when the config holds no key of the same type. Then every config key is appended to the keys sheet.
-     * The call registers each child of the view, then the view itself, and gives the view the keyboard focus.
+     * The call registers the commands of each child of the view, then of the view itself, sets the key presses,
+     * and makes the view want keyboard focus.
      * It runs after initialise() in the constructor, and again after each settings file change in fileChanged().
      */
     void addCommands();
 
     /**
-     * @brief Writes the zoom row of the terminal tree, clamped to the range of 0.25 to 4.0.
+     * @brief Writes the zoom row of the terminal tree, limited with juce::jlimit to the zoom range of this view.
      * @param newZoom  Zoom value to write.
      */
     void setZoom (float newZoom);
@@ -194,10 +192,8 @@ private:
     /**
      * @brief Returns the default keys of the text editor for the view commands.
      *
-     * The keys come from jam::TextEditor::getDefaultKeys().
-     * The processor then runs the `Id::keys` rule of its ENAX client extensions on the keys.
-     * Under END, that rule removes the `normal` and `prefix` rows.
-     * Under any other host, the rule is not registered, so the keys stay unchanged.
+     * The keys come from jam::TextEditor::getDefaultKeys(). The call then passes them to the
+     * processor through `set (Id::keys, ...)` with an empty callback.
      *
      * @return The default key sheet of the text editor.
      */
@@ -232,21 +228,23 @@ private:
     void registerViewComponents (jam::Registry::Registration& registration);
 
     /**
-     * @brief Adds the registry callbacks of the UI scale, the commands, the markdown visibility, the message, and the history capacity.
+     * @brief Adds the registry callbacks of the UI scale, the commands, the message, and the history capacity.
      *
-     * The clear command runs clear(). The open file command runs openFile(). The markdown command runs openMarkdown().
-     * The dismiss command runs setMarkdownVisible() with `false`.
+     * The UI scale callback runs resized(). The clear command runs clear(). The open file command runs openFile().
+     * The markdown command writes the path of the URL to the `markdownFile` row of the terminal tree.
+     * The dismiss command writes an empty `markdownFile` row.
      * The zoomIn command adds the `zoomStep` of the display sheet to the zoom row, and the zoomOut command subtracts it, both through setZoom().
      * The zoomReset command sets the zoom row to 1.0 through setZoom().
-     * The markdown visibility callback sets the visibility of each markdown child to the `value` of the markdown state.
-     * It grabs the keyboard focus for the markdown child when the value is `true`, and for the editor when the value is `false`.
-     * The message callback shows the settings message when its text is not empty.
-     * The history capacity callback clears the history and the screen.
+     * The message callback shows the message of the message component state when its text is not empty.
+     * The history capacity callback shows the history-cleared message box and runs clearHistory().
      */
     void registerCallbacks();
 
-    /** @brief Clears the screen and the saved lines of the terminal. */
+    /** @brief Clears the terminal. On the alternate screen, the terminal processor sends a form feed; otherwise it clears the history. */
     void clear();
+
+    /** @brief Clears the history of the terminal processor. */
+    void clearHistory();
 
     /**
      * @brief Returns the open command that the `openWith` sheet gives for a file.
@@ -277,61 +275,6 @@ private:
     void openFile (std::string_view path, const juce::ValueTree& terminal);
 
     /**
-     * @brief Parses the file of the url into the markdown component, then shows the component.
-     *
-     * The call does nothing when the file cannot be mapped.
-     */
-    void openMarkdown();
-
-    /**
-     * @brief Writes the visibility to the `value` property of the markdown state. The markdown visibility callback applies it.
-     * @param isVisible  `true` shows the markdown component.
-     */
-    void setMarkdownVisible (bool isVisible);
-
-    /**
-     * @brief Writes the url of the selected file of the file tree to the `url` property of the terminal tree.
-     *
-     * The call does nothing when no file is selected.
-     */
-    void selectionChanged() override;
-
-    /**
-     * @brief Does nothing. A click on a file has no action.
-     * @param file   Not used.
-     * @param event  Not used.
-     */
-    void fileClicked (const juce::File& file, const juce::MouseEvent& event) override;
-
-    /**
-     * @brief Opens the url of the terminal, as openFile() does.
-     * @param file  Not used.
-     */
-    void fileDoubleClicked (const juce::File& file) override;
-
-    /**
-     * @brief Does nothing. A change of the browser root has no action.
-     * @param newRoot  Not used.
-     */
-    void browserRootChanged (const juce::File& newRoot) override;
-
-    /**
-     * @brief Returns the side panel at an index of `panels`.
-     * @param index  `leftPanel` or `rightPanel`.
-     * @return       The side panel at the index.
-     */
-    juce::SidePanel& getPanel (int index) const;
-
-    /**
-     * @brief Returns the folder that the file tree shows.
-     *
-     * The folder is the working folder of the terminal, moved up by the `treeDepth` level of the display sheet.
-     *
-     * @return Folder for the file tree.
-     */
-    juce::File getTreeRoot() const;
-
-    /**
      * @brief Returns the local file that the url of the terminal names.
      *
      * The file is empty when the url is not a local file.
@@ -341,48 +284,15 @@ private:
     juce::File getUrlFile() const;
 
     /**
-     * @brief Builds the file panels, then adds them to the view.
+     * @brief Adds a markdown component that shows the file, and parses the file into its document.
      *
-     * The file preview takes the look and feel of the markdown component. The side panels take their widths from the display sheet.
-     * The call removes the global mouse listener of each side panel. A drag from outside would slide a panel with no mode change.
-     * It starts the directory thread.
+     * A file whose memory mapping gives no data clears the `markdownFile` row and shows a message. Otherwise the
+     * component is made visible and placed in front, and the `mode` property of the markdown state is set to panel.
+     *
+     * @param file             Markdown file to show.
+     * @param shouldGrabFocus  Passed to the front call of the markdown component.
      */
-    void addPanels();
-
-    /**
-     * @brief Shows or hides the file panels. The first show builds the panels.
-     *
-     * A show sets the resizing mark, sets the folder of the file tree, then shows both side panels.
-     * A hide hides both side panels, and it sets the resizing mark to the running state of the coalesce timer.
-     *
-     * The call lays out the view, then runs setPanelFile().
-     *
-     * @param isVisible  `true` shows the panels.
-     */
-    void setPanelsVisible (bool isVisible);
-
-    /**
-     * @brief Selects the file of the url in the file tree, and shows it in the file preview.
-     *
-     * The call does nothing when the panels are absent, the left panel is hidden, the url is not a local file, or the file does not exist.
-     */
-    void setPanelFile();
-
-    /**
-     * @brief Runs the callback on each markdown child of the view.
-     *
-     * The call finds each child by its `type` property, not by its index.
-     * The preview component moves out of the view when it binds to a text editor, so the child indices shift.
-     * The callback gets each child, cast to `jam::MarkdownComponent`.
-     *
-     * @tparam Callback  Callable that takes a `jam::MarkdownComponent&`.
-     * @param callback   Runs once for each markdown child.
-     */
-    template <typename Callback>
-    void applyToMarkdown (Callback&& callback)
-    {
-        applyToChildren<jam::MarkdownComponent> (Id::markdown, std::forward<Callback> (callback));
-    }
+    void addMarkdown (const juce::File& file, bool shouldGrabFocus);
 
     /**
      * @brief Runs the callback on each text editor of the view.
@@ -438,25 +348,40 @@ private:
      */
     juce::ValueTree getTerminalState() const;
 
+    /**
+     * @brief Returns the markdown child of the model state, created when absent.
+     * @return The markdown state tree of the model.
+     */
+    juce::ValueTree getOrCreateMarkdownState() const;
+
+    /**
+     * @brief Returns the terminal processor of the owner EVEProcessor.
+     * @return The terminal processor.
+     */
     EVETerminalProcessor& getTerminalProcessor() const;
 
+    /**
+     * @brief Invokes the command of the command manager with a name on each text editor of the view.
+     *
+     * Does nothing when the command manager has no command with that name.
+     *
+     * @param name  Name of the command.
+     */
     void invokeCommand (const juce::Identifier& name);
 
     /**
      * @brief Adds the handlers of the `terminal` tree properties to `terminalEvents`.
      *
-     * The `numCommands` handler runs the commands of the command FIFO.
-     * The `clipboard` handler copies the text of the image record that the property names to the system clipboard.
-     * The `url` handler runs setPanelFile(), so that the file panel shows the file of the url.
-     * The `numYanks` handler returns each text editor to terminal mode. The terminal mode sits above the vim modes of the editor, so its owner decides this.
+     * The `numCommands` handler runs the commands of the command FIFO through invokeCommand().
+     * The `clipboard` handler copies the image record that the property names to the system clipboard.
      * The `shellExited` handler shows the `Id::failShellExited` message when the property is true, then invokes the quit command of the command manager.
      * The `zoom` handler sets the zoom of the view and lays it out again.
      * The `width` handler sets the width of the view and keeps its height.
      * The `height` handler sets the height of the view and keeps its width.
      * The `focus` handler grabs the keyboard focus when the property is true, and gives it away when the property is false.
-     * The `mode` handler shows the file panels in list mode, and hides them in any other mode.
-     * It acts only when the left panel has a different visibility.
-     * In a profile build, the `numPrompts` handler repaints the view when the count is 1, and it sets the `Id::promptPainted` rule of the processor.
+     * The `markdownFile` handler clears the ephemeral components and their styles. It then adds the markdown component
+     * of the file when the property is not empty, and otherwise removes the `mode` property of the markdown state.
+     * When `JAM_USING_PROFILER` is set, the `numPrompts` handler repaints the view when the count is 1, and it sets the `Id::promptPainted` callback of the processor.
      */
     void registerTerminalEvents();
 
@@ -466,28 +391,15 @@ private:
     /** Command manager of the view. It registers the commands of the view and matches the key presses against the key sheet from addCommands(). */
     jam::SharedInstance<jam::CommandManager> commandManager { std::in_place };
 
-    /** Index of the file preview in `panels`. */
-    static constexpr int filePreview { 0 };
-
-    /** Index of the left side panel in `panels`. It holds the file tree. */
-    static constexpr int leftPanel { 1 };
-
-    /** Index of the right side panel in `panels`. It holds the file preview. */
-    static constexpr int rightPanel { 2 };
-
     /** Overlay that shows the settings message. It shows the message when the message callback runs with a non-empty MESSAGE component property. */
     jam::MessageOverlay messageOverlay;
 
     jam::Function::Map<juce::Identifier, void> terminalEvents;    ///< Handlers of the `terminal` tree properties, keyed by property identifier. `valueTreePropertyChanged()` runs them.
+    /** @brief Styles of the ephemeral components. Each style is owned here and cleared with the components. */
+    jam::Owner<jam::StyleCustom> ephemeralStyles;
 
-    /** Thread that lists the folders of the file tree. `addPanels()` starts it. */
-    juce::TimeSliceThread directoryThread { Id::directory.toString() };
-
-    /** Listing of the folder of the file tree. It lists on `directoryThread` and has no filter. `setPanelsVisible()` sets its folder. */
-    juce::DirectoryContentsList directoryList { nullptr, directoryThread };
-
-    /** Owner of the file panels: the file preview at `filePreview`, and the side panels at `leftPanel` and `rightPanel`. It is empty until the first show. */
-    jam::Owner<juce::Component> panels;
+    /** @brief Ephemeral components of the view, such as the markdown components. Each is owned here. */
+    jam::Owner<juce::Component> ephemerals;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEView)

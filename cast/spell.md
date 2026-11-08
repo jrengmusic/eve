@@ -82,7 +82,6 @@
 | > > - [list]: @project-info:juce module                      |                           | > > - [list]: @cmake:value                       |                    |
 | > > - [list]: @project-info:user module                      |                           | > > - [list]: @cmake:link                        |                    |
 | > - [list]: @project-info:layout glob                        |                           | > - [list]: @cmake:entry                         |                    |
-| > - [list]: @project-info:binary                             |                           | > - [list]: @cmake:value                         |                    |
 | - [list]: @project-info:plugin format                        |                           | - [list]: @cmake:format-directory                |                    |
 | - [list]: @project-info:pack                                 |                           | - [list]: @cmake:pack-value                      |                    |
 | - [list]: @signing:signing                                   |                           | - [list]: @sign:signing-value                    |                    |
