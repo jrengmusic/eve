@@ -36,6 +36,66 @@
 
 ## SPRINT HISTORY
 
+## Sprint: The Theme File Is the Style Sheet in Markdown — One Mirror per CSS Block, CssWriter Feeds the CSS Parse, Fixed-Signature Function::Map ✅
+
+**Date:** 2026-11-09 to 2026-11-10
+**Duration:** one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"theme.md user should not care about hierarchy. fonts is fonts, colours is colours, metrics is metrics."*; *"there should be only ONE metrics table"*; *"DESIGN BY CONTRACT UNIVERSAL and GENERIC. no harcoding of assumptions, that only works for this pattern. must be ABSTRACTION"*; *"what is tree with key? what the fuck is this new bullshit foreign"*; *"dont fix the symptoms. wrong name means wrong mental model ... fix the cause, fix the design"*; *"if ConfigDocument need to be rewritten from scratch as SettingsDocument to be BLESSED compliant, FIX IT NOW. no more hack and patch, no hardcoding, no workaround"*. The plan was approved through plan mode. During the run: *"if all args are always juce::ValueTree&, why not define it as jam::Function::Map<juce::Identifier, juce::ValueTree&> events; ? then add could be auto deduce?"* (option "Events: fixed-signature map" chosen); *"can we add to CODING, template with erased type such as <..., void> only allowed for different return args?"*.
+
+### Agents Participated
+- COUNSELOR — the reads of ConfigDocument, the Validator, CssDocument, StyleManager, the END and EVE theme lanes, `jam::Function` and `juce::FixedSizeFunction`; the plan copy; SPEC, ARCHITECTURE and CODING edits; the `getThemeTree` signature fix; the `user-modules-info.md` rows; the filter of 28 audit findings and the doxygen findings; this log.
+- Pathfinder (haiku) — the rewrite inventory; the doxygen pass over eight headers; two `Function::Map` census runs (END with JAM, JFS with KANJUT; still running at this log).
+- Engineer (sonnet) — Steps 1–4, Step 5, Step 6, the lossless-mirror batch, audit fixes A (stopped by the watchdog at 15 minutes and resumed) and B, the final two fixes, the `Function::Map` specialization and its callers, the DRY and header-body fixes.
+- Auditor (opus) — one run, 28 findings, 5 blocking.
+
+### Files Modified
+- `jam/jam_markdown/document/jam_ConfigDocument.{h,cpp}` — the sheet emit and the sheet parse are deleted (`getSheetType`, `getPropertyKey`, `getComponentWords`, `addSubTable`, `###` tables, COMPONENT, lexicon guessing, `getColourValue`, the `em` UNIT child, the colour type guess). `toDocument (const CssDocument&)` writes one table per section: `colours` (palette + colour-id rows), `fonts` (face rows + font-id rows, attributes from the fonts section on the first face), `metrics`, `window`, one per class; record columns (`dark`, …) come from the section's record children. `getAliasKey` is the one lexicon rule for the writer and the Validator. `getRowKey` is public; `isRowType` is new. `toDocument (const juce::ValueTree&)` stays for `jam_Profiler.cpp:172`.
+- `jam/jam_markdown/document/jam_CssWriter.{h,cpp}` (new) — `CssWriter : Document::Writer` writes the css text of a theme document. `CssDocument::parse` of that text builds the sections, so the css document is the only builder of its sections.
+- `jam/jam_markdown/document/jam_ConfigValidator.{h,cpp}` — the `alias` rule (key from `getAliasKey`; each value or record cell names a colour row or a face row); `row` split into `row`, `row.key`, `row.numbers`, `row.value`, `row.src`, `row.type` (type change against the default row); palette, face and alias rows need no default row; a `colour` cell is hex in every table; named boolean terms.
+- `jam/jam_markdown/jam_markdown.{h,cpp}`, `jam/user-modules-info.md` — the CssWriter submodule rows and includes.
+- `jam/jam_web/css/jam_Css.{h,cpp}` — the COMPONENT section is deleted; face records are typed `Format::toType` of the family (the `addWidgets` form); `getSheetType (styleSheet)` is new.
+- `jam/jam_core/function_map/jam_Function.h` — partial specialization `Map<KeyType, ReturnType (Args...)>` over `jam::HashMap<KeyType, std::function<ReturnType (Args...)>>`: `add (key, fn)` with no template argument, `get` with no `dynamic_cast`, `contains`.
+- `jam/jam_plugin_bootstrap/layout/jam_PluginEditorLayout.{h,cpp}` — `getStyleTree`, `getThemeTree (defaultDocument)`, `getSettingsTree (…, getTree)`; `getThemeSettings` writes `toDocument` of the style sheet that `StyleManager::getStyleSheet()` names (`std::find_if`, no sentinel); under END only `getThemeRules()` apply; the theme default parses with origin `files::theme`.
+- `end/Source/config/ConfigTheme.cpp`, `ConfigDirectory.{h,cpp}`, `ConfigModel.{h,cpp}` — `addFileTables` and `addDefaultTables` take `getDefaultDocument` and `getTree`; `getStyleTree` is `CssDocument::parse (CssWriter {}.getText (document)).getValueTree (THEMES, sheet type)`; `getDefaultText` (no memo); `getConfigTree`, `getDefaultDocument`; `saveToPath` body in the `.cpp`.
+- `end/Source/config/display.md` — `## tab` and `## pane` moved here from `theme.md`. `end/Source/config/theme/gfx/theme.md` — front matter only.
+- `end/Source/Main.{h,cpp}`, `lookAndFeel/ENDLookAndFeel.{h,cpp}`, `ui/ENDView.{h,cpp}`, `ui/EditorView.{h,cpp}` — events maps are `jam::Function::Map<juce::Identifier, void (juce::ValueTree&)>`; `add` has no template argument.
+- `end/SPEC.md` (Theme style, Theme on disk, Theme load, Pane padding), `end/ARCHITECTURE.md` (Config Chain), `end/PLAN-style-driven-theme.md` (the locked plan with Execution facts).
+- `~/.carol/CODING.md` — CRITICAL RULES and checklist: "Uniform signature in the type".
+- Doxygen pass over the eight headers above.
+
+### Alignment Check
+- [x] BLESSED principles followed — one Model (`CssDocument`), two serializations; the owner builds its sections; no tier is derived in ConfigDocument.
+- [x] NAMES.md adhered — `CssWriter` joins `MarkdownWriter`; `getAliasKey`, `getSheetType`, `getStyleTree`, `getThemeTree`, `isRowType` join their families; the `Map` specialization adds no name.
+- [x] MANIFESTO.md principles applied.
+- [x] No file under `jam_vulkan`; no change to `jam_StyleManager`, KANJUT or JFS; no version bump.
+- [ ] Not built. No agent ran `cast` or a build.
+- [ ] Zero doxygen warnings unconfirmed; no index was regenerated.
+
+### Problems Solved
+- **The tiers were guessed back.** The emit started from the collapsed `getValueTree` tree and rebuilt the css tiers with predicates, COMPONENT and `###` tables. Now the markdown is written from the sections and read back through the css parse.
+- **Two metrics tables, sheet hierarchy on disk.** `theme.md` has `## colours`, `## fonts`, one `## metrics`, `## window` and one table per class, with plain words.
+- **The reader mutated a finished `CssDocument` from outside its owner** (Auditor 5). `CssWriter` + `CssDocument::parse` replaced it.
+- **EVE inside END rejected END's theme** (Auditor 1): the reference rule compared END's palette with EVE's. Under END only the theme rules apply.
+- **Audit, resolved:** 1–12, 15 (record columns), 16, 17, 19–23, 25–27. **Rejected with the read:** 13 (a pair of handles, MANIFESTO "A scalar, a handle ... does not copy"), 14 (`style.md:114` has no `colour id` suffix), 15 rest (YAGNI; `toType` tree identity, `jam_Css.cpp:2183`; plan excludes page/element), 18 and 28 (work buffers in creation), 24 (ConfigDocument is one object after the reader moved; CODING "Never make a small .cpp to meet 300/30/3").
+- **Doxygen pass findings:** DRY `isRowType` and the header body of `saveToPath` resolved; the `atRuleTypes` instance, the `add` container parameters (NAMES Rule 1 `addToken` example), a bare line count and a two-copy list rejected.
+- **Mistakes owned.** I briefed `getThemeTree()` with no parameter, so it parsed the defaults twice; I fixed the signature. I called the type-erased `Function::Map` a breach of fail-fast; ARCHITECT corrected it: the `dynamic_cast` assert is deterministic. I copied the `add<…>` family shape into my own briefs without testing it against BLESSED.
+
+### State for Continuation
+- ARCHITECT runs `cast` in jam, eve and end, builds all three, and deletes `~/.config/dev/themes/gfx/theme.md` once (same version, never overwritten).
+- Check first at compile: `jam::HashMap::insert ({ key, std::function })` in the `Map` specialization (`jam_Function.h:347-373`); the `getThemeTree (defaultDocument)` declaration (`jam_PluginEditorLayout.h`).
+- Runtime: a fresh `theme.md` (tables above); a palette colour, a colour id, a face height and a metric edited live; a corrupt row renders defaults with the error; hosted EVE under END with END's colours; Markdown and Mermaid colours and fonts; dark appearance.
+- Run `<leader>bd` in jam and `ninja doxygen` in eve and end; confirm zero warnings.
+- The `Function::Map` census (END with JAM, JFS with KANJUT) is running. Its result decides whether uniform maps store `juce::FixedSizeFunction<N, R (Args...)>` (`juce_FixedSizeFunction.h:96-101`, no allocation) and the buffer size `N`.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261108T145906` — Ctrl+L destroys the Claude Code prompt on the normal screen (unchanged).
+- `DEBT-20261105T000000` — Windows runtime test (unchanged).
+
+---
+
 ## Sprint: END Theme on the Style Contract — style.css Is the One Source of Fonts, Colours and Metrics, the Markdown Emit Is the Inverse of the Parse, Style Reads the Disk Tree ✅
 
 **Date:** 2026-11-09
@@ -249,87 +309,3 @@
 
 ---
 
-## Sprint: Display Mono Faces, Paint Order under END, First Tab, One Config Load Path with Memoized Binary Defaults, Audit of Two Sprints ✅
-
-**Date:** 2026-11-06
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"fix Display MONO NOW ... NO FUCKING HACK. FIX THE DESIGN, DESIGN BY CONTRACT"*; *"next winsize"*; *"juce native component contract IS THE CONTRACT. paintOverChildern paint in front, childern paints in front of its parent. NO FUCKING NEGOTIATIONS"*; *"that's the problem, init DOES NOT CREATE NEW TAB. so it's blank"*; *"if you found any issue, genuiene issue? why the fuck you raise it as potential bug? ... why not just fix it?"*; *"change default focus background to bunker 25% alpha"*; *"current config contract is violated"*; *"AND the carried default binary also serves as SFINAE fallback"*; *"binary created once memoized, always SSOT. if disk invalid, the cache serves as default value, never fails, shows error. disk does not exist? write. read disk, create tree, once, memoized. file watcher triggers update tree, etc. no copy, no shadow state."*; *"check how JFS handle its xml settings"*; option 1 (a memoized `ConfigDocument::getOrCreate` in jam); *"comprehensive doxygen pass after validation, then /log"*.
-
-### Agents Participated
-- COUNSELOR: the reads of the font, size, layer, focus, config and JFS paths; each design; validation of each Engineer and Pathfinder return; the small edits in `jam_BackgroundBlur_mac.mm`, `jam_VulkanMetal_mac.mm`, `theme.md`, `SessionView.cpp`, `ENDView.cpp`, `EVEView.cpp`, `ARCHITECTURE.md` and `ConfigModel.cpp`; this log.
-- Auditor (opus): the audit of the last sprint and of this session. The first run failed on the rate limit. The second run reported 60 findings.
-- Engineer (sonnet): the layer, preview, focus, config and audit fixes, in six deliveries.
-- Pathfinder (haiku): the doxygen pass over `TabView.h`, `EditorView.h`, `ConfigModel.h`, `ConfigDirectory.h`, `EVEView.h`, `jam_ConfigDocument.h`, with three corrections after COUNSELOR read the blocks against the code.
-
-### Files Modified (25 in the first pass; the audit's second pass adds the 13 files at the end of this list)
-- `eve/Source/layout/style.css:23-42` — `mono` is `DisplayMonoMedium.ttf`; `--monoBook` and `--monoBold` rows load the other faces by bundled `src`.
-- `eve/Source/EVEView.cpp:122-125`, `EVEView.h:126-133` — `isResizing() const` reads `editor.getValueTree().getProperty (Id::isResizing)` (`jam_Model.h:188`); it no longer calls `getOrCreateComponentProperty`.
-- `eve/Source/EVETerminalProcessor.cpp:66-69` — `setRows` is `state.setValuesFrom (rows)`, the call that `setState` uses at `:58`.
-- `end/Source/ui/EditorView.h`, `.cpp:54-61`, `:196-201` — `childBoundsChanged` deleted; `resized` writes `width` and `height` in one `pluginState` tree with one `Session::setRows` call; `setRows (row, value)` is `setRow`; `getSession` is `const`.
-- `end/Source/ui/TabView.h`, `.cpp:141-261` — the split preview is a nested `Preview` component on its own desktop peer, brought to front; `mouseDrag` and `mouseUp` hide it; the edge stays a `juce::Identifier` into `paintSplitPreview` and `paintJoinPreview`; `splitVertical` is `isHorizontal (edge)`.
-- `end/Source/ui/ENDView.cpp:14`, `:43`, `:154`, `:195-196` — ENDView is the first command target; `addSession` invokes `newTab`; `newTab` calls `getActiveTabView()->loadPlugin()` with no second check.
-- `end/Source/ui/SessionView.cpp:116` — `report` is `paneTitle`.
-- `end/Source/plugins/PluginState.cpp:158-166` — `setRows` writes into its own `MemoryBlock`; no `getMemoryBlock()` copy.
-- `end/Source/config/ConfigModel.h`, `.cpp:38-112`, `:118-310` — one load path: `getDefaultThemes()` and `getDefaultConfig()` build a tree from the memoized default documents; the theme and config loaders start from that tree, overlay the valid disk tables, and apply the result once; an invalid flex SVG keeps the binary default and shows the error; `fileChanged` reloads on `.md` and `.svg`.
-- `end/Source/config/ConfigDirectory.h` — doxygen only.
-- `end/Source/config/theme/gfx/theme.md:23` — `glass corbeau` is `0x800d141c`, 50% alpha (ARCHITECT set `0x80`); the other colour descriptions name only the colour.
-- `end/Source/Main.h:47` — `documents` (`jam::SharedInstance<jam::SharedDocuments>`) is declared before `nexus` and `config`.
-- `end/ARCHITECTURE.md:114-116` — the PANE row shows `title`, `foregroundProcess` and `cwd` inside `pluginState`.
-- `jam/jam_vulkan/context/native/jam_VulkanMetal_mac.mm:26-27` — the Metal layer goes to the bottom of its view; `jassert (view.layer != nil)`.
-- `jam/jam_clap/format/jam_ClapPluginWindow.h`, `.cpp:76` — the `hostedViewZPosition` constant and its assignment are deleted.
-- `jam/jam_gui/desktop/native/jam_BackgroundBlur_mac.mm:130-235` — the effect views sit at `zPosition` -1; `getWindow`, `removeSubviews` and `addEffectView` replace four lookups and three loops; `juce::NSUniquePtr` replaces the `release` calls; the redundant inner check is deleted.
-- `jam/jam_markdown/document/jam_ConfigDocument.h:21-32`, `.cpp:5-21` — `ConfigDocument::getOrCreate (name)` parses a BinaryData resource once per name into `SharedDocuments`.
-- `jam/jam_gui/layout/jam_MatrixComponent.h`, `.cpp` — `getPropertyId` is deleted and its nine callers use `indexOf`; `getRoot` and `getFirstPane` are `const`.
-- Second pass, files changed again: `end/Source/ui/ENDView.cpp`, `TabView.h`, `TabView.cpp`, `SessionView.cpp`, `EditorView.h`, `EditorView.cpp`, `end/Source/config/ConfigModel.h`, `ConfigModel.cpp`, `jam/jam_gui/layout/jam_MatrixComponent.h`, `.cpp`, `jam/jam_clap/format/jam_ClapPluginWindow.h`, `.cpp`, `jam/jam_gui/desktop/native/jam_BackgroundBlur_mac.mm` (the changes are in the findings above).
-- Second pass, 13 files added:
-  - `end/Source/ui/ENDView.h` — four declarations (`registerModeActions`, `registerSplitActions`, `registerLoadPluginActions`, `registerCloseActions`).
-  - `end/Source/ui/SessionView.h` — `remove` deleted.
-  - `end/DEBT.md` — `DEBT-20261103T195500` names the `width` and `height` rows.
-  - `eve/CLAUDE.md` — the zoom callbacks and `PLAN-host-client-state.md`.
-  - `jam/jam_gui/layout/jam_OwnerComponent.h`, `.cpp` — `get` const overload (`.h:75`, `.cpp:66-70`).
-  - `jam/jam_gui/layout/jam_TabbedComponent.h`, `.cpp` — the `lookAndFeelChanged` override is deleted.
-  - `jam/jam_graphics/fonts/jam_Typeface.h`, `jam_Typeface.cpp`, `native/jam_Typeface_windows.cpp` (new), `jam/jam_graphics/jam_graphics.cpp:13` — the Windows font discovery moved to its own file, as the macOS one is.
-  - `jam/jam_core/utilities/jam_SharedResources.h` — comment names `writeLock` and `numEntries`.
-
-### Alignment Check
-- [x] BLESSED principles followed, with the findings below.
-- [x] NAMES.md adhered: `getOrCreate` joins `MarkdownDocument::getOrCreate`; `paneTitle` names the value; `documents` joins the JFS member; `setRow` names one row.
-- [x] MANIFESTO.md principles applied: S, one memoized default document and no static copy; E, no copy and no temporary tree for the defaults.
-- [ ] No build or run of the last code is reported. Zero doxygen warnings are unconfirmed: no index was regenerated.
-- [x] All 60 Auditor findings are validated by a read of the cited lines: 33 resolved (19 in the first pass, 14 in the second), 19 rejected with the read that refutes them.
-- [ ] 8 of the 60 findings are not resolved. A3, A20 and A7 each wait for ARCHITECT's ruling, because a ruling and a CONTRACT clause cannot both hold, or because the fix is a new jam API. B29, A11, A15 and A16 are real Lean findings that need a new object and a new name (NAMES Rule -1). A22 is resolved in part: the Windows font discovery moved to its own file, and `jam_Typeface.cpp` is 310 lines. See State for Continuation.
-
-### Problems Solved
-- **`::` printed `↓`.** Mono bold had no declared face, so bold resolved by family name to whichever file was installed. The mono family now declares Medium, Book and Bold from the bundle. Not built.
-- **Surface cut at a fixed height.** A reverse edge (`EditorView::childBoundsChanged`) rewrote the height after the width's stale `setSize`. The edge is deleted.
-- **END preview and blur against EVE.** A native view hides JUCE components that overlap it. The Metal layer sits at the bottom, the blur views at `zPosition` -1, and the preview is a component on its own peer.
-- **Blank window at start.** `commandManager->invokeDirectly` used a focus lookup that can miss ENDView at start. ENDView is now the first command target, and `addSession` creates the first tab.
-- **Config contract.** END's config had stale caches and no restore of a deleted file. Now one path runs for the start and for each reload: restore missing files, read the disk, overlay the valid tables on the defaults, apply once.
-- **Double build of the defaults.** I first made static trees with `createCopy()`. ARCHITECT rejected that, and the JFS read (`kuassa_PluginEditorLayout.cpp:62-77`) showed the pattern: the default Document is memoized and a tree is built from it. `ConfigDocument::getOrCreate` and the `documents` holder do this. A tree is still built twice at start (the `ConfigModel` base, then `loadFromPath`), but each binary file is parsed once.
-- **Audit findings resolved, first pass:** B3, B4, B8, B9, B12, B14, B15, B16, B17, B21, B22, B25, B27, A1, A4, A5, A9, A17, D1.
-- **Audit findings resolved, second pass:** B7 (`TabView.cpp` is 300 lines after B30 and B11), B10 (`EditorView::events` table, `EditorView.cpp:209-253`), B11 (a pane removes itself and splits through `jam::OwnerComponent` and `jam::MatrixComponent`; a tab removes its own state row; `EditorView.cpp` no longer includes `TabView.h`, `TabView.cpp` no longer includes `SessionView.h`), B18 (comments that restate the code: `jam_BackgroundBlur_mac.mm`, `jam_ClapPluginWindow.cpp`, `ConfigModel.cpp`), B19 (`canResizeByDrag` deleted; `guiExt->can_resize (plugin)` at `jam_ClapPluginWindow.cpp:65`, `:101`, `:116`), B24 (`ConfigModel::loadResources`, `loadFromPath` is 25 lines), B28 (`registerModeActions`, `registerSplitActions`, `registerLoadPluginActions`, `registerCloseActions`), B30 (`TabView::getJoinDirections` and `handleAreaOptionsResult` are `jam::HashMap` lookups; `getJoinAction` deleted), B31 (`ENDView.cpp` divider and pointer scope), A2 (`SessionView::valueTreePropertyChanged` loops over its tabs; `findAncestorRow` is file-static in `EditorView.cpp`), A18 (`OwnerComponent::get` const overload; `getParent`, `getNeighbour`, `getPanePosition` are `const`), A26 (the `TabbedComponent::lookAndFeelChanged` override is deleted; `juce_Component.cpp:2213-2236` recurses into the children), D2 (`eve/CLAUDE.md`), D3 (`end/DEBT.md`). Consequences of B11 that are fixed too: `TabView::loadPlugin` has no parameter (no caller passed one), and `SessionView::remove` is deleted (no caller was left).
-- **Audit findings rejected in the second pass, each with its read.** B13 and B20: the code repeats twice only (MANIFESTO S: "more than twice"); the `=` in `if (auto* peer = ...)` is the form of CODING "Narrow pointer scope". A8: `getHeight()` is the component's own bounds (`EVEView.cpp:179-187`). A10: `panels` is created on first use (`EVEView.cpp:693-694`), which names the threat of the guard. A14: `valueTreeRedirected` re-applies the mode to the new tree (`jam_TextEditor.cpp:857-860`). A19: `removeChildComponent (Component*)` sends the child events (`juce_Component.cpp:1491-1494`, `:1501-1550`); the destructor path does not (`:507`). A21: the two loops differ in their predicate and appear twice. A24 and A25: the structured binding is the only form CODING allows (no `.second`); the `pluginStates` guard names the threat (`Session.cpp:108` creates a `PluginState` only for a plugin of the same manufacturer).
-- **Audit findings that wait for a ruling or a name.** A3: `EVEProcessor.cpp:155-161` copies the `terminal` subtree into a `pluginState` tree; MANIFESTO E forbids a copy and a reshape of data in transit; the rulings are *"END is the host. it holds its plugin instance stateInfo."* and the commit "answer the host as a plugin state". A20: `jam_Typeface.cpp:421` interns a second Entry over the bundled bytes, and `jam_Typeface.h:102` and `:241-248` document it; `SharedResources` has no alias API (`jam_SharedResources.h:60-166`); MANIFESTO E says "Do not build it again". A7: the `1.0f` of `EVEView.cpp:391` repeats the default `1` of `parameters.md:67`; no jam type gives a parameter default (`jam_ParameterBase.h:266-271`, `jam_Model.h:1047-1053`). The other half of A7 is refuted: `EVEView.cpp:173-177` clamps every host value. B29 (`ENDView.cpp`, 450 lines), A11 (`EVEView.cpp`, 739 lines, the side panels, `openFile` and the command table), A15 (`jam_TextEditor.cpp`, 1934 lines: `getKeyInputs` at `:536-599`, `getCarets` at `:601-651`, `addBlock` from `:862`, the terminal mouse path at `:1448-1478`), A16 (`jam_MatrixComponent.cpp`, 495 lines: tree algebra at `:53-357`, command dispatch at `:359-395`, layout at `:442-492`; `join` is 58 lines): each needs a new object and a new name.
-- **Audit findings rejected, each with its read.** B1, B2, B5, B6: paint has no payload channel, and the other repeats appear twice (`TabView.cpp:141-231`). B23: twice only. B26: ARCHITECT ruled to load all faces. A6: `setState` removes the `pluginState` child (`EVETerminalProcessor.cpp:54-59`). A12: `Model::Component` exposes `state` the same way (`jam_Model.h:190-191`). A13: `.at` fails loudly. A23: sessions die only in `~Nexus` (`Nexus.cpp:112-116`), after the format objects drop pending messages (`Nexus.h:154`, `:177`; `juce_Message.h:68`).
-- **Mistakes owned.** I rejected A9 and A23 without reading, and the reads then upheld A9 and rejected A23. I made a static ValueTree and `createCopy()` to protect it, argued for it when ARCHITECT asked, and misread `populateTree` as a copy rule. The `ConfigModel.cpp` double build was first rejected under a ruling that did not cover it. I accepted the `PluginState::setRows` change without reading the registrations of `getStateWrites`; the registered signature is `const juce::MemoryBlock&` (`PluginState.cpp:132-137`) and the call deduced `juce::MemoryBlock&`, so the assert at `jam_Function.h:312` fired. The call passes `std::as_const (block)` now (`PluginState.cpp:165`).
-
-### State for Continuation
-- ARCHITECT's rulings wait on A3, A20 and A7, and ARCHITECT's names on B29, A11, A15 and A16 (see Problems Solved). A22 stays at 310 lines in `jam_Typeface.cpp`: the `Typeface` struct holds the registry, the fallback cache, the metrics cache and the ligature cache.
-- Second pass, check these compile: `jam::HashMap<juce::Identifier, juce::CommandID>` built from `Id::left` and the command ids (`TabView.cpp:110-121`); `events.get (property, tree)` with `jam::Function::Map<juce::Identifier, void>` (`EditorView.cpp:249-253`); `matrix->get (matrix->split (edge))` (`EditorView.cpp:97`); the `const` `get` of `OwnerComponent` and the three `const` getters of `MatrixComponent`; `child->state` and `tree.isAChildOf` in `SessionView.cpp:87-89`; `jam_Typeface_windows.cpp` on Windows (a verbatim move of old `jam_Typeface.cpp:72-281`, included at `jam_graphics.cpp:13`).
-- Second pass, behaviour that changed: a plugin file dropped on a pane writes the full path to the `plugin` row of the new pane (it went through `TabView::loadPlugin` before); the last pane of a tab removes the tab row from the session state (it called `SessionView::remove`, which did the same).
-- Run `<leader>bd` in `jam` and `ninja doxygen` in `eve` and `end` again, because the second pass changed doxygen blocks in 8 headers (`ENDView.h`, `ConfigModel.h`, `TabView.h`, `SessionView.h`, `EditorView.h`, `jam_OwnerComponent.h`, `jam_Typeface.h`, `jam_SharedResources.h`). The pass did not regenerate the indexes.
-- ARCHITECT runs `cast` in `eve` and `end` and tests: the first tab at start, the split preview over EVE, an opaque focused background, `::` in bold, the winsize at a split, a deleted config file, a bad config value, and a corrupt flex SVG. Check these compile: `Nexus::getSession` under `const` (`EditorView.cpp:244`), the `ConfigDocument` move assignment (`jam_ConfigDocument.cpp:16`), `juce::NSUniquePtr<NSArray<NSView*>>` (`jam_BackgroundBlur_mac.mm:147`), `stream.flush()` after `MemoryOutputStream stream { block, false }` (`PluginState.cpp:161-163`).
-- The disk row `~/.config/end/eve.md:1294` names `DisplayMonoBook.ttf`; its version is unchanged, so it is not rewritten and it overrides the new default (`jam_ConfigDocument.cpp:408-420`).
-- Font identity across the ENAX seam is undecided: END looks up a plugin font by name (`jam_VulkanLowLevelGraphicsContext.cpp:1706`).
-- `ConfigDocument::getOrCreate` and `MarkdownDocument::getOrCreate` cast the same registry entry; one name must use one of them (`jam_ConfigDocument.h:21-32`).
-- Open findings, not validated by a read: B7, B10, B11, B13, B18 (the other comments), B19, B20, B24, B28, B29, B30, B31, A2, A7, A8, A10, A11, A14, A15, A16, A19, A20, A21, A22, A24, A25, A26, D2, D3. A3 waits for ARCHITECT's ruling: is the retype `terminal` to `pluginState` at `EVEProcessor.cpp:156-161` inside *"maps to pluginState at the state boundary"*. A18: `getParent`, `getPanePosition` and `getNeighbour` stay non-const because `OwnerComponent::get` has no const overload (`jam_OwnerComponent.h:74`).
-- Run `<leader>bd` in `jam` and `ninja doxygen` in `eve` and `end`, and confirm zero warnings. The `Main.h:47` member has no block, as its neighbours have none.
-- Still open from the last sprint: the `commands` FIFO is not a row; the `background` and `winsize` working copies; the `MallocStackLogging` emitter; the AU and VST3 paths of `PluginState` have no test.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
----
