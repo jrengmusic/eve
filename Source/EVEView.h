@@ -115,7 +115,8 @@ private:
     /**
      * @brief Ends the resize. It clears the resizing mark of the text editors.
      *
-     * It writes the width and the height of the view to the `width` and `height` rows of the terminal tree.
+     * It writes the width and the height of the view to the `width` and `height` rows of the terminal tree, except under END.
+     * Under END the pane is the sole author of those rows, and the view follows them.
      * It stops the coalesce timer. The timer also runs this call as the final stop of a frame change from outside the window.
      */
     void resizeEnd() override;

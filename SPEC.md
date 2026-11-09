@@ -671,6 +671,11 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
        the layout. The timer runs `resizeEnd`, which is the final stop. A live
        resize holds the gate with no timer, so `resized` adds nothing. ARCHITECT:
        *"Both (Recommended)"*.
+    6. Under END, the pane is the sole author of the `width` and `height` rows.
+       END writes them before it creates the editor (`EditorView.cpp:240`), so EVE
+       is built at the pane size. `EVEView::resizeEnd` does not write them under
+       END. ARCHITECT: *"you fix the cause, the design, the race, you'll fix both.
+       DESIGN BY CONTRACT."*
   - **Active prompt anchor.** ARCHITECT: *"clear: draw active prompt at 0"*.
     A prepare puts the cursor at home. The shell redraws its prompt there on
     `SIGWINCH`. For oh-my-posh, the user's zshrc repaints the prompt in
