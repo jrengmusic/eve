@@ -36,6 +36,62 @@
 
 ## SPRINT HISTORY
 
+## Sprint: END Theme on the Style Contract — style.css Is the One Source of Fonts, Colours and Metrics, the Markdown Emit Is the Inverse of the Parse, Style Reads the Disk Tree ✅
+
+**Date:** 2026-11-09
+**Duration:** one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"previous sprint counselor tried to fix theme.md config contract because it was messy"*; *"it's either we fix this mess, or we could start from HEAD"*; the config contract: *"ConfigDocument should not doing any garbage defensive programming with bullshit jassert"*, *"error should never be failure. carried binary always provide the default fallback. validation is always Document::Validator job"*, *"binary write to virgin state to disk, disk always win."*, *"if disk was invalid, rendering never fails ... BUT Validator must show error."*; the css contract: *"css contract: ALL RELATED STYLE SSOT - fonts - colour - metrics"*, *"StyleManager build the map - StyleCustom consume downstream, style related `config` always through Style, never by poking config directly."*, *"config - file watcher listener events - style changed - component repaint"*; the format contract: *"md must be using plain words without any redudancy of `colour id`, `font id`"*, *"the contract is at CALLEE. starts from SSOT cast table manifest ... the problem is INCONSISTENCY"*; *"why both options are garbage? why there are shadow state?"*; *"there are other agents working on Vulkan at jam ... be VERY CAREFUL"*. The plan was approved through plan mode.
+
+### Agents Participated
+- COUNSELOR — the reads of StyleManager (jam and KANJUT), the theme lane, ConfigDocument and Css; the plan; Step 1 and Step 8 edits; every read-back; the filter of 49 audit findings; this log.
+- Pathfinder (haiku) — tree state and diffs of eight repos, StyleManager history, plans and logs, HEAD `theme.md`, two inventories, the removed emit code, the doxygen pass.
+- Engineer (sonnet) — the emit inverse and the `getOrCreate` overload; the style data, ConfigTheme and consumers; the audit fixes; the plan copy.
+- Auditor (opus) — one run stopped by the watchdog at 15 minutes (one run held six traces), then two partitions, 21 and 28 findings.
+
+### Files Modified
+- `jam/jam_markdown/document/jam_ConfigDocument.{h,cpp}` — no `jassert`. The emit is the parse's inverse again: `getKeyWords` drops the component words and the id suffix, `getCellText` writes an alias in words, `addSheetTables` writes `### colours`, one table per component, `### fonts`, `### appearance` and `### metrics` under one `##` sheet; a table with child rows writes its properties as `### metrics`. `hasIdEntry` knows an id key by lexicon membership, because `text button text colour off id` (`cast/style.md:114`) does not end with `colour id`. An empty dark cell parses as the light value. `getOrCreate (name, text)` memoizes a document parsed from given text. Doxygen synced.
+- `jam/jam_markdown/document/jam_ConfigValidator.cpp:231-237` — a font `src` that names no default file is a validation failure (`failUnknownReference`), so a bad disk file never reaches `StyleManager::getOrCreateTypeface`.
+- `jam/jam_style/jam_StyleCustom.{h,cpp}` — `getDefaultScrollbarWidth` has no `isEND()` branch; the `scrollBarThickness` metric of the style sheet is the one path.
+- `jam/jam_web/css/jam_Css.{h,cpp}` — the comma-list attribute and `getStyleAttributeType` are deleted.
+- `end/Source/config/theme/gfx/style.css` (was `gfx.css`) — the three faces whose file END does not ship are deleted (`symbols`, `--notoSymbols`, `--notoEmoji`: the crash at `jam_StyleManager.cpp:105-107`); `.window` (`blur`, `mac`, `win`); `--ResizableWindow--backgroundColourId`; tab and pane metrics; `tab` and `overlay` faces. The file name makes the sheet `STYLE`, the sheet hosted EVE reads.
+- `end/Source/config/theme/gfx/theme.md` — only rows that are not a font, colour or metric: `## tab` (`position`, `always visible`, `uppercase`), `## pane` (`split line`).
+- `end/Source/config/ConfigTheme.{h,cpp}` — `getOrCreateDefaultText`: carried `theme.md`, a newline, then the markdown built from `style.css`, once per file name (the canon form `kuassa_PluginEditorLayout.cpp:601-603`); the virgin write uses it.
+- `end/Source/lookAndFeel/ENDLookAndFeel.{h,cpp}` — StyleManager is created over the THEMES tree; the `theme` event runs `registerStyle`, `applyColours`, `applyFontStyles`, `loadGraphics`; fonts, metrics, window and colours read through StyleManager; the per-table events and the menu opacity read are deleted. Doxygen synced.
+- `end/Source/Main.{h,cpp}` — `initialiseStyle` is the one init call. Doxygen synced.
+- `end/cast/files.md`, `end/cast/identifiers.md` — `style.css`; eight metric ids added, seven ids with no reader deleted.
+- `end/SPEC.md:164-`, `end/ARCHITECTURE.md` (engine lifecycle, thread table, config chain), `end/PLAN-style-driven-theme.md` (replaced by the locked plan).
+
+### Alignment Check
+- [x] BLESSED principles followed — one source per row, one runtime tree, one flow for init and reload.
+- [x] NAMES.md adhered — `hasIdEntry` joins `isIdEntry`, `getOrCreateDefaultText` joins `getOrCreate`, the metric ids join `scrollBarThickness`.
+- [x] MANIFESTO.md principles applied.
+- [x] No file under `jam_vulkan` and no change to `jam_StyleManager`.
+- [ ] Not built. No agent ran `cast` or a build.
+- [ ] Zero doxygen warnings unconfirmed; the jam XML still names `getStyleAttributeType`.
+
+### Problems Solved
+- **Two truths for the theme.** Embolden and scrollbar thickness lived in `theme.md` and in `gfx.css`; StyleManager held a css-only tree beside the config tree. Now `style.css` holds every font, colour and metric, the disk file is built from it, and StyleManager registers the one THEMES tree on every change.
+- **SCREAMING values and `colour id` keys on disk.** The css parse stores a reference as a tag (`jam_Css.cpp:411-412`) and the emit wrote it raw; the previous sprint had deleted the emit's suffix strip. The emit and the parse are inverses again, at the callee.
+- **No colours a user can override.** The previous sprint's hand-written `theme.md` had no colour table. The built file has the palette and every component table.
+- **Audit, resolved:** A-F1, A-F2 (lexicon membership), A-F10 (dark column), B-1 (font file validation), B-3 (empty dark cell), B-5 (default text per name), B-11 (one init flow).
+- **Audit, rejected with the read:** B-6 — `Main.cpp:61-65` cascades on `Id::theme`, after the LookAndFeel listener (`juce_ListenerList.h:403-413`). B-12 — `setAppearance` changes the laf colours, not `colourScheme`, which `loadGraphics` reads (`ENDLookAndFeel.cpp:500`). A-F8 — every StyleManager lookup applies `Format::toType` (`jam_StyleManager.cpp:83`, `jam_StyleManager.h:195`), so the key case of the css tree and the disk tree meet.
+- **Mistakes owned.** I first reported a StyleManager contract change, then corrected it: the KANJUT differences came from the locked isomorphism plan. I offered a HEAD-or-fix disposition and a row-source question that the contract answered. My first plan kept hand-authored style rows in `theme.md`.
+
+### State for Continuation
+- ARCHITECT runs `cast` in jam, eve and end, builds all three, and deletes `~/.config/dev/themes/gfx/theme.md` once (same `version: 0.0.1`, never overwritten).
+- Runtime checks: a fresh `theme.md` with `## style` and its `###` tables; a colour, metric and font height edited live; a corrupt file renders defaults with the error; hosted EVE with END's colours; Markdown and Mermaid fonts and colours; EVE standalone writes its own file in the same shape; dark appearance.
+- Run `<leader>bd` in jam and `ninja doxygen` in eve and end; confirm zero warnings.
+- Audit findings not resolved, each read and real, larger than this plan: A-F3, F4 (component and dark loss for font-only or palette rows), A-F5 (component tables also hold metrics, and an `### appearance` table exists, against Plan Step 2.4 wording), A-F6, F7 (font-lexicon guess outside `### fonts`), A-F9 (font numbers as strings), A-F11 (units other than `em`), A-F12 to F28 (Lean, DRY and form in `jam_ConfigDocument.cpp` 719 lines and `jam_ConfigValidator.cpp` 382 lines), B-2, B-4 (hosted EVE overlay drops nested children), B-7, B-8 (popup `SafePointer` and `callAsync`), B-9, B-10 (rasterizer assert), B-13 to B-21 (repeats, sentinel, forms, duplicate `theme`/`themes` ids).
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261108T145906` — Ctrl+L destroys the Claude Code prompt on the normal screen (unchanged).
+- `DEBT-20261105T000000` — Windows runtime test (unchanged).
+
+---
+
 ## Sprint: Claude Code Cursor — Caret Gate on the Grid, Inverse Video in the Glyph Painter, Debt Captured, Doxygen Pass ✅
 
 **Date:** 2026-11-08
@@ -277,70 +333,3 @@
 - None
 
 ---
-
-## Sprint: A Pane Holds Any Plugin — pluginState, Three Close Commands, One Close Order, Mode as One Row, Window Size through Rows, Host Keeps Bundled Font Bytes ✅
-
-**Date:** 2026-11-06
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** the crash and the wrong size under END: *"last sprint still left broken state"*; *"winsize disagree with window size"*; *"it's not only winsize, i think it's the whole state of EVE are wrong ... immediately init at NORMAL mode"*. *"Display Mono custom pua also broken now"*. *"why copy? no copy allowed"*. *"closing pane, exit, clean dtor must be deterministic, SSOT. one COMMAND"*. *"close terminal should be one commandId (kills eve instance CLEANLY)"*; *"close pane should be one commandId"*; *"close terminal pane should be one commandId (calls closeTerminal then, closePane)"*; *"cmd+w, `exit`, should call close terminal pane"*. The pane model, verbatim in `end/SPEC.md`: *"a pane is just blank canvas for ANY PLUGIN"*; *"default plugin is EVE"*; *"any pane could be any plugin"*; *"by default cmd+w IS `exit`"*. *"the correct design is not `terminal`, but the state instance of `EVE`. `EVE` could be any plugin"*. *"comprehensive doxygen pass until /log no gate"*.
-
-### Agents Participated
-- COUNSELOR: the reads of the crash, size, state, font and close paths; each design; validation of each return; the one-line edits in `EditorView.cpp` and `Session.cpp`; `eve/SPEC.md`, `end/SPEC.md`, `PLAN-host-client-state.md`; this log.
-- Engineer (sonnet): the mode row, the mouse clamp, the size rows, the bundled face lookup, the close order, the three close commands, `loadPlugin`, `pluginState`.
-- Pathfinder (haiku): the plan inventory; the `jam_fuzzy` and fzf read; the crash, state, layout, font and mode reads; the doxygen pass and its correction.
-
-### Files Modified (40 total)
-- `jam/jam_gui/widgets/jam_TextEditor.cpp:102`, `:110`, `:655`, `:853` — `mode` exists only as the `terminal` row; the three sync lines are deleted. `:547`, `:563`, `:585`, `:592` — `invokeKey` takes `terminal`. `:1450` — `applyMouse` constrains the position to the content, because JUCE sends drags outside the bounds (`juce_MouseListener.h:112-116`).
-- `jam/jam_gui/widgets/jam_TextEditorStatusBar.h`, `.cpp` — a `terminal` member; `paint` reads the mode from it.
-- `jam/jam_gui/layout/jam_OwnerComponent.h`, `.cpp:48-58` — `remove` destroys the child first with its row whole; the `childRemoved` hook runs after the erase and receives the row.
-- `jam/jam_gui/layout/jam_MatrixComponent.h`, `.cpp:409-433` — the focus moves before the tree changes; a root pane row leaves `state` directly; one-argument `getParent` deleted.
-- `jam/jam_gui/layout/jam_TabbedComponent.h`, `.cpp` — the hook signature.
-- `jam/jam_graphics/fonts/jam_Typeface.cpp:398-421` — `findBundledTypeface`; `registerSystemTypeface` takes the bytes of a registered bundled face of the same name and style.
-- `jam/jam_graphics/context/jam_CpuLowLevelGraphicsContext.h:238`, `:267-271` — the context interns the current font, the shape of the Vulkan context, because an index of another binary's table has no meaning.
-- `jam/jam_gui/commands/jam_CommandManager.h`, `jam/jam_graphics/fonts/jam_Typeface.h` — doxygen.
-- `end/Source/ui/EditorView.h`, `.cpp` — `perform` is a lookup of `closeTerminal`, `closePane`, `closeTerminalPane`; `shellExited` invokes `closeTerminalPane`; `resized` writes `width` and `height`; one `resized()` after `createProcessorEditor()`.
-- `end/Source/ui/TabView.h`, `.cpp:45-52` — `loadPlugin` has `files::evePlugin` as its default argument; `childRemoved` removes the plugin and tells the session view when no pane remains.
-- `end/Source/ui/SessionView.h`, `.cpp:53-59` — `childRemoved` quits when no tab remains.
-- `end/Source/ui/ENDView.h`, `.cpp` — the `loadPlugin` command; the three close commands forward to the focused pane; the join command no longer removes a plugin.
-- `end/Source/plugins/Session.h`, `.cpp` — `removePlugins` and `valueTreeChildRemoved` deleted; `removePlugin` public; `pluginState`; the `jassert` on the format deleted.
-- `end/Source/plugins/PluginState.h`, `.cpp` — the `pluginState` child.
-- `end/cast/bimaps.md`, `end/cast/identifiers.md`, `end/Source/config/keys.md:24` — `closeTerminal`, `closeTerminalPane`, `loadPlugin`, `pluginState`; cmd+w binds `close terminal pane`.
-- `end/SPEC.md`, `eve/SPEC.md`, `eve/PLAN-host-client-state.md` — the rulings, and the false *"`width` and `height` have no END writer"*.
-- `eve/Source/EVEView.h`, `.cpp` — `isListMode` reads the row; `Id::mode`, `Id::width` and `Id::height` events, each row sets its own axis.
-- `eve/Source/EVEProcessor.h`, `.cpp:151-186`, `eve/Source/EVETerminalProcessor.h`, `.cpp:54` — `terminal` stays EVE's own tree and maps to `pluginState` at the state boundary.
-- `eve/Source/layout/parameters.md`, `eve/cast/identifiers.md` — `layer` and `sequence` rows; `pluginState`.
-
-### Alignment Check
-- [x] BLESSED principles followed, with the branches named below.
-- [x] NAMES.md adhered: `pluginState` from ARCHITECT's *"state instance"*, in the family of `Id::plugin` and `PluginState`; `findBundledTypeface` joins `findBundledFallback`.
-- [x] MANIFESTO.md principles applied: B, a view dies before its plugin; S, one `mode`.
-- [ ] No Auditor run. ARCHITECT's run order was the doxygen pass, then the log.
-- [ ] No build or run of the last code is reported. Zero doxygen warnings are unconfirmed: no index was regenerated.
-- [ ] Branches stay where a read shows no other form: the root case (`jam_MatrixComponent.cpp:413`), the empty owner rules (`TabView.cpp:50`, `SessionView.cpp:57`), `if (format != nullptr)` (`Session.cpp:80`).
-
-### Problems Solved
-- **NORMAL at start.** `state = componentState` fires `valueTreeRedirected` (`juce_ValueTree.cpp:630`). The mode handler then wrote 0 to the row, and the sync copied it back. Two trees held one truth. Now one row holds it.
-- **Window at 800x600 under END.** END loads `EVE.vst`, and the VST2 host window has `resizableByHost = false` (`juce_AudioProcessorEditor.h:275`), so `setEditorBounds` only moves it. `38b6b1a` deleted the old write and I wrote a false line in the plan. `EditorView::resized` now writes the rows.
-- **Underlined `≤` for U+E000.** `0325a0d25` read the outline from a CoreText font found by name. Under END that name finds the installed Display Mono, where gid 105 is `lig_003C_003D`. `Typeface::Native` is private (`juce_Typeface.cpp:276`), so the bundled bytes answer.
-- **Asserts on close.** A focus write reached a dying child whose row had no session ancestor. Each close now has one order: the view, then the focus, then the plugin.
-- **`closeTerminal`.** It removes the `plugin` row. The pane deletes its editor first, then `Session` removes the plugin (`juce_ValueTree.cpp:101-107`).
-- **Doxygen pass.** Six blocks plus one parameter were rejected on read and corrected.
-- **Findings rejected, each with its read.** C-1, `CommandManager::state`: the sequence timer needs the tree that it clears (`jam_CommandManager.cpp:122-125`), so this is no history for a caller. C-2, `removeListener` in destructors: the clause covers RAII objects, and a listener registration is not one; `ENDView.cpp:40-41` listens to a model that outlives it.
-- **Mistakes owned.** Assumptions stated as facts: *"a `TextEditor` with no Model"*, and *"content-ignorant"* used as a ruling when it is SPEC prose. Two ENAX and row proposals withdrawn on read. A `hasProperty` check and a double `resized()` shipped against the ruling, then deleted.
-
-### State for Continuation
-- ARCHITECT runs `cast` in `eve` and `end`, builds, and tests cmd+w, `exit`, the last pane, a file drop, the Display Mono PUA, and the first size and mode.
-- Change `close pane` to `close terminal pane` in `~/.config/end/keys.md:27` and `~/.config/dev/keys.md:24`.
-- Delete a standalone EVE saved state from an earlier build: its `terminal` child stays in front of the live one (`EVETerminalProcessor.cpp:62-63`).
-- Run `<leader>bd` in `jam` and `ninja doxygen` in `eve` and `end`, and confirm zero warnings.
-- The first winsize still comes from the config size (`jam_ViewEditor.h:129-130`), and the final stop corrects it.
-- `Session.cpp:108` gates `PluginState` by company name (`PLAN-host-client-state.md`, Step 8.5). ENAX is formalised later with CLAP (`end/SPEC.md:38`).
-- Native fuzzy finder: `jam_fuzzy` holds the matchers. It is in no build, and its UI has no plan (`PLAN-Grand-Scheme.md:800-802`).
-- Still open from the last sprint: the `commands` FIFO is not a row; the `background` and `winsize` working copies; the `MallocStackLogging` emitter; the AU and VST3 paths of `PluginState` have no test.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
