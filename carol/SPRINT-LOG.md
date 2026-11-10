@@ -36,6 +36,58 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Keycap and Grapheme Clusters — Clusters Join Across Reads, Keycap in Two Cells with the Digit in the Box, a Cluster Never Narrows, Link Label at the Character, Half-Thickness Underline, Cluster Test Script ✅
+
+**Date:** 2026-11-11
+**Duration:** two sessions, joined by a context compaction. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"we dont need to adhere to other terminal, we need to conform to Unicode SPEC"*; *"why dont we treat this like ligatures? use 2 cell then fit, number inside box"*; *"number inside box. correct."*; option A for the join of an Extend codepoint ("A", then "/go"); *"i dont understand, all options are garbage"*; *"if non-deterministic unexpected behaviour must be `fixed` with contract violations then your understanding is wrong, or the whole design is wrong"*; *"489 passed, 0 failed"*; *"no audit."*; *"update the doxygen when necessary."*; *"/log"*. The underline thickness and the open-mode link label were earlier requests in the first session.
+
+### Agents Participated
+- COUNSELOR — the reads of the decoder, the glyph path and the Unicode data; the root cause of the split cluster; the root cause of the width rule; the validation of every Engineer return; the test script fixes; the read-back of the doxygen pass; this log.
+- Engineer (sonnet) — `applyExtension` and the processor split; the keycap width, constraint and enclosure; the first version of `test/clusters.sh`.
+- Librarian (haiku) — the Unicode 17.0.0 core specification: rule P6, D54, D56, section 23.4.
+- Pathfinder (haiku) — the git status read; the doxygen pass on five headers.
+- Auditor — not run. ARCHITECT: *"no audit."*
+
+### Files Modified (11 total)
+- `jam/jam_core/text/jam_AttributedChar.{h,cpp}` — new `applyExtension` (`.cpp:3339-3370`): replays the cluster through the grapheme segmentation step and appends the following codepoints that continue the cell. `getWidth (cluster)` (`.cpp:3319-3332`): U+20E3 gives two columns first; the U+FE0E branch that made a cluster narrow is deleted, so a codepoint that joins a cluster can only widen it.
+- `jam/jam_core/text/jam_AttributedString.h` — doxygen only: the width class comes from the whole cluster (`:66`, `:184`).
+- `jam/jam_terminal/processor/jam_TerminalProcessor.{h,cpp}` — `addTextRun` first calls `addExtension`, then writes the remaining clusters (`.cpp:503-511`). New `addCluster` (`:513-538`), `addExtension` (`:540-568`), `getPrecedingColumn` (`:570-579`), `getCluster` (`:581-592`). Each cluster reads its own row from the buffer.
+- `jam/jam_graphics/fonts/jam_GlyphConstraintTable.cpp:24-32` — `case 0x20e3`: fit, centre, centre, `maxCellSpan 2`.
+- `jam/jam_graphics/fonts/jam_GlyphArrangement.{h,cpp}` — static `isEnclosing`, `isEnclosed`, `applyEnclosure` (`.cpp:100-129`), called from `addEntry` (`:182-183`): the box takes the cell span of the atom and the base sits in the middle. `getDecorations`: `underlineScale { 0.5f }` (`:587`, `:597`). Doxygen of `addEntry` and `getDecorations` synced.
+- `jam/jam_gui/widgets/jam_TextEditor.{h,cpp}` — new `getLinkLabelColumn` (`.cpp:1821-1834`); the label callback receives that column (`.h:717`). Doxygen of `getLinkLabelColumn`, `applyLinkLabel` and `paintLinkLabels` synced to the bodies.
+- `eve/test/clusters.sh` — new, untracked. It measures the cursor position with the CPR query and compares a whole write with a write split at every byte. Sections: absolute widths, split equals whole (start of line, one and two columns before the right edge, insert mode), cursor moves between the writes, and a rendering view.
+
+### Alignment Check
+- [x] BLESSED principles followed — the fix of the width rule removes the cause of the non-deterministic result; no pending state, no timer.
+- [x] NAMES.md adhered — each new name joins the `add`, `get`, `apply` families.
+- [x] MANIFESTO.md principles applied
+- [x] Validated by ARCHITECT's build and run: `test/clusters.sh` gives 489 passed, 0 failed.
+- [ ] No audit. ARCHITECT: *"no audit."*
+- [ ] Zero doxygen warnings not confirmed. Regeneration is ARCHITECT's (`<leader>bd` in jam).
+
+### Problems Solved
+- **A cluster split across two reads.** `AnsiDocument::getTextToken` ends a text token at the bytes that are available (`jam_AnsiDocument.cpp:47-69`). `addTextRun` then restarted the segmentation, which broke UAX #29 rule GB9 (an Extend codepoint joins the cluster before it). The processor now extends the cluster before the cursor first.
+- **Keycap.** Unicode rule P6 says an enclosing mark surrounds its base. The cluster `digit FE0F 20E3` takes two cells, the box fits the span, and the digit sits inside the box (ARCHITECT: *"number inside box. correct."*).
+- **The same bytes gave a different result when the read split.** The only rule that made a cluster narrower was U+FE0E (`jam_AttributedChar.cpp`, old line 3331). A wide base at the last column wrapped before its selector arrived, and the narrowing could not undo the wrap. The spec has no text that makes U+FE0E shrink a cell: `tr51.txt:1744-1745` says only that emoji have about the same advance width as CJK ideographs. The rule is deleted. A cluster width can now only grow, and growth is a forward wrap.
+- **Test script.** Terminal echo of the CPR replies corrupted the measure (`stty -echo`, restored in the `EXIT` trap). The per-byte `printf` calls of `write_hex` made three false failures (one `printf` for all bytes now). zsh arithmetic needs `&&`, not `and`.
+- **Mistakes owned.** I offered three patch options for the narrowing before I read the width rule. ARCHITECT's ruling that all options were garbage was correct, and the root cause was in `getWidth`. I also first read the byte 1 to 3 failures as a decoder fault; the cause was the script.
+
+### State for Continuation
+- ARCHITECT runs `<leader>bd` in jam and confirms zero warnings; the doxygen pass changed five headers and did not regenerate the index.
+- Open, no ruling: when a keycap has a background colour or an underline, the shifted digit spreads half a cell past the atom. `addBackground` (`jam_GlyphArrangement.cpp:576-582`) and the underline rectangles use `entry.originX` and `entry.advance`. A fix needs one new `Entry` field.
+- Visible change to check: `😀 FE0E` now takes two cells (`test/clusters.sh:235` expects 2). `❤ FE0E` keeps one cell because U+2764 is narrow without the selector.
+- LSP results on framework files can be empty: `findReferences` of `applyExtension` and `addExtension` returned only the declaration. ARCHITECT loads the JAM project in nvim before the next LSP check.
+- `jam_GlyphConstraintTable.cpp:1-5` holds a file-level doxygen block. The pass did not touch it.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261105T000000` — Windows runtime test (unchanged).
+
+---
+
 ## Sprint: Published Lines and Live Rows — One Row One Line, Reader Joins at Build, Clear Only at a Prompt, Ctrl+L to the Shell, TerminalHistory and TerminalEncoder ✅
 
 **Date:** 2026-11-10
@@ -268,50 +320,6 @@
 
 ---
 
-## Sprint: Claude Code Cursor — Caret Gate on the Grid, Inverse Video in the Glyph Painter, Debt Captured, Doxygen Pass ✅
-
-**Date:** 2026-11-08
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"there something fishy with this build with claude code full screen (alternate), now there's no cursor at all with Claude code"*; *"why cursor hidden with Claude Code? although no issue with vim, because we let vim handle all cursor drawing? why eve disagree with whatever claude sent? why we hide the cursor?"*; *"caret still should be visible on normal screen too"*; *"cursor fixed. both fullscreen and normal shows caret with claude code."*; *"add to DEBT.md ctrl+l destroys CC active prompt rendering with normal screen"*; *"clean up instrumentations"*; *"update doxygen docs if necessary to methods you have just changed"*; *"/log"*.
-
-### Agents Participated
-- COUNSELOR — the caret and paint-path reads, the log-driven diagnosis, both fixes, the instrumentation and its removal, the DCF filter on the doxygen pass, this log.
-- Pathfinder (haiku) — the caret-path and git-history traces, the Claude Code 2.1.319 binary analyses (three runs), the doxygen pass on `jam_GlyphArrangement.h` and `jam_TextEditor.h`.
-- Engineer (sonnet) — the `carol debt add` capture.
-
-### Files Modified (5 total)
-- `jam/jam_gui/widgets/jam_TextEditor.cpp` — the terminal caret gate reads the grid: `isVisible = isCursorVisible and cursor.y < winsize.rows` (`Id::winsize` unpacked, the form of the mouse path). `getCellBounds (const TextBlock&, int, int)` extrapolates the cell for a line at or past the last line: the last row's bottom plus one cell height per row past, at the plain grid x, mono cell size.
-- `jam/jam_graphics/fonts/jam_GlyphArrangement.cpp` — `addGlyph` resolves the default foreground (`juce::TextEditor::textColourId`) and default background (`juce::ResizableWindow::backgroundColourId`) and swaps them when the entry's inverse flag is set. `addBackground` adds the rectangle for an inverse entry even when its bgColourId is colourIdNone.
-- `jam/jam_graphics/fonts/jam_GlyphArrangement.h`, `jam/jam_gui/widgets/jam_TextEditor.h` — doxygen synced to the two changes.
-- `eve/DEBT.md` — `DEBT-20261108T145906` (Ctrl+L destroys the Claude Code prompt on the normal screen), captured with `carol debt add`.
-- Ephemeral diagnostics (ODE §VI): `debug::Log` sites in `jam_TerminalProcessor.cpp` (`privateMode`, `bytes`), `jam_TextEditor.cpp` (`caretEmpty`, `caretFocus`) and a `Log::Scope` with `eveInstance` in `EVETerminalProcessor.cpp` — added, read, and removed this sprint. No trace remains (verified by search).
-
-### Alignment Check
-- [x] BLESSED principles followed
-- [x] NAMES.md adhered — no new name.
-- [x] MANIFESTO.md principles applied
-- [x] Validated by ARCHITECT's build and run: the caret shows in Claude Code on both screens.
-- [ ] Zero doxygen warnings unconfirmed: regeneration is ARCHITECT's (`<leader>bd` in jam).
-
-### Problems Solved
-- **No caret with Claude Code, root cause.** The terminal caret gate compared the cursor grid row against the live document's line count (`cursor.y < live.index->getNumLines()`). Claude Code parks its prompt cursor on the empty row right after the content, where `y == lines`, so a cursor shown by DECTCEM painted nothing. Vim and the shell keep the cursor on a written row, so only Claude Code hit the boundary. The gate now reads the grid height (`Id::winsize` rows), and the cell geometry extrapolates past the last line.
-- **Inverse video had no paint-path consumer.** Claude Code hides the native cursor in both screens and draws its own as an SGR 7 inverse cell (`"\x1B[7m"+char+"\x1B[27m"` in the 2.1.319 bundle). The `inverse` flag reached only the atlas key. `addGlyph` now swaps the resolved foreground and background, and `addBackground` fills the cell, per xterm semantics.
-- **Evidence method.** Temporary `debug::Log` sites captured the DECTCEM traffic and the caret-gate inputs; the logs showed `visible true` with an empty caret at `y == lines`, and later that Claude Code hides the native cursor and paints its own.
-- **Mistakes owned.** I second-guessed ARCHITECT's test runs twice, and misread the diagnostic log path after the config directory moved to `~/.config/dev`.
-
-### State for Continuation
-- ARCHITECT runs `<leader>bd` in jam and confirms zero warnings; the doxygen pass changed two headers and did not regenerate the index.
-- Delete `~/eve-caret.log` — the diagnostic log is dead. `~/.config/end/END.ode` and `~/.config/dev/END.ode` hold only headers.
-- `DEBT-20261108T145906` (Ctrl+L destroys the Claude Code prompt on the normal screen) enters the next sprint scope (JRENG law).
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261108T145906` — Ctrl+L destroys the Claude Code active prompt rendering on the normal screen (ARCHITECT, captured this sprint).
-- `DEBT-20261105T000000` — Windows runtime test (unchanged).
-
----
 
 
 
