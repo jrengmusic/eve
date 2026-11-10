@@ -80,6 +80,17 @@ private:
     void focusGained (FocusChangeType cause) override;
 
     /**
+     * @brief Grabs the keyboard focus when the view is showing and the `focus` row of the terminal tree is true.
+     *
+     * JUCE calls this function when the window that holds the editor is shown. A new editor takes the focus that the `focus` row already holds. The row does not change.
+     * A row that is set to an equal value sends no change event. The `focus` handler of `registerTerminalEvents()` therefore does not run for a new editor.
+     *
+     * JUCE also calls this function before the view is showing. A component that is not showing cannot take the keyboard focus, so the call tests `isShowing()` first.
+     * The call writes nothing to the model. It does nothing when the `focus` row is false.
+     */
+    void parentHierarchyChanged() override;
+
+    /**
      * @brief Passes a key to the command manager, together with the markdown state.
      *
      * @param key  Key that the user pressed.

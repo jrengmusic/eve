@@ -73,6 +73,12 @@ void EVEView::focusGained (FocusChangeType)
     }
 }
 
+void EVEView::parentHierarchyChanged()
+{
+    if (isShowing() and static_cast<bool> (getTerminalState().getProperty (Id::focus)))
+        grabKeyboardFocus();
+}
+
 bool EVEView::keyPressed (const juce::KeyPress& key)
 {
     auto markdownState { getOrCreateMarkdownState() };
