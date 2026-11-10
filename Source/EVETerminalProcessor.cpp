@@ -122,13 +122,10 @@ std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY()
 
 void EVETerminalProcessor::registerEvents()
 {
-    for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited, Id::syncOutput, Id::autoWrap, Id::originMode, Id::insertMode, Id::isWrapPending })
-        events.add<bool> (id, [this, id] (bool value) { state.storeValue (terminalTag, id, static_cast<int> (value)); });
+    for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited, Id::syncOutput, Id::autoWrap, Id::originMode, Id::insertMode, Id::isWrapPending, Id::mouseTracking, Id::cursorShape, Id::keyboardFlags, Id::cursor, Id::numPrompts, Id::activeLink, Id::keyboardFlagsInactive, Id::numKeyboardModesNormal, Id::numKeyboardModesAlternate, Id::savedCursorNormal, Id::savedCursorAlternate })
+        events.add<int> (id, [this] (const juce::Identifier& key, int value) { state.storeValue (terminalTag, key, value); });
 
-    for (const auto& id : { Id::mouseTracking, Id::cursorShape, Id::keyboardFlags, Id::cursor, Id::numPrompts, Id::activeLink, Id::keyboardFlagsInactive, Id::numKeyboardModesNormal, Id::numKeyboardModesAlternate, Id::savedCursorNormal, Id::savedCursorAlternate })
-        events.add<int> (id, [this, id] (int value) { state.storeValue (terminalTag, id, value); });
-
-    events.add<const char*, int> (Id::command, [this] (const char* name, int size)
+    events.add<const char*, int> (Id::command, [this] (const juce::Identifier&, const char* name, int size)
                                   {
                                       const auto numBytes { size + nullTerminatorBytes };
 
@@ -144,7 +141,7 @@ void EVETerminalProcessor::registerEvents()
                                   });
 
     for (const auto& id : { Id::preview, Id::title, Id::foregroundProcess, Id::cwd })
-        events.add<const char*, int> (id, [this, id] (const char* path, int size) { state.storeValue (terminalTag, id, path, size); });
+        events.add<const char*, int> (id, [this] (const juce::Identifier& key, const char* path, int size) { state.storeValue (terminalTag, key, path, size); });
 
     registerImageEvents();
     registerGridEvents();
@@ -153,16 +150,16 @@ void EVETerminalProcessor::registerEvents()
 void EVETerminalProcessor::registerGridEvents()
 {
     for (const auto& id : { Id::gridStart, Id::removedGridStart, Id::firstLine })
-        events.add<juce::int64> (id, [this, id] (juce::int64 line)
+        events.add<int64_t> (id, [this] (const juce::Identifier& key, int64_t line)
                                  {
                                      const juce::String value { line };
-                                     const auto numBytes { static_cast<int> (id.toString().getNumBytesAsUTF8()) + nullTerminatorBytes + static_cast<int> (value.getNumBytesAsUTF8()) + nullTerminatorBytes };
+                                     const auto numBytes { static_cast<int> (key.toString().getNumBytesAsUTF8()) + nullTerminatorBytes + static_cast<int> (value.getNumBytesAsUTF8()) + nullTerminatorBytes };
 
                                      jassert (numBytes <= gridEvents.getFreeSpace());
 
                                      if (numBytes <= gridEvents.getFreeSpace())
                                      {
-                                         gridEvents.writeString (id.toString());
+                                         gridEvents.writeString (key.toString());
                                          gridEvents.writeString (value);
                                          gridEvents.flush();
                                          state.storeValue (terminalTag, Id::numGridEvents, state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::numGridEvents)->getValue() + 1);
@@ -172,10 +169,10 @@ void EVETerminalProcessor::registerGridEvents()
 
 void EVETerminalProcessor::registerImageEvents()
 {
-    events.add<juce::int64> (Id::clipboard, [this] (juce::int64 image) { state.storeValue (terminalTag, Id::pendingClipboard, static_cast<int64_t> (image)); });
+    events.add<int64_t> (Id::clipboard, [this] (const juce::Identifier&, int64_t image) { state.storeValue (terminalTag, Id::pendingClipboard, image); });
 
     for (const auto& id : { Id::previewBox, Id::outputBlock, Id::scrollingRegion, Id::pen, Id::savedPenNormal, Id::savedPenAlternate, Id::keyboardModesNormal, Id::keyboardModesAlternate, Id::syncStart })
-        events.add<juce::int64> (id, [this, id] (juce::int64 value) { state.storeValue (terminalTag, id, static_cast<int64_t> (value)); });
+        events.add<int64_t> (id, [this] (const juce::Identifier& key, int64_t value) { state.storeValue (terminalTag, key, value); });
 }
 
 void EVETerminalProcessor::applyCommands (const std::function<void (const juce::Identifier&)>& callback)
@@ -191,24 +188,24 @@ void EVETerminalProcessor::applyGridEvents()
 {
     static const juce::Identifier listsType { jam::Format::toType (Id::gridStarts) };
 
-    static const auto listUpdates {
+    static const auto listUpdates (
         []
         {
-            jam::Function::Map<juce::Identifier, void> rows;
+            jam::Function::Map<juce::Identifier, jam::Function::pointerCapacity, void (juce::ValueTree&, juce::int64)> rows;
 
-            rows.add<juce::ValueTree&, juce::int64> (Id::gridStart, [] (juce::ValueTree& lists, juce::int64 line)
+            rows.add (Id::gridStart, [] (const juce::Identifier&, juce::ValueTree& lists, juce::int64 line)
             {
                 lists.appendChild (juce::ValueTree { Id::gridStart, { { Id::value, line } } }, nullptr);
                 lists.setProperty (Id::activeGridStart, line, nullptr);
             });
 
-            rows.add<juce::ValueTree&, juce::int64> (Id::removedGridStart, [] (juce::ValueTree& lists, juce::int64 line)
+            rows.add (Id::removedGridStart, [] (const juce::Identifier&, juce::ValueTree& lists, juce::int64 line)
             {
                 lists.removeChild (lists.getChildWithProperty (Id::value, line), nullptr);
                 lists.setProperty (Id::activeGridStart, lists.getChild (lists.getNumChildren() - 1).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
             });
 
-            rows.add<juce::ValueTree&, juce::int64> (Id::firstLine, [] (juce::ValueTree& lists, juce::int64 firstLine)
+            rows.add (Id::firstLine, [] (const juce::Identifier&, juce::ValueTree& lists, juce::int64 firstLine)
             {
                 while (lists.getNumChildren() > 0 and static_cast<juce::int64> (lists.getChild (0).getProperty (Id::value)) < firstLine)
                     lists.removeChild (0, nullptr);
@@ -219,7 +216,7 @@ void EVETerminalProcessor::applyGridEvents()
 
             return rows;
         }()
-    };
+    );
 
     auto lists { state.getOrCreateChildWithName (listsType) };
     juce::Identifier event {};
@@ -240,7 +237,7 @@ void EVETerminalProcessor::applyGridEvents()
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
 {
-    userInterfaceGetters[Id::textEditor].add<jam::TerminalSwap*&> (jam::Format::toType (Id::winsize), [this] (jam::TerminalSwap*& output)
+    userInterfaceGetters[Id::textEditor].add<jam::TerminalSwap*&> (jam::Format::toType (Id::winsize), [this] (const juce::Identifier&, jam::TerminalSwap*& output)
                                                                                                     {
                                                                                                         state.flush();
 
@@ -257,12 +254,12 @@ void EVETerminalProcessor::registerUserInterfaceGetters()
                                                                                                         applyPendingInput();
                                                                                                     });
 
-    userInterfaceGetters[Id::previewComponent].add<jam::TerminalSwap*&> (jam::Format::toType (Id::images), [this] (jam::TerminalSwap*& output) { output = &swap; });
+    userInterfaceGetters[Id::previewComponent].add<jam::TerminalSwap*&> (jam::Format::toType (Id::images), [this] (const juce::Identifier&, jam::TerminalSwap*& output) { output = &swap; });
 }
 
 void EVETerminalProcessor::registerChainEvents()
 {
-    chainEvents[Id::terminalInput].add<const char*, int> ([this] (const char* bytes, int size) { addInput (bytes, size); });
+    chainEvents[Id::terminalInput].add<const char*, int> (Id::write, [this] (const juce::Identifier&, const char* bytes, int size) { addInput (bytes, size); });
 }
 
 void EVETerminalProcessor::addInput (const char* bytes, int size)
@@ -457,17 +454,17 @@ juce::String EVETerminalProcessor::getShell() const
 
 void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCapacity)
 {
-    triggerAsyncUpdate();
-    handleUpdateNowIfNeeded();
+    handleUpdateNow();
+    terminalProcessor.applyWinsize (winsize, terminalBuffer);
+    handleUpdateNow();
 
     const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (device.getCurrentSampleRate() / virtualBlockSize / jam::CpuGraphicsEngine::getRefreshRateHz()))) };
 
     terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * virtualBlockSize + winsize.rows);
-    swap.prepare (winsize);
+    swap.prepare (terminalBuffer.getNumBytes());
     terminalProcessor.reset (terminalBuffer, winsize);
     swap.setCapacity (historyCapacity);
-    triggerAsyncUpdate();
-    handleUpdateNowIfNeeded();
+    handleUpdateNow();
 
     const auto vblankMilliseconds { juce::RelativeTime::seconds (1.0 / jam::CpuGraphicsEngine::getRefreshRateHz()).inSeconds() * 1000.0 };
     openTTY (device.getCurrentBufferSizeSamples(), vblankMilliseconds, winsize);
@@ -486,25 +483,11 @@ void EVETerminalProcessor::process() noexcept
     }
 }
 
-void EVETerminalProcessor::clear()
-{
-    if (static_cast<bool> (state.state.getProperty (Id::alternateScreen)))
-    {
-        const char formFeed { static_cast<char> (Chars::formFeed) };
-        addInput (&formFeed, 1);
-    }
-    else
-    {
-        clearHistory();
-    }
-}
-
 void EVETerminalProcessor::clearHistory()
 {
     restart ([this]
              {
-                 triggerAsyncUpdate();
-                 handleUpdateNowIfNeeded();
+                 handleUpdateNow();
                  terminalProcessor.clear (terminalBuffer);
              });
 }

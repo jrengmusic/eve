@@ -125,29 +125,29 @@ void EVEView::timerCallback() { resizeEnd(); }
 void EVEView::valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property)
 {
     if (tree.hasType (jam::Format::toType (Id::terminal)) and terminalEvents.contains (property))
-        terminalEvents.get (property, std::as_const (tree));
+        terminalEvents.get (property, tree);
 
     jam::PluginEditor::valueTreePropertyChanged (tree, property);
 }
 
 void EVEView::registerTerminalEvents()
 {
-    terminalEvents.add<const juce::ValueTree&> (Id::numCommands, [this] (const juce::ValueTree&)
+    terminalEvents.add (Id::numCommands, [this] (const juce::Identifier&, const juce::ValueTree&)
     {
         getTerminalProcessor().applyCommands ([this] (const juce::Identifier& name) { invokeCommand (name); });
     });
 
-    terminalEvents.add<const juce::ValueTree&> (Id::numGridEvents, [this] (const juce::ValueTree&)
+    terminalEvents.add (Id::numGridEvents, [this] (const juce::Identifier&, const juce::ValueTree&)
     {
         getTerminalProcessor().applyGridEvents();
     });
 
-    terminalEvents.add<const juce::ValueTree&> (Id::clipboard, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add (Id::clipboard, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         getTerminalProcessor().copyToClipboard (static_cast<juce::int64> (terminal.getProperty (Id::clipboard)));
     });
 
-    terminalEvents.add<const juce::ValueTree&> (Id::shellExited, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add (Id::shellExited, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         if (static_cast<bool> (terminal.getProperty (Id::shellExited)))
         {
@@ -156,23 +156,23 @@ void EVEView::registerTerminalEvents()
         }
     });
 
-    terminalEvents.add<const juce::ValueTree&> (Id::zoom, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add (Id::zoom, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         setZoom (static_cast<float> (terminal.getProperty (Id::zoom)));
         resized();
     });
 
-    terminalEvents.add<const juce::ValueTree&> (Id::width, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add (Id::width, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         setSize (static_cast<int> (terminal.getProperty (Id::width)), getHeight());
     });
 
-    terminalEvents.add<const juce::ValueTree&> (Id::height, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add (Id::height, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         setSize (getWidth(), static_cast<int> (terminal.getProperty (Id::height)));
     });
 
-    terminalEvents.add<const juce::ValueTree&> (Id::focus, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add (Id::focus, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         if (static_cast<bool> (terminal.getProperty (Id::focus)))
             grabKeyboardFocus();
@@ -180,7 +180,7 @@ void EVEView::registerTerminalEvents()
             giveAwayKeyboardFocus();
     });
 
-    terminalEvents.add<const juce::ValueTree&> (Id::markdownFile, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add (Id::markdownFile, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         const auto path { terminal.getProperty (Id::markdownFile).toString() };
         const auto hadFocus { hasKeyboardFocus (true) };
@@ -202,7 +202,7 @@ void EVEView::registerTerminalEvents()
     });
 
 #if JAM_USING_PROFILER
-    terminalEvents.add<const juce::ValueTree&> (Id::numPrompts, [this] (const juce::ValueTree& terminal)
+    terminalEvents.add (Id::numPrompts, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         if (static_cast<int> (terminal.getProperty (Id::numPrompts)) == 1)
         {
@@ -236,6 +236,25 @@ void EVEView::initialiseRegistry()
     registerCallbacks();
 }
 
+static void setNavigationButtons (jam::Selector* s)
+{
+    auto* reg { jam::Registry::getInstance() };
+    jassert (reg != nullptr);
+
+    s->setNavigationButtons (jam::Registry::toButton (reg->make.get (Id::up)),
+                             jam::Registry::toButton (reg->make.get (Id::down)));
+}
+
+static void addAppearanceItemList (jam::Selector* selector)
+{
+    selector->addItemList (map::Appearance::getInstance()->get());
+}
+
+static void addUIScaleItemList (jam::Selector* selector)
+{
+    selector->addItemList (map::UIScaleMap::getInstance()->get());
+}
+
 void EVEView::registerButtons (jam::Registry::Registration& registration)
 {
     registration.buttons = [] (jam::Registry& r)
@@ -263,15 +282,7 @@ void EVEView::registerButtons (jam::Registry::Registration& registration)
 
     registration.config = [] (jam::Registry& r)
     {
-        r.registerConfig<jam::Selector> (Id::selector,
-                                         [] (jam::Selector* s)
-                                         {
-                                             auto* reg { jam::Registry::getInstance() };
-                                             jassert (reg != nullptr);
-
-                                             s->setNavigationButtons (jam::Registry::toButton (reg->make.get (Id::up)),
-                                                                      jam::Registry::toButton (reg->make.get (Id::down)));
-                                         });
+        r.registerConfig<jam::Selector, &setNavigationButtons> (Id::selector);
     };
 }
 
@@ -285,26 +296,15 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
         r.registerComponent<jam::PreviewComponent> (Id::previewComponent);
         r.registerComponent<jam::TextEditor> (Id::markdown);
 
-        r.registerConfig<jam::Selector> (Id::selector,
-                                         jam::Format::toTag (Id::appearance),
-                                         [] (jam::Selector* selector)
-                                         {
-                                             selector->addItemList (map::Appearance::getInstance()->get());
-                                         });
-
-        r.registerConfig<jam::Selector> (Id::selector,
-                                         jam::Format::toTag (Id::UIScale),
-                                         [] (jam::Selector* selector)
-                                         {
-                                             selector->addItemList (map::UIScaleMap::getInstance()->get());
-                                         });
+        r.registerConfig<jam::Selector, &addAppearanceItemList> (Id::selector, jam::Format::toTag (Id::appearance));
+        r.registerConfig<jam::Selector, &addUIScaleItemList> (Id::selector, jam::Format::toTag (Id::UIScale));
     };
 
     registration.events = [] (jam::Registry& r)
     {
-        r.bindEvent.add<juce::Component*&, jam::ViewManager::Events*, const juce::String&, const juce::String&> (
+        r.bindEvent.add (
             Id::textEditor,
-            [] (juce::Component* component, jam::ViewManager::Events* chainEvents, const juce::String& eventName, const juce::String&)
+            [] (const juce::String&, juce::Component* component, jam::ViewManager::Events* chainEvents, const juce::String& eventName, const juce::String&)
             {
                 auto* textEditor { static_cast<jam::TextEditor*> (component) };
 
@@ -320,9 +320,9 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
     registration.makeContent = [] (jam::Registry& r)
     {
-        r.makeContent.add<jam::AudioModel&, juce::LookAndFeel&> (
+        r.makeContent.add (
             Id::settings,
-            [] (jam::AudioModel& modelToUse, juce::LookAndFeel& lookAndFeel)
+            [] (const juce::String&, jam::AudioModel& modelToUse, juce::LookAndFeel& lookAndFeel)
             {
                 return jam::ViewSettings::create (modelToUse, lookAndFeel, jam::HtmlDocument::getOrCreate (juce::Identifier { files::settingsLayout }));
             });
@@ -331,78 +331,72 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
 
 void EVEView::registerCallbacks()
 {
-    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::UIScale),
-                                                [] (juce::Component& c)
-                                                {
-                                                    static_cast<EVEView&> (c).resized();
-                                                });
+    registry->callbacks.add (jam::Format::toType (Id::UIScale),
+                             [] (const juce::String&, juce::Component& c)
+                             {
+                                 static_cast<EVEView&> (c).resized();
+                             });
 
-    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::clear),
-                                                [] (juce::Component& c)
-                                                {
-                                                    static_cast<EVEView&> (c).clear();
-                                                });
+    registry->callbacks.add (map::CommandId::getInstance()->get (map::CommandId::openFile),
+                             [] (const juce::String&, juce::Component& c)
+                             {
+                                 static_cast<EVEView&> (c).openFile();
+                             });
 
-    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::openFile),
-                                                [] (juce::Component& c)
-                                                {
-                                                    static_cast<EVEView&> (c).openFile();
-                                                });
+    registry->callbacks.add (map::CommandId::getInstance()->get (map::CommandId::markdown),
+                             [] (const juce::String&, juce::Component& c)
+                             {
+                                 auto& editor { static_cast<EVEView&> (c) };
 
-    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::markdown),
-                                                [] (juce::Component& c)
-                                                {
-                                                    auto& editor { static_cast<EVEView&> (c) };
+                                 editor.getTerminalState().setProperty (Id::markdownFile, editor.getUrlFile().getFullPathName(), nullptr);
+                             });
 
-                                                    editor.getTerminalState().setProperty (Id::markdownFile, editor.getUrlFile().getFullPathName(), nullptr);
-                                                });
+    registry->callbacks.add (map::CommandId::getInstance()->get (map::CommandId::dismiss),
+                             [] (const juce::String&, juce::Component& c)
+                             {
+                                 static_cast<EVEView&> (c).getTerminalState().setProperty (Id::markdownFile, juce::String {}, nullptr);
+                             });
 
-    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::dismiss),
-                                                [] (juce::Component& c)
-                                                {
-                                                    static_cast<EVEView&> (c).getTerminalState().setProperty (Id::markdownFile, juce::String {}, nullptr);
-                                                });
+    registry->callbacks.add (map::CommandId::getInstance()->get (map::CommandId::zoomIn),
+                             [] (const juce::String&, juce::Component& c)
+                             {
+                                 auto& editor { static_cast<EVEView&> (c) };
 
-    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::zoomIn),
-                                                [] (juce::Component& c)
-                                                {
-                                                    auto& editor { static_cast<EVEView&> (c) };
+                                 editor.setZoom (static_cast<float> (editor.getTerminalState().getProperty (Id::zoom)) + static_cast<float> (editor.styleManager->getConfig (jam::StyleManager::getDisplaySheet()).getChildWithName (jam::Format::toType (Id::zoomStep)).getProperty (Id::value)));
+                             });
 
-                                                    editor.setZoom (static_cast<float> (editor.getTerminalState().getProperty (Id::zoom)) + static_cast<float> (editor.styleManager->getConfig (jam::StyleManager::getDisplaySheet()).getChildWithName (jam::Format::toType (Id::zoomStep)).getProperty (Id::value)));
-                                                });
+    registry->callbacks.add (map::CommandId::getInstance()->get (map::CommandId::zoomOut),
+                             [] (const juce::String&, juce::Component& c)
+                             {
+                                 auto& editor { static_cast<EVEView&> (c) };
 
-    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::zoomOut),
-                                                [] (juce::Component& c)
-                                                {
-                                                    auto& editor { static_cast<EVEView&> (c) };
+                                 editor.setZoom (static_cast<float> (editor.getTerminalState().getProperty (Id::zoom)) - static_cast<float> (editor.styleManager->getConfig (jam::StyleManager::getDisplaySheet()).getChildWithName (jam::Format::toType (Id::zoomStep)).getProperty (Id::value)));
+                             });
 
-                                                    editor.setZoom (static_cast<float> (editor.getTerminalState().getProperty (Id::zoom)) - static_cast<float> (editor.styleManager->getConfig (jam::StyleManager::getDisplaySheet()).getChildWithName (jam::Format::toType (Id::zoomStep)).getProperty (Id::value)));
-                                                });
+    registry->callbacks.add (map::CommandId::getInstance()->get (map::CommandId::zoomReset),
+                             [] (const juce::String&, juce::Component& c)
+                             {
+                                 static_cast<EVEView&> (c).setZoom (1.0f);
+                             });
 
-    registry->callbacks.add<juce::Component&> (map::CommandId::getInstance()->get (map::CommandId::zoomReset),
-                                                [] (juce::Component& c)
-                                                {
-                                                    static_cast<EVEView&> (c).setZoom (1.0f);
-                                                });
+    registry->callbacks.add (jam::Format::toType (Id::message),
+                             [] (const juce::String&, juce::Component& c)
+                             {
+                                 auto& editor { static_cast<EVEView&> (c) };
+                                 const auto errors { editor.model.getOrCreateComponentProperty (jam::Format::toTag (Id::message), Id::value).toString() };
 
-    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::message),
-                                                [] (juce::Component& c)
-                                                {
-                                                    auto& editor { static_cast<EVEView&> (c) };
-                                                    const auto errors { editor.model.getOrCreateComponentProperty (jam::Format::toTag (Id::message), Id::value).toString() };
+                                 if (errors.isNotEmpty())
+                                     editor.messageOverlay.showMessage (errors);
+                             });
 
-                                                    if (errors.isNotEmpty())
-                                                        editor.messageOverlay.showMessage (errors);
-                                                });
+    registry->callbacks.add (jam::Format::toType (Id::historyCapacity),
+                             [] (const juce::String&, juce::Component& c)
+                             {
+                                 auto& editor { static_cast<EVEView&> (c) };
 
-    registry->callbacks.add<juce::Component&> (jam::Format::toType (Id::historyCapacity),
-                                                [] (juce::Component& c)
-                                                {
-                                                    auto& editor { static_cast<EVEView&> (c) };
-
-                                                    jam::MessageBox::historyCleared (&editor);
-                                                    editor.clearHistory();
-                                                });
+                                 jam::MessageBox::historyCleared (&editor);
+                                 editor.clearHistory();
+                             });
 }
 
 void EVEView::initialiseView()
@@ -511,11 +505,6 @@ juce::ValueTree EVEView::getTerminalState() const
 juce::ValueTree EVEView::getOrCreateMarkdownState() const
 {
     return model.getOrCreateComponentState (jam::Format::toTag (Id::markdown));
-}
-
-void EVEView::clear()
-{
-    getTerminalProcessor().clear();
 }
 
 void EVEView::clearHistory()

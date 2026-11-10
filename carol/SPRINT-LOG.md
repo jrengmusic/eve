@@ -36,6 +36,66 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Published Lines and Live Rows — One Row One Line, Reader Joins at Build, Clear Only at a Prompt, Ctrl+L to the Shell, TerminalHistory and TerminalEncoder ✅
+
+**Date:** 2026-11-10
+**Duration:** two sessions, joined by a context compaction. The start and end times are not recorded.
+**Plan:** `PLAN-published-lines-and-live-rows.md` (11 steps).
+**Scope (ARCHITECT):** the crash `END-2026-11-10-182526.ips` (`jam::AttributedString::setAtom` ← `AnsiDocument::addGrids`, address `0x3fffffff8`); *"Reader joins at build"*; *"stray variables for state machine are not allowed. if it was state machine must be Model's parameter, hence message thread could listen, other thread could use atomic"*; *"Clear only at a prompt"*; *"Remove the clear command"*; *"our architecture is NOT `typical` terminal topology. we preserved history faithfully. our rendering layer is COMPLETELY decoupled. audio architecture discipline always lock free on terminal (audio thread)"*; *"DESIGN BY CONTRACT"*. Audit rulings: *"No cut"*; *"No, drop them"*; fontId *"No change"*; the names *"TerminalHistory"* and *"TerminalEncoder"*; AnsiDocument *"Keep in AnsiDocument"*; help pages: *"my point is cast, scout, ggwp HELP page should be identical"*, then *"ggwp clears too"*.
+
+### Agents Participated
+- COUNSELOR — the reads behind the plan; the DCF filter of 19 audit findings; the `isLinkChanged` fix; the doxygen read-back and corrections in `jam_TerminalSwap.h` and `EVETerminalProcessor.h`; `SPEC.md`; this log.
+- Engineer (sonnet) — Steps 1 to 7; the audit fixes; the TerminalHistory and TerminalEncoder splits; the ggwp clear.
+- Auditor (opus) — one sweep, 19 findings.
+- Pathfinder (haiku) — the inventories; the TextEditor inventory; the doxygen pass in five runs (the first run stopped at the watchdog).
+
+### Files Modified
+- `jam/cast/terminal.md` — `@id isWrapped`.
+- `jam/jam_terminal/buffers/jam_TerminalBuffer.{h,cpp}` — the binary `writeRow` writes `isWrapped` last; `getNumBytes` counts it; new `getNumBytes() const` sizes the widest row of both grids; `prepare` keeps every row whole, releases the images of dropped rows on both grids, and no longer clears the frame; `clearAlternate` deleted; the VT encoder moved out.
+- `jam/jam_terminal/buffers/jam_TerminalEncoder.{h,cpp}` — new `struct TerminalEncoder`: `writeRow` (VT), `writeEraseScreen`, and the private `writeStyle`, `writeColour`, `writeLink`, `writeLinks`, `writeCodepoint`.
+- `jam/jam_terminal/document/jam_TerminalSwap.{h,cpp}` — the writer stores one row as one line and never seeks back; a wrapped row with no placement gets no cell starts; `getNumReadRows` and `numReadRows` deleted; `prepare (int newSegmentBytes)`; `applyToLiveData`; the readers moved out.
+- `jam/jam_terminal/document/jam_TerminalHistory.{h,cpp}` — new reader: `addLines`, `addLiveLines`, the wrapped head and tail, the grid head and tail, `isGridOpen`, `addImageLines`, the link cache.
+- `jam/jam_terminal/document/jam_AnsiDocument.{h,cpp}` — `addWrappedLines`, `addWrappedLine`.
+- `jam/jam_terminal/processor/jam_TerminalProcessor.{h,cpp}` — `reset` blanks a changed grid only at an active prompt and keeps the cursor otherwise; `applyWinsize`.
+- `jam/jam_terminal/jam_terminal.{h,cpp}` — includes of the two new objects.
+- `jam/jam_core/concurrency/jam_AsyncUpdater.{h,cpp}` — `handleUpdateNow`.
+- `jam/jam_gui/widgets/jam_TextEditor.{h,cpp}` — `TerminalHistory terminalHistory`; `isOpenChanged` compares with the swap end line; `addFileLinks` writes the recording block to the root only when the last line belongs to it; `isLinkChanged` has two terms.
+- `eve/cast/identifiers.md`, `eve/Source/layout/default-eve.md` — the `clear` command and its key row deleted.
+- `eve/Source/layout/parameters.md` — the `previousGridStart` row was added in Step 1 and removed by audit finding 2; net no change.
+- `eve/Source/EVEView.{h,cpp}`, `eve/Source/EVETerminalProcessor.{h,cpp}` — the `clear` command removed; `prepare` drains the history, runs `applyWinsize`, drains again, then sizes the swap with `terminalBuffer.getNumBytes()`; four trigger pairs became `handleUpdateNow`.
+- `eve/CLAUDE.md` — `clear,` removed from the callback list.
+- `eve/SPEC.md` — `[AMENDED 2026-11-10]` items: no `clear` command, `ctrl+l` to the program, one row one line with the join at build, clear only at a prompt, no cut, alternate rows dropped; stale swap citations corrected.
+- `scout/Source/Main.cpp:272`, `cast/Source/main.cpp:1633` — `jam::TerminalEncoder::writeEraseScreen`.
+- `ggwp/Source/Main.cpp` — the scout clear block and `isTerminalOutput`, so the three help pages start the same.
+
+### Alignment Check
+- [x] BLESSED principles followed — no stored line changes after its publish; the reader reads only the atomics `firstLine` and `endLine`; no code on the clock tick.
+- [x] NAMES.md adhered — every new name joins a family named in the plan, or ARCHITECT named it.
+- [x] MANIFESTO.md principles applied.
+- [ ] Not validated by a compile. No agent ran `cast` or a build.
+- [ ] Zero doxygen warnings not confirmed. clangd timed out for most calls this session.
+
+### Problems Solved
+- **The crash path.** The writer edited a published line in place for a wrapped row, and the reader read `previousGridStart` and `numReadRows` as plain members. Both read paths could give a line whose cells and `gridStart` disagree; `getGutter` then stayed at `INT_MAX` (`jam_AnsiDocument.cpp:447-455`). Each row is now one immutable line; the reader joins wrapped lines at build.
+- **The frame had three authors.** The `clear` command and a grid change erased the frame. Now only a grid change at an active prompt blanks it; Ctrl+L reaches the shell.
+- **Audit (19).** Resolved: 1 (chunked wrapped tail), 2, 3, 5, 18 (Model row removed, `isGridOpen`), 4, 12 (`numReadRows` deleted), 6 and 9 (rulings), 7 (released images), 8 (`getNumBytes() const`), 11 (`reset` simplified), 13 (`TerminalHistory`), 14 (`TerminalEncoder`; `isLinkChanged` at `jam_TextEditor.cpp:1169`), 15 (`handleUpdateNow`), 19 (doxygen and SPEC). Rejected with the read: 10 (the decoder never writes `fontId`), 16 (nothing reads `Id::isWrapped` after the join), 17 (no clause covers the parameter order).
+- **Mistakes owned.** I proposed a four-object TextEditor split from a file-size count. The only line-level violation was `:1168`, and the split needed `friend` or public data members. I sent one doxygen run with about 40 blocks; it hit the watchdog. Engineer edited a doxygen block before the audit; the pass rewrote it.
+
+### State for Continuation
+- Run `cast cast/spell.md --debug` in `jam` and `eve` (`Id::isWrapped` in; `Id::previousGridStart` and `CommandId::clear` out). Then build `jam`, `eve`, `end`, `scout`, `cast`, `ggwp`.
+- Verification list: `PLAN-published-lines-and-live-rows.md` § Verification, items 2 to 8.
+- Run `<leader>bd` (jam) and `ninja doxygen` (eve, end); confirm zero warnings.
+- Open, no ruling: the prompt wraps by one or two cells on a new pane. A whatdbg trace of `jam_TextEditor.cpp:1375` and `EVETerminalProcessor.cpp:458` gives the two winsize values.
+- Fact noted: `addReleasedImage` asserts capacity and drops a record when full (`jam_TerminalBuffer.cpp:338-344`); the `prepare` release loop runs before `prepareRows` sizes it again.
+
+### Debts Paid
+- `DEBT-20261108T145906` — Ctrl+L destroys the Claude Code active prompt on the normal screen. Ctrl+L now goes to the program, and no command erases the frame.
+
+### Debts Deferred
+- `DEBT-20261105T000000` — Windows runtime test (unchanged).
+
+---
+
 ## Sprint: Invalid Config Never Stops the Plugin — Validator Covers the Style Path, Failed Loads Reach the Overlay, Pane Is the Sole Size Author, MoltenVK False Trigger Removed ✅
 
 **Date:** 2026-11-10
@@ -253,60 +313,5 @@
 
 ---
 
-## Sprint: END Crashes at Init and after a Pane Split — MessageOverlay Null Read, One Split Path, Grid Events Lane off the Record Writer, Audit, Doxygen Pass ✅
-
-**Date:** 2026-11-08
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"latest end's built, always crash related to config. deleted config, crash. adding files, crash. always crash at init"*; *"there are multiple instances of END crashing, after splitting pane. both case either with click drag from corner or with keyboard shortcut"*; *"i believe there are also race when setting winsize"*; *"fix it"*; *"1-2 supposed to call the exact SSOT commandId, same flow, same path, ONE path. only differs in interaction source"*; *"there are always only 2 split, either horizontal/vertical. keyboard shortcut pass them explicitly, while drag from corner decide when mouse up should split either vertical/horizontal"*; the concurrency contract: *"Processor (audio thread) ALWAYS LOCK FREE; the exception is only at chain where we have no control, such as OS tty; message thread always use juce::Value accessor; other thread other than message thread, may access through atomic accessor"*; *"dont create new pattern, no new semantics. what pattern already exists? no manual handroll anything new. just follow verbatim, nothing to reinvent. we only fix the contract adherence. DESIGN BY CONTRACT"*; the chosen pattern *"Lane + counter"*; *"doxygen until /log"*.
-
-### Agents Participated
-- COUNSELOR — crash-report triage, the reads of JAM, END, EVE, JUCE and SPEC behind each claim, every delegation, the read-back of every edit, the DCF filter on 26 audit findings and 9 doxygen-pass findings, this log.
-- Pathfinder — the faulting-thread stacks of 21 `END-*.ips` reports; all-thread stacks of the two split crashes; git history of the grid handlers in EVE and JAM; the doxygen pass in two runs.
-- Engineer — the MessageOverlay fix; the drag split on the command path; the grid events lane; the audit fixes; the scope and separator fixes.
-- Auditor — one sweep over the three sprint changes, 26 findings.
-
-### Files Modified (10 total)
-- `jam/jam_gui/widgets/jam_MessageOverlay.h:34-65` — the `axisLineStyle` default is `{}`. The old default `map::OverlayAxisLine::getInstance()->getDefault()` ran at the call site before any `SharedInstance` holder existed, and `getInstance()` returned null in Release (`jam_SharedInstance.h:69-75`). New `regionSeparator` beside `noSplitLine`. Doxygen synced.
-- `jam/jam_gui/widgets/jam_MessageOverlay.cpp:11-111` — the style lookup runs only inside the split branch, through the function-static holder. One `axisLines.get` call. Each constant lives in the one function that uses it; `textPadding` stays at file scope (two users). The split token is `regionSeparator`.
-- `end/Source/ui/TabView.cpp:19-28` — `addPane` has no `proportion`; it calls `split (edge)`.
-- `end/Source/ui/TabView.cpp:137-159` — an inward drag invokes `map::CommandId::splitVertical` or `splitHorizontal` through `commandManager`, the commands of the keyboard shortcut (`ENDView.cpp:333-348`).
-- `end/Source/ui/TabView.cpp:226-228` — the split preview joins its sizes with `jam::regionSeparator`.
-- `end/Source/ui/TabView.h` — `addPane` declaration; `addPane` and `mouseUp` doxygen synced.
-- `eve/Source/EVETerminalProcessor.cpp` — `nullTerminatorBytes`; file-static `applyNames` (the in-place parse of zero-terminated names, shared by `applyCommands` and `applyGridEvents`); `registerGridEvents` writes `<event>\0<line>\0` to the `gridEvents` lane and raises `numGridEvents` with `storeValue`; `applyGridEvents` applies the three `gridStarts` row bodies (moved unchanged) on the message thread through `listUpdates`; both lane writers assert when full; `getWinsize` reads the atomic `Parameter<int64_t>`; `prepare` runs the record writer again after the swap prepare, so `firstLine` comes from the writer's queue (`jam_TerminalSwap.cpp:145`).
-- `eve/Source/EVETerminalProcessor.h` — `applyGridEvents`, `gridEvents`; doxygen synced.
-- `eve/Source/EVEView.cpp:137-140` and `EVEView.h` — the `numGridEvents` handler runs `applyGridEvents()`; doxygen synced.
-- `eve/cast/identifiers.md:26` — `numGridEvents`.
-- `eve/Source/layout/parameters.md:43` — `numGridEvents`, `int64`.
-
-### Alignment Check
-- [x] BLESSED principles followed
-- [x] NAMES.md adhered
-- [x] MANIFESTO.md principles applied
-- [ ] Not validated by a compile. No agent ran `cast` or a build.
-- [ ] Zero doxygen warnings not confirmed. Regeneration is ARCHITECT's.
-
-### Problems Solved
-- **Crash at init and on each config load.** `ConfigModel::loadFromPath()` always ends with `appModel.setMessage` (`ConfigModel.cpp:87-90`), runs in the constructor (`:20`) and on each `.md`/`.svg` change (`:110-113`). The message repaints `MessageOverlay`, and its paint read the null `OverlayAxisLine` instance (`.ips` frame `jam::MessageOverlay::paint + 84`, x1 `Bimap::getDefault()::none`).
-- **Crash after a pane split.** Both split crashes (`END-2026-11-08-172712.ips`, `-172814.ips`) caught the message thread in `jam::TextEditor::setWinsize()` → `ValueTree::setProperty` and a `libdispatch` thread in `EVETerminalProcessor::registerGridEvents()::$_2` → `ValueTree::setProperty` at the same instant; one then jumped to address 0 from a display link callback, the other hit *"memory corruption of free block"*. The grid handlers came in with `fe0465a` and wrote the tree from `jam::AsyncUpdater`'s serial GCD queue (`jam_AsyncUpdater.h:18-20`), against `SPEC.md:771-779` and `jam_Model.h:14-15`. The record writer fires one event per row (`jam_TerminalSwap.cpp:133-136`, `:185-195`), so a scalar Model row would drop events; the `commands`/`numCommands` lane + counter carries them.
-- **One split path.** The drag called `addPane` directly; it now runs the same command as the shortcut.
-- **Audit (26), resolved:** 1, 12 in-place drain shared with `applyCommands`; 2 `int64` counter; 3 one writer context for the lane; 5 asserts; 6 named terminator; 7, 8, 10 renames to the `events` family (`lists` kept, ARCHITECT's name from `fe0465a`); 17 `jam::Model::getOrCreateChildWithName`; 18 `getWinsize` only; 19; 22.
-- **Audit, rejected with the read:** 4 the flush runs under the message-manager lock (`SPEC.md:780-781`); 9 `applyPendingInput()` takes no target in the same class; 11 two uses, MANIFESTO S abstracts *"more than twice"*; 15 the counter is the Model change signal, as `numCommands` (`SPEC.md:151-153`); 16 the tree is the message-thread accessor (`jam_Model.h:15`, `jam_TextEditor.cpp:1861`); 20 the default serves the two callers that draw no split line and is never looked up there; 21 `getInstance` asserts a live holder (`jam_SharedInstance.h:67-73`), the call site was the defect; 23 different mappings (command → edge at `ENDView.cpp:335-338`, axis → command at `TabView.cpp:151`); 25 the invalid identifier is the documented add contract (`TabView.h:55`); 26 a registration table is the lookup form. 24 noted, the preview is ruled out of discussion.
-- **Doxygen-pass findings:** C6 (narrow scope) and C7 (`" | "` twice) resolved. C1, C2 rejected (MANIFESTO E's CORRECT example: `jassert` then the same positive check). C3 rejected (the table is the lookup). C8 rejected (`theme.md:216-218` allows only `solid, dash, bracket`, the keys at `jam_Gui.h:314-318`). C9 rejected (`ValueTree` is not a container).
-- **Mistakes owned.** I offered the MessageOverlay fix as an A/B disposition when CONTRACT answered it. I asked a preview question that was ruled out. My `/ask` answer said no open questions before the race evidence came in.
-
-### State for Continuation
-- Run `cast cast/spell.md --debug` in `eve` so `Source/generated/` gets `Id::numGridEvents` (`cast/identifiers.md:26`). Then build `jam`, `eve`, `end`. No compiler has seen this sprint.
-- JAM already holds `c5587c6a7` *"Stop the message overlay crash on its first paint"*; the later JAM edits (one axis call, constant scope, `regionSeparator`, doxygen) are uncommitted.
-- Run `<leader>bd` (JAM) and `ninja doxygen` (EVE, END), and confirm zero warnings. LSP on JAM files returned wrong or empty targets this session.
-- Open, presented to ARCHITECT, no ruling yet: (a) audit 18 rest — `getHistoryCapacity` and the `cwd` read in `openTTY` read the tree on the `start()` caller's thread; `ParameterText::getValue` is consumer-thread only (`jam_ParameterText.h:24-26`) and `historyCapacity` has no atomic accessor. (b) audit 13, C4, C5 — `EVETerminalProcessor.cpp` is 510 lines with four jobs; `openTTY` is 35 lines. (c) audit 14 — `SPEC.md:198-200` lists the lanes without `gridEvents`, and `:755-764` lacks `numGridEvents`; writing SPEC is gated.
-- Fact noted, ruled out of discussion: the split preview paints at the cursor (`TabView.cpp:193-232`); the command splits at `Id::right` or `Id::bottom` with the default proportion.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
----
 
 

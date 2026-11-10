@@ -44,9 +44,6 @@ normal mode. In terminal mode every other key goes to the shell.
 +------------------+--------+--------------+----------+-----------------------------------+
 | key              | type   | value        | mode     | description                       |
 +==================+========+==============+==========+===================================+
-| clear            | string | ctrl+l       | terminal | Clear the screen and redraw the   |
-|                  |        |              |          | active prompt.                    |
-+------------------+--------+--------------+----------+-----------------------------------+
 | dismiss          | string | cmd+w        | panel    | Close the panel.                  |
 +------------------+--------+--------------+----------+-----------------------------------+
 | zoom in          | string | cmd+=        |          | Zoom the editor in.               |

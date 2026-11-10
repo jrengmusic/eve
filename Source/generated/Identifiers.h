@@ -63,7 +63,6 @@ namespace map
 struct CommandId : public jam::Bimap<int, juce::Identifier>
 {
     CommandId() : jam::Bimap<int, juce::Identifier> { {
-            { clear,     juce::Identifier { "clear" } },
             { openFile,  juce::Identifier { "openFile" } },
             { markdown,  juce::Identifier { "markdown" } },
             { dismiss,   juce::Identifier { "dismiss" } },
@@ -75,7 +74,6 @@ struct CommandId : public jam::Bimap<int, juce::Identifier>
 
     enum value : int
     {
-        clear     = 0x4600012,
         openFile  = 0x4600028,
         markdown  = 0x4600029,
         dismiss   = 0x460002a,

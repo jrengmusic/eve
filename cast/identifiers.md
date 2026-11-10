@@ -70,8 +70,6 @@ The key is the juce::CommandID; the value is the row key.
 +-----------+-----------+-------------+
 | name      | key       | value       |
 +===========+===========+=============+
-| clear     | 0x4600012 | `clear`     |
-+-----------+-----------+-------------+
 | openFile  | 0x4600028 | `openFile`  |
 +-----------+-----------+-------------+
 | markdown  | 0x4600029 | `markdown`  |

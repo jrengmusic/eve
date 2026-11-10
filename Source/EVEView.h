@@ -231,7 +231,7 @@ private:
     /**
      * @brief Adds the registry callbacks of the UI scale, the commands, the message, and the history capacity.
      *
-     * The UI scale callback runs resized(). The clear command runs clear(). The open file command runs openFile().
+     * The UI scale callback runs resized(). The open file command runs openFile().
      * The markdown command writes the path of the URL to the `markdownFile` row of the terminal tree.
      * The dismiss command writes an empty `markdownFile` row.
      * The zoomIn command adds the `zoomStep` of the display sheet to the zoom row, and the zoomOut command subtracts it, both through setZoom().
@@ -240,9 +240,6 @@ private:
      * The history capacity callback shows the history-cleared message box and runs clearHistory().
      */
     void registerCallbacks();
-
-    /** @brief Clears the terminal. On the alternate screen, the terminal processor sends a form feed; otherwise it clears the history. */
-    void clear();
 
     /** @brief Clears the history of the terminal processor. */
     void clearHistory();
@@ -396,7 +393,7 @@ private:
     /** Overlay that shows the settings message. It shows the message when the message callback runs with a non-empty MESSAGE component property. */
     jam::MessageOverlay messageOverlay;
 
-    jam::Function::Map<juce::Identifier, void> terminalEvents;    ///< Handlers of the `terminal` tree properties, keyed by property identifier. `valueTreePropertyChanged()` runs them.
+    jam::Function::Map<juce::Identifier, jam::Function::pointerCapacity, void (const juce::ValueTree&)> terminalEvents;    ///< Handlers of the `terminal` tree properties, keyed by property identifier. `valueTreePropertyChanged()` runs them.
     /** @brief Styles of the ephemeral components. Each style is owned here and cleared with the components. */
     jam::Owner<jam::StyleCustom> ephemeralStyles;
 

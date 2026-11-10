@@ -8,13 +8,6 @@
 
 ---
 
-## DEBT-20261108T145906
-
-**Observation:** In Claude Code on the normal screen, Ctrl+L clears the display but the active prompt row is not rendered afterwards. The history stays, and typing still works.
-**Divergence:** ARCHITECT: "there's another bug with Claude Code with normal screen which probably related, if i pressed ctrl+l (clear?), the whole history perserved but active prompt gone, although i can still type"; "ctrl+l, still destroys active prompt in CC with normal screen"; "add to DEBT.md ctrl+l destroys CC active prompt rendering with normal screen".
-**Expectation:** After Ctrl+L in Claude Code on the normal screen, the prompt renders again at the active row. The same check passes in fullscreen (alternate screen).
-
----
 
 ## DEBT-20261105T000000
 

@@ -40,11 +40,11 @@ void ShellIntegration::addShellScripts (const juce::File& directory)
 
 juce::StringPairArray ShellIntegration::getShellEnvironment (const juce::String& shell, const juce::File& directory)
 {
-    static const jam::Function::Map<juce::String, juce::StringPairArray> shellEnvironments { [] {
-        jam::Function::Map<juce::String, juce::StringPairArray> table;
+    static const auto shellEnvironments ([] {
+        jam::Function::Map<juce::String, jam::Function::pointerCapacity, juce::StringPairArray (const juce::File&)> shellEnvironments;
 
-        table.add<const juce::File&> ("zsh",
-            [] (const juce::File& directory)
+        shellEnvironments.add ("zsh",
+            [] (const juce::String&, const juce::File& directory)
             {
                 juce::StringPairArray environment;
                 const auto parentZdotdir { juce::SystemStats::getEnvironmentVariable ("ZDOTDIR", {}) };
@@ -55,8 +55,8 @@ juce::StringPairArray ShellIntegration::getShellEnvironment (const juce::String&
                 environment.set ("ZDOTDIR", directory.getChildFile (juce::String { zshDirectory.data() }).getFullPathName());
                 return environment;
             });
-        table.add<const juce::File&> ("bash",
-            [] (const juce::File& directory)
+        shellEnvironments.add ("bash",
+            [] (const juce::String&, const juce::File& directory)
             {
                 juce::StringPairArray environment;
 
@@ -65,8 +65,8 @@ juce::StringPairArray ShellIntegration::getShellEnvironment (const juce::String&
                 environment.set ("EVE_BASH_UNEXPORT_HISTFILE", "1");
                 return environment;
             });
-        return table;
-    }() };
+        return shellEnvironments;
+    }());
 
     const auto key { juce::File (shell).getFileNameWithoutExtension() };
 
@@ -78,18 +78,18 @@ juce::StringPairArray ShellIntegration::getShellEnvironment (const juce::String&
 
 juce::String ShellIntegration::getShellArguments (const juce::String& shell, const juce::File& directory)
 {
-    static const jam::Function::Map<juce::String, juce::String> shellArguments { [] {
-        jam::Function::Map<juce::String, juce::String> table;
-        const auto getPowershellArguments { [] (const juce::File& directory)
+    static const auto shellArguments ([] {
+        jam::Function::Map<juce::String, jam::Function::pointerCapacity, juce::String (const juce::File&)> shellArguments;
+        const auto getPowershellArguments { [] (const juce::String&, const juce::File& directory)
                                          {
                                              return "-NoLogo -NoProfile -NoExit -Command \". '" + directory.getChildFile (files::powershellIntegration).getFullPathName() + "'\"";
                                          } };
 
-        table.add<const juce::File&> ("bash", [] (const juce::File&) { return juce::String { "--posix" }; });
-        table.add<const juce::File&> ("powershell", getPowershellArguments);
-        table.add<const juce::File&> ("pwsh", getPowershellArguments);
-        return table;
-    }() };
+        shellArguments.add ("bash", [] (const juce::String&, const juce::File&) { return juce::String { "--posix" }; });
+        shellArguments.add ("powershell", getPowershellArguments);
+        shellArguments.add ("pwsh", getPowershellArguments);
+        return shellArguments;
+    }());
 
     const auto key { juce::File (shell).getFileNameWithoutExtension() };
 
@@ -103,17 +103,17 @@ void ShellIntegration::appendPath (std::string& output, const juce::String& shel
     static constexpr std::string_view posixEscapedQuote { "'\\''" };
     static constexpr std::string_view powershellEscapedQuote { "''" };
 
-    static const jam::Function::Map<juce::String, void> quotedPaths { [] {
-        jam::Function::Map<juce::String, void> table;
-        const auto appendPowershellPath { [] (std::string& output, std::string_view& path)
+    static const auto quotedPaths ([] {
+        jam::Function::Map<juce::String, jam::Function::pointerCapacity, void (std::string&, std::string_view)> quotedPaths;
+        const auto appendPowershellPath { [] (const juce::String&, std::string& output, std::string_view path)
                                           {
                                               jam::Format::appendQuoted (output, path, static_cast<char> (Chars::singleQuote), powershellEscapedQuote);
                                           } };
 
-        table.add<std::string&, std::string_view&> ("powershell", appendPowershellPath);
-        table.add<std::string&, std::string_view&> ("pwsh", appendPowershellPath);
-        return table;
-    }() };
+        quotedPaths.add ("powershell", appendPowershellPath);
+        quotedPaths.add ("pwsh", appendPowershellPath);
+        return quotedPaths;
+    }());
 
     const auto key { juce::File (shell).getFileNameWithoutExtension() };
 

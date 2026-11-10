@@ -9,7 +9,7 @@
  * `process()` runs the `jam::TerminalProcessor`. The processor decodes the TTY output into the rows of the buffer.
  * `writePendingData()` moves the history rows of the buffer and the image records of the processor into the swap.
  * The view pulls through the getter in `userInterfaceGetters`. The getter gives the swap.
- * The view sends input bytes through the `terminalInput` event. The bytes wait in `pendingInput`, and they enter the fixed input lane as it has room, in order.
+ * The view sends input bytes through the `write` event under the `terminalInput` key of the chain events. The bytes wait in `pendingInput`, and they enter the fixed input lane as it has room, in order.
  *
  * @par Model lane
  * The object owns a terminal `jam::Model`, `state`. Its tree is the `terminal` child of the APVTS state of the model.
@@ -79,14 +79,7 @@ public:
     /** @brief Restarts with no change. The chain prepares again from the winsize of `state` and the history capacity of the model, when the clock starts. */
     void restart();
 
-    /**
-     * @brief Clears the screen. On the alternate screen, it sends a form feed to the input lane through addInput().
-     *
-     * Otherwise it runs clearHistory().
-     */
-    void clear();
-
-    /** @brief Restarts the clock, then clears the history rows of the terminal buffer. */
+    /** @brief Clears the history rows of the terminal buffer inside a restart, while the clock is stopped. */
     void clearHistory();
 
     /**
@@ -170,7 +163,7 @@ public:
     jam::ViewManager::Getters
         userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter and a `previewComponent` getter. The `previewComponent` getter, keyed by `images`, gives the swap only. The text editor getter, keyed by `winsize`, flushes the Model lane, triggers the async update when synchronized output is off, gives the swap, and runs applyPendingInput().
     jam::ViewManager::Events
-        chainEvents;///< Events of the chain. The constructor adds the `terminalInput` event. It passes its bytes to `addInput()`.
+        chainEvents;///< Events of the chain. The outer key is the event name, and the inner key is the event ID. The constructor adds the `write` event under `terminalInput`. It passes its bytes to `addInput()`.
 
 private:
     /**
@@ -218,11 +211,10 @@ private:
     /**
      * @brief Adds the event setters that copy the terminal state to the Model lane.
      *
-     * Each setter calls `storeValue` on `state`. The bool events store 0 or 1. They are `applicationCursor`, `bracketedPaste`,
-     * `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited`, `syncOutput`, `autoWrap`, `originMode`,
-     * `insertMode` and `isWrapPending`.
-     * The `mouseTracking`, `cursorShape`, `keyboardFlags`, `cursor`, `numPrompts`, `activeLink`, `keyboardFlagsInactive`,
-     * `numKeyboardModesNormal`, `numKeyboardModesAlternate`, `savedCursorNormal` and `savedCursorAlternate` events store an int.
+     * Each event of the list below takes an int. `storeValue` on `state` stores it under the key of the event. The events are
+     * `applicationCursor`, `bracketedPaste`, `mouseSgr`, `cursorVisible`, `alternateScreen`, `isRecording`, `shellExited`, `syncOutput`,
+     * `autoWrap`, `originMode`, `insertMode`, `isWrapPending`, `mouseTracking`, `cursorShape`, `keyboardFlags`, `cursor`, `numPrompts`,
+     * `activeLink`, `keyboardFlagsInactive`, `numKeyboardModesNormal`, `numKeyboardModesAlternate`, `savedCursorNormal` and `savedCursorAlternate`.
      * The `preview`, `title`, `foregroundProcess` and `cwd` events store the text.
      * The `command` event writes the name and a zero byte to `commands`, then flushes `commands`. It then increments `numCommands` in `state`.
      * It does this only when the name is not empty and `commands` has room for it.
@@ -258,7 +250,7 @@ private:
      */
     void registerUserInterfaceGetters();
 
-    /** @brief Adds the `terminalInput` event to the chain events. The event passes its bytes and its size to `addInput()`. */
+    /** @brief Adds the `write` event under the `terminalInput` key of the chain events. The event passes its bytes and its size to `addInput()`. */
     void registerChainEvents();
 
     /**
@@ -285,9 +277,11 @@ private:
     /**
      * @brief Prepares the buffer, the swap, the decoder and the TTY for a window size.
      *
-     * The call runs triggerAsyncUpdate() and handleUpdateNowIfNeeded() before the preparation, and again after the buffer and the swap are prepared.
-     * Each run writes the pending history rows to the swap. The second run emits the firstLine event for the prepared swap.
-     * It sizes the buffer for the blocks of one vblank, prepares the swap, resets the decoder, and sets the history capacity.
+     * The call runs handleUpdateNow() before and after the preparation of the buffer and the swap.
+     * Each run queues the async update and waits for it. The update writes the pending history rows to the swap, and the swap write emits the firstLine event.
+     * Between the two runs, the decoder applies the window size to the buffer through applyWinsize().
+     * On the normal screen, applyWinsize() scrolls the buffer up by the rows that the cursor exceeds the last row of the new winsize, and it moves the cursor up by the same count.
+     * The call then sizes the buffer for the blocks of one vblank, prepares the swap with the byte count of the buffer, resets the decoder, and sets the history capacity.
      * It then opens the TTY and sets its window size.
      *
      * @param winsize          Window size of the grid.
@@ -350,7 +344,7 @@ private:
     const juce::Identifier terminalTag { jam::Format::toType (Id::terminal) };///< Identifier of the `terminal` tree, built at construction.
     std::unique_ptr<jam::Model::ParameterAttachment>
         winsizeAttachment;///< Listens to the winsize parameter of `state`. A change calls `restart()`, so the chain prepares again for the new grid only while the clock runs.
-    jam::Function::Map<juce::Identifier, void>
+    jam::TerminalProcessor::Events
         events;///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
     std::string pendingInput;    ///< Input bytes that wait for room in the input lane.
     jam::TerminalFIFO input;///< Input lane from the view to the TTY.

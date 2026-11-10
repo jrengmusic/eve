@@ -66,8 +66,11 @@ among ours.
      SHOULD NOT MATTER. what binary we're using as host-client. VirtualDevice
      as full throttle clock is EVE SPEC contract"*.
 3. **Non-destruction contract** — widget content is never destroyed by SIGWINCH or
-   resize. The `clear` command (`ctrl+l`) and ED 2 blank the live screen and keep
-   history. Only ED 3, which the shell's `clear` program sends, erases history (below).
+   resize. ED 2 blanks the live screen and keeps history. Only ED 3, which the
+   shell's `clear` program sends, erases history (below). EVE has no `clear`
+   command. `ctrl+l` goes to the program. `[AMENDED 2026-11-10]` ARCHITECT:
+   *"ctrl+l should not erase active prompt"*; *"we should adhere to shell SPEC"*;
+   *"Remove the clear command"*.
 4. **Terminal conformance at processor level** — VT100 spec correctness as the
    foundation, plus the xterm/modern extensions jam_terminal already encodes
    (SGR truecolor, bracketed paste, progressive keyboard, mouse SGR, and the reports in "Terminal reports"),
@@ -115,7 +118,7 @@ among ours.
 9. **One prepare path.** The chain prepares in one place: the clock's start
    (`audioDeviceAboutToStart`). Only the host pair starts and stops the clock:
    `prepareToPlay` starts it, `releaseResources` stops it. Resize, history
-   capacity, clear and state restore restart it (stop → change → start), and
+   capacity and state restore restart it (stop → change → start), and
    only while it runs. ARCHITECT: *"make it consistent then"*; *"prepareToPlay
    upstream still juce contract"*; the restart rule approved with `/go`
    (2026-10-29, Amendment A of the terminal clock plan; the plan is deleted, END `carol/SPRINT-LOG.md:186`).
@@ -281,13 +284,12 @@ layout event only).
    (`TIOCSWINSZ`); the widget re-derives the wrapped layout from logical lines.
    Acceptance: fill session with known content → resize narrow → resize back →
    SSOT and re-derived layout **byte-identical** to the original.
-2. **`clear` semantics:** the `clear` command (default key `ctrl+l`) takes the path of
-   a resize. ARCHITECT: *"same path, same commandId, one SSOT with clear, WITHOUT
-   erasing any history"*; *"clear live buffer redraw active prompt with whatever
-   winsize parameter?"*. The chain restarts, ED 2 blanks the live screen, the cursor
-   goes home, and `SIGWINCH` makes the shell redraw its prompt. On the alternate
-   screen the command sends 0x0C to the program. ARCHITECT: *"with alternate, it
-   should be just CLI responsibility"*. ED 2 from a program blanks the live screen.
+2. **`clear` semantics:** `[AMENDED 2026-11-10]` EVE has no `clear` command.
+   `ctrl+l` is a key like any other key in terminal mode: it goes to the program, as
+   0x0C, or as CSI u when the program set the progressive keyboard flags. zsh then
+   clears the screen and redraws its prompt. ARCHITECT: *"ctrl+l should not erase
+   active prompt"*; *"we should adhere to shell SPEC"*; *"Remove the clear
+   command"*. ED 2 from a program blanks the live screen.
    ED 3 (xterm "clear scrollback"), which the shell's `clear` program sends
    (`ESC[3J ESC[H ESC[2J`), clears the *view's* scrollback access. ARCHITECT:
    *"clear is erasing history yes"*. The SSOT retains the session record for the
@@ -302,13 +304,22 @@ layout event only).
      JUCE pattern, API verbatim? within the adherence into our CONTRACT?"*
      The ring of `jam::TerminalBuffer` carries the history rows. The writer
      drains them and writes each row once to the swap's index and segment
-     files (`jam_TerminalSwap.cpp:78-135`, `:147-161`). The vblank getter
+     files (`jam_TerminalSwap.cpp:78-115`, `:117-140`). The vblank getter
      posts the writer to the processor's own serial context, in every host.
      The getter skips the post while the `syncOutput` row is on. ARCHITECT:
      *"why vblank must be branched? vblank at all build contract are exactly
      the same"*.
+   - `[AMENDED 2026-11-10]` One row is one stored line. A wrapped row is its
+     own line with the wrapped mark. The writer never writes a stored line
+     again, because the reader can read it as soon as the end line includes it.
+     The reader joins a wrapped line to the line before it when it builds a
+     block. A wrapped row that holds an image placement is stored without the
+     mark, so it stays its own line. ARCHITECT: *"Reader joins at build"*;
+     *"our architecture is NOT `typical` terminal topology. we preserved history
+     faithfully. our rendering layer is COMPLETELY decoupled. audio architecture
+     discipline always lock free on terminal (audio thread)"*.
    - The swap keeps the last `HISTORY_CAPACITY` lines. It deletes the index
-     and segment files of older lines (`jam_TerminalSwap.cpp:163-182`).
+     and segment files of older lines (`jam_TerminalSwap.cpp:191-204`).
    - The TextEditor is the receiver. It builds every history block of the swap
      (`TerminalSwap::linesPerBlock` lines each), from the tail block to the head
      block, and it builds a resident block again when its line count, its open end
@@ -643,9 +654,18 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
      `SIGWINCH`.
   - ARCHITECT: *"resizing can call SIGWINCH, clear live buffer, realloc, then
     redraw active prompt, whatever it needs to be done as tty, history should be
-    UNAFFECTED"*. A prepare with an unchanged grid keeps the screen rows. A grid
-    change starts an empty live screen, and the shell redraws its active prompt
-    on `SIGWINCH`.
+    UNAFFECTED"*. `[AMENDED 2026-11-10]` A prepare keeps the screen rows whole. A
+    row is not cut to a narrower grid. On the normal screen, when the cursor row
+    is below a lower grid, the top rows go to history until the cursor row is the
+    last row of the grid. On the alternate screen the rows that the
+    lower grid cannot hold are dropped, and their images are released. A grid
+    change blanks the live screen only while a prompt is active, and the shell
+    redraws that prompt on `SIGWINCH`. With no active prompt, such as a running
+    program or a new pane before its first prompt, the rows and the cursor stay.
+    ARCHITECT: *"Clear only at a prompt"*; *"ctrl+l should not erase active
+    prompt, nor resize (because creating new pane) not clearing whatever on live
+    buffer because there is no active prompt yet"*; *"No cut"*; *"No, drop
+    them"*.
   - ARCHITECT: *"history only clear, when user explicitly call command
     `clear`"*.
   - **Final stop only.** ARCHITECT: *"why dont we make resize always coalesce,
@@ -677,7 +697,8 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
        END. ARCHITECT: *"you fix the cause, the design, the race, you'll fix both.
        DESIGN BY CONTRACT."*
   - **Active prompt anchor.** ARCHITECT: *"clear: draw active prompt at 0"*.
-    A prepare puts the cursor at home. The shell redraws its prompt there on
+    While a prompt is active, a prepare puts the cursor at home
+    `[AMENDED 2026-11-10]`. The shell redraws its prompt there on
     `SIGWINCH`. For oh-my-posh, the user's zshrc repaints the prompt in
     `TRAPWINCH`. The zshrc arms that trap at the first prompt, because
     `_omp_status` has no value before the first `_omp_precmd`. ARCHITECT:
@@ -685,8 +706,10 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   - **Column reflow.** A column grid in history reflows at the TextEditor width
     (the column reflow plan, done and deleted, END `carol/SPRINT-LOG.md:186`). ARCHITECT: *"no hardcode about ls nor eza"*.
 - **Record:** `TerminalSwap` writes each history row once to its index and
-  segment files (`jam_TerminalSwap.cpp:78-135`). It writes the live frame to a
-  two-slot live file through a FIFO (`:50-71`, `:417-433`). `prepare` starts a
+  segment files (`jam_TerminalSwap.cpp:78-115`). It writes the live frame to a
+  two-slot live file through a FIFO (`:50-71`). `jam::TerminalHistory` reads
+  both stores into the documents of the TextEditor
+  (`jam_TerminalHistory.cpp:92-115`, `:305-319`). `prepare` starts a
   new live file and drops a ready slot of the old one (`:25-37`).
 - **Pull:** on each vblank of its display (`juce::VBlankAttachment`), the
   TextEditor calls the view getter. The getter flushes the terminal Model and
@@ -909,7 +932,7 @@ The system:
 - [ ] Passes vttest sections 1, 2, 3, 8, 11 (cursor, screen, characters, modes, xterm) with zero regressions vs endless
 - [ ] Zero locks on the state↔render path (audit: the only permitted lock is the suspendProcessing lifecycle gate)
 - [ ] Reader thread: zero allocations after session start (instrumented assert)
-- [ ] The `clear` command (`ctrl+l`) retains history and redraws the prompt; the shell's `clear` program erases history
+- [ ] `ctrl+l` goes to the program: at a zsh prompt the shell clears the screen and redraws the prompt, and history stays; the shell's `clear` program erases history `[AMENDED 2026-11-10]`
 - [ ] Ephemeral components and resizes never alter SSOT content (hash check)
 
 An end-user can:
