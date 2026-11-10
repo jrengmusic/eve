@@ -277,9 +277,9 @@ private:
     /**
      * @brief Prepares the buffer, the swap, the decoder and the TTY for a window size.
      *
-     * The call runs handleUpdateNow() before and after the preparation of the buffer and the swap.
+     * The call runs handleUpdateNow() three times. The first run precedes applyWinsize(), the second run follows applyWinsize(), and the third run follows the call to swap.setCapacity().
      * Each run queues the async update and waits for it. The update writes the pending history rows to the swap, and the swap write emits the firstLine event.
-     * Between the two runs, the decoder applies the window size to the buffer through applyWinsize().
+     * Between the first and the second run, the decoder applies the window size to the buffer through applyWinsize().
      * On the normal screen, applyWinsize() scrolls the buffer up by the rows that the cursor exceeds the last row of the new winsize, and it moves the cursor up by the same count.
      * The call then sizes the buffer for the blocks of one vblank, prepares the swap with the byte count of the buffer, resets the decoder, and sets the history capacity.
      * It then opens the TTY and sets its window size.
