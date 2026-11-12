@@ -137,7 +137,7 @@ public:
     /**
      * @brief Types an open command with a file path into the shell, then submits the line.
      *
-     * The line is the command, one space, the path quoted for the shell of this processor, and a carriage return.
+     * The line is the command, one space, the path quoted for the shell in the `shell` row of `state`, and a carriage return.
      * The call sends the line through addInput().
      *
      * @param command  Command text of the open command.
@@ -146,7 +146,7 @@ public:
     void applyOpenCommand (std::string_view command, std::string_view path);
 
     /**
-     * @brief Returns the paths quoted for the shell of this processor, joined by one space.
+     * @brief Returns the paths quoted for the shell in the `shell` row of `state`, joined by one space.
      * @param paths  The absolute paths.
      * @return       UTF-8 text, for the paste of a file drop.
      */
@@ -292,11 +292,14 @@ private:
     /**
      * @brief Opens the TTY on the serial context of the device.
      *
-     * In a profile standalone build, the shell, its arguments and its folder come from the `profiler` table of the manifest, and the TTY is opened without the check below.
-     * In other builds, the shell is the `SHELL` variable, with the shell integration when it is available. The call opens the TTY only when it is not open.
-     * In other builds, the shell starts in the directory of the `cwd` row of `state`. An empty `cwd` row keeps `ShellIntegration::getStartDirectory()`.
-     *
-     * A failed open stores 1 in the `shellExited` property of `state`.
+     * In a profile standalone build, the shell, its arguments and its folder come from the `profiler` table of the manifest. The call opens the TTY without the check below. A failed open stores 1 in the `shellExited` property of `state`.
+     * In other builds, the call opens the TTY only when it is not open. It takes the program from the first token of getShell(), without its quotes. The other tokens are the arguments.
+     * In other builds, the call writes the integration scripts with ShellIntegration::addShellScripts(). Each open appends ShellIntegration::getShellArguments() to the arguments, and it passes ShellIntegration::getShellEnvironment() as the environment.
+     * In other builds, the shell starts in the directory of the `cwd` row of `state` when that row holds an absolute path. Otherwise it starts in ShellIntegration::getStartDirectory().
+     * In other builds, on Windows, when the program does not open, the call tries `powershell.exe` and then `cmd.exe`, without arguments. The first one that opens runs. On the other platforms, no fallback runs.
+     * In other builds, the `shell` row of `state` holds the program that runs. When no program opens, the row holds the configured program.
+     * In other builds, the `shellNotFound` row holds the configured program when a fallback runs. The row is empty otherwise.
+     * In other builds, when no program opens, `shellExited` is set to 1.
      *
      * @param bufferSize                  Device buffer size: the largest number of bytes that one TTY read returns.
      * @param maximumPeriodMilliseconds   Longest wait between two readiness ticks of the TTY, in milliseconds. The call passes one vblank.
@@ -305,14 +308,13 @@ private:
     void openTTY (int bufferSize, double maximumPeriodMilliseconds, jam::TerminalWinsize winsize);
 
     /**
-     * @brief Returns the shell that the TTY starts.
+     * @brief Returns the shell command line that the TTY starts.
      *
-     * In a profile build, the shell is the `shell` key of the `profiler` table of the manifest.
-     * In other builds, the shell is the `SHELL` variable.
-     * The fallback is the `SHELL` variable, or the default shell of the platform when that variable is not set:
-     * `powershell.exe` on Windows, and `/bin/zsh` on the other platforms.
+     * In a profile build, the command is the `shell` property of the `profiler` table of the manifest. When the property is absent, the default shell applies.
+     * In other builds, the command is the `shell` setting, which may hold arguments after the program. When the setting is absent or empty, the default shell applies.
+     * The default shell is `C:/msys64/usr/bin/zsh.exe -l` on Windows. On the other platforms, it is the `SHELL` variable, or `/bin/zsh` when that variable is not set.
      *
-     * @return The shell program.
+     * @return The shell command line. openTTY() splits it into the program and its arguments.
      */
     juce::String getShell() const;
 

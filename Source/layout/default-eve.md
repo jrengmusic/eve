@@ -193,27 +193,29 @@ runs in the terminal. Add any row.
 Plugin settings. The chain populates the persisted-parameter subtree from this table on first
 launch; the host state overrides it after restore.
 
-+-------------------+--------+----------+-------------------------------------------------------------+
-| key               | type   | value    | description                                                 |
-+===================+========+==========+=============================================================+
-| ui scale          | string | MEDIUM   | Editor scale step.                                          |
-+-------------------+--------+----------+-------------------------------------------------------------+
-| appearance        | string | AUTO     | Light/dark appearance; AUTO follows the OS.                 |
-+-------------------+--------+----------+-------------------------------------------------------------+
-| rasterizer        | string | freetype | Glyph rasterization backend: edgeTable, freetype or native. |
-+-------------------+--------+----------+-------------------------------------------------------------+
-| gamma             | float  | 2.2      | Coverage gamma exponent of rasterized glyphs.               |
-+-------------------+--------+----------+-------------------------------------------------------------+
-| contrast          | float  | 0.0      | Coverage contrast of rasterized glyphs.                     |
-+-------------------+--------+----------+-------------------------------------------------------------+
-| embolden          | string | false    | Synthetic embolden of rasterized glyphs: true or false.     |
-+-------------------+--------+----------+-------------------------------------------------------------+
-| history capacity  | int    | 10000    | Lines of terminal history that the record keeps.            |
-+-------------------+--------+----------+-------------------------------------------------------------+
-| shell integration | bool   | true     | Load the EVE shell hooks: OSC 7 and OSC 133 A, C and D.     |
-+-------------------+--------+----------+-------------------------------------------------------------+
-| start directory   | string | ~        | Folder where the shell starts. ~ is the home folder.        |
-+-------------------+--------+----------+-------------------------------------------------------------+
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| key               | type   | value    | description                                                                    |
++===================+========+==========+================================================================================+
+| ui scale          | string | MEDIUM   | Editor scale step.                                                             |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| appearance        | string | AUTO     | Light/dark appearance; AUTO follows the OS.                                    |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| rasterizer        | string | freetype | Glyph rasterization backend: edgeTable, freetype or native.                    |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| gamma             | float  | 2.2      | Coverage gamma exponent of rasterized glyphs.                                  |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| contrast          | float  | 0.0      | Coverage contrast of rasterized glyphs.                                        |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| embolden          | string | false    | Synthetic embolden of rasterized glyphs: true or false.                        |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| history capacity  | int    | 10000    | Lines of terminal history that the record keeps.                               |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| shell integration | bool   | true     | Load the EVE shell hooks: OSC 7 and OSC 133 A, C and D.                        |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| start directory   | string | ~        | Folder where the shell starts. ~ is the home folder.                           |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
+| shell             | string |          | Shell program and its arguments. Empty: MSYS2 zsh on Windows, $SHELL on macOS. |
++-------------------+--------+----------+--------------------------------------------------------------------------------+
 
 ## window
 

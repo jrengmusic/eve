@@ -34,8 +34,14 @@ PATH="$_eve_directory:$PATH"
 source "$_eve_directory/eve"
 unset _eve_directory
 
+if command -v cygpath > /dev/null 2>&1; then
+    _eve_cwd() { printf '/%s' "$(cygpath -m "$PWD")"; }
+else
+    _eve_cwd() { printf '%s' "$PWD"; }
+fi
+
 # Install hooks
-_eve_precmd() { printf '\033]133;D\007'; printf '\033]7;file://%s%s\007\033]133;A\007' "$HOSTNAME" "$(_eve_encode "$PWD")"; }
+_eve_precmd() { printf '\033]133;D\007'; printf '\033]7;file://%s%s\007\033]133;A\007' "$HOSTNAME" "$(_eve_encode "$(_eve_cwd)")"; }
 PS0='$(_eve_preexec > /dev/tty)'
 PROMPT_COMMAND="_eve_precmd${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 

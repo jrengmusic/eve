@@ -13,12 +13,6 @@ class ShellIntegration
 {
 public:
     /**
-     * @brief Tells whether the shell integration setting is on.
-     * @return `true` when the `shellIntegration` setting is true. The default is true.
-     */
-    static bool isShellIntegrated();
-
-    /**
      * @brief Returns the folder where the shell starts.
      * @return Folder from the `startDirectory` setting. The default is `~`.
      */
@@ -27,9 +21,10 @@ public:
     /**
      * @brief Writes the integration scripts into a folder.
      *
-     * The call creates the folder and its `zsh` subfolder when they are absent.
+     * When the `shellIntegration` setting is off, the call does nothing.
+     * Otherwise the call creates the folder and its `zsh` subfolder when they are absent.
      * It writes the zsh environment file and the zsh integration file into the `zsh` subfolder.
-     * It writes the bash script and the PowerShell script into the folder. It replaces files that exist.
+     * It writes the bash script, the PowerShell script and the shell command file into the folder, and it sets the execute permission of the shell command file. It replaces files that exist.
      *
      * @param directory  Folder that receives the scripts.
      */
@@ -38,9 +33,10 @@ public:
     /**
      * @brief Returns the environment variables that the shell receives.
      *
-     * For zsh, the variables point `ZDOTDIR` to the `zsh` subfolder of @p directory. They keep the parent `ZDOTDIR` in `EVE_ORIG_ZDOTDIR`.
-     * For bash, the variables point `ENV` to the bash script in @p directory and set the bash inject flags.
-     * Every shell also receives `CHERE_INVOKING`.
+     * For zsh, the variables point `ZDOTDIR` to the `zsh` subfolder of @p directory. When the parent sets `ZDOTDIR`, the call keeps it in `EVE_ORIG_ZDOTDIR`.
+     * For bash, the variables point `ENV` to the bash script in @p directory, and they set `EVE_BASH_INJECT` and `EVE_BASH_UNEXPORT_HISTFILE`.
+     * When the setting is on, every shell also receives `CHERE_INVOKING`.
+     * When the setting is off, the call returns an empty array.
      *
      * @param shell      Shell program name or absolute path. The function keys on the file name without extension.
      * @param directory  Folder that holds the integration scripts.
@@ -53,10 +49,11 @@ public:
      *
      * Bash receives `--posix`. PowerShell and pwsh receive the arguments that source the PowerShell script in @p directory.
      * Other shells receive no arguments.
+     * When the setting is off, the call returns an empty string for every shell.
      *
      * @param shell      Shell program name or absolute path. The function keys on the file name without extension.
      * @param directory  Folder that holds the integration scripts.
-     * @return           Space-separated arguments for the shell. The string is empty when the shell needs none.
+     * @return           Space-separated arguments for the shell. The string is empty when the shell needs none, or when the setting is off.
      */
     static juce::String getShellArguments (const juce::String& shell, const juce::File& directory);
 
@@ -80,4 +77,11 @@ public:
      * @return      `true` when any byte of the path is a control byte.
      */
     static bool hasControlByte (std::string_view path);
+
+private:
+    /**
+     * @brief Tells whether the shell integration setting is on.
+     * @return `true` when the `shellIntegration` setting is true. The default is true.
+     */
+    static bool isShellIntegrated();
 };

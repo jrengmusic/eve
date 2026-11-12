@@ -162,6 +162,14 @@ void EVEView::registerTerminalEvents()
         }
     });
 
+    terminalEvents.add (Id::shellNotFound, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
+    {
+        const auto program { terminal.getProperty (Id::shellNotFound).toString() };
+
+        if (program.isNotEmpty())
+            messageOverlay.showMessage (Id::failShellNotFound + program);
+    });
+
     terminalEvents.add (Id::zoom, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         setZoom (static_cast<float> (terminal.getProperty (Id::zoom)));

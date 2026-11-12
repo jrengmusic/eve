@@ -14,10 +14,16 @@ _eve_encode() {
     printf '%s' "$encoded"
 }
 
+if command -v cygpath > /dev/null 2>&1; then
+    _eve_path() { cygpath -m "$(realpath "$1")"; }
+else
+    _eve_path() { realpath "$1"; }
+fi
+
 eve() {
     case "$1" in
         command) printf '\033]1337;EVE;command;name=%s\007' "$(_eve_encode "$2")" ;;
-        preview) printf '\033]1337;EVE;preview;inline=1;width=%s;height=%s%s;path=%s\007' "${FZF_PREVIEW_COLUMNS:-100%}" "${FZF_PREVIEW_LINES:-100%}" "${3:+;$3}" "$(_eve_encode "${2:+$(realpath "$2")}")" ;;
+        preview) printf '\033]1337;EVE;preview;inline=1;width=%s;height=%s%s;path=%s\007' "${FZF_PREVIEW_COLUMNS:-100%}" "${FZF_PREVIEW_LINES:-100%}" "${3:+;$3}" "$(_eve_encode "${2:+$(_eve_path "$2")}")" ;;
         *) printf "eve: unknown command '%s'; use command or preview\n" "$1" >&2; return 1 ;;
     esac
 }

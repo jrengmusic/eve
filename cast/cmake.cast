@@ -181,7 +181,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:<:::precompiledHeader:::$<ANGLE-R>>")
 
-if(APPLE)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE "SHELL:-Xclang -fno-pch-timestamp")
 endif()
 
@@ -346,6 +346,14 @@ endif()
 file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
 :::[list]:::
 )
+
+if(WIN32)
+    string(TOLOWER "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}" CAST_WINDOWS_ARCHITECTURE)
+    list(APPEND CAST_LAYOUT_FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/Source/windows/${CAST_WINDOWS_ARCHITECTURE}/conpty.dll"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Source/windows/${CAST_WINDOWS_ARCHITECTURE}/OpenConsole.exe"
+    )
+endif()
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData
     NAMESPACE "BinaryData"

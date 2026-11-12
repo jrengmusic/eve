@@ -36,6 +36,62 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Windows Terminal — Native Path Form, Shell Setting with Fallback, ConPTY Exit by Pipe EOF, History Reader Shares the Writer's Maps, Audit Sweep ✅
+
+**Date:** 2026-11-12
+**Duration:** two sessions, joined by a context compaction. The start and end times are not recorded.
+**Scope (ARCHITECT):** *"let's continue with eve"*; *"fix the cause not the symptoms, fix the design, design by contract. unidirectional data flow"*; *"`native` implementation always at the very first INPUT to read and very last OUTPUT"*; *"whatever juce implemented as `native` dont fight it"*; shell row "One row, empty = platform", *"why not let user declare explicitly? `<program> <args>`"*, fallback "PowerShell, then cmd", message "shell not found:", *"still running without fail"*; *"why magic strings? just use Identifier lexicon"*; *"windows is wrong, that's a fact. mac already tested and measured end to end"*; *"no hack, no patch, no shortcut"*; *"no juce patch"*; history seam "Reader uses readWrite"; *"history works. terminal functional."*; `/audit until /log no gate`. Plans: `PLAN-shell-seam.md` (Steps 0-7), `PLAN-history-windows.md` (Steps 0-2). Both deleted at completion.
+
+### Agents Participated
+- COUNSELOR — the reads of the path flow, the swap ownership, the JUCE map share modes, the ConPTY exit, the POSIX TTY and the state save path; both plans; the validation of every Engineer return; the filter of 17 audit findings and the Pathfinder findings; this log.
+- Engineer (sonnet) — the shell seam steps; the reader map mode; the EVE audit fixes; the JAM diagnostics removal; the Windows TTY RAII, resize and read fixes; two follow-ups; the plan deletion.
+- Pathfinder (haiku) — the swap ownership read; whatdbg traces; the doxygen pass and its follow-up.
+- Auditor (opus) — one run, 17 findings plus diagnostics and drift.
+
+### Files Modified
+- `eve/Source/shell/{eve,zsh_integration.zsh,bash_integration.bash}` — under MSYS2 the shells send `cygpath -m` paths (`_eve_path`, `_eve_cwd`); the first input carries the native form.
+- `jam/jam_core/text/jam_Format.{h,cpp}` — `toNativePath` deleted; `jam/jam_gui/widgets/jam_PreviewComponent.cpp:357` builds `juce::File` from the path as given.
+- `eve/Source/layout/default-eve.md:217` — `shell` setting; the settings table description column widened to 80. `eve/Source/layout/parameters.md:39-42` — model rows `shell` (the program that runs) and `shellNotFound`. `eve/cast/identifiers.md` — `shellNotFound`, `failShellNotFound`, `shellVariable`, `defaultShell`, `defaultShellWindows`, `powershellProgram`, `commandPromptProgram`.
+- `eve/Source/EVETerminalProcessor.{h,cpp}` — `getDefaultShell`, `getShell` from the setting; `openTTY` (`.cpp:428-461`) splits once, starts in `cwd` only when it is an absolute path, tries `powershell.exe` then `cmd.exe` on Windows, stores `shell`, `shellNotFound` (empty when the configured program runs) and `shellExited`; the profiler branch stores `shell` too; `applyOpenCommand` and `getQuotedPaths` quote for the `shell` row. `eve/Source/EVEView.cpp:165-171` — `shellNotFound` event shows `shell not found: <program>`.
+- `eve/Source/ShellIntegration.{h,cpp}` — `addShellScripts`, `getShellEnvironment`, `getShellArguments` read the integration setting themselves; `isShellIntegrated` private.
+- `jam/jam_terminal/tty/native/jam_TerminalTTY_windows.{h,cpp}` — `processWait` closes the pseudo console on process exit, so the session ends by pipe EOF as on POSIX; `resizeWork` runs the resize on the one-thread pool; the four handles are `std::unique_ptr<void, decltype (&CloseHandle)>`; helpers return values (no out-parameters); the program is quoted on the command line; `read()` returns -1 on any non-pending error and with no session; `childPid` and `safeCloseHandle` deleted; pessimistic `funcs` guards removed.
+- `jam/jam_terminal/document/jam_TerminalHistory.cpp:125`, `:289`, `jam_TerminalImageRecord.h:99`, `:104` — reader maps use `readWrite`.
+- `jam/jam_terminal/{buffers/jam_TerminalBuffer.cpp,document/jam_TerminalSwap.cpp,processor/jam_TerminalProcessor.cpp}`, `jam/jam_gui/widgets/jam_TextEditor.cpp` — ODE diagnostics removed.
+- `eve/SPEC.md` — Feature 1 shell setting; failure table rows (Windows fallback; macOS has no fallback); Feature 4 path form.
+- Doxygen synced: `EVETerminalProcessor.h`, `ShellIntegration.h`, `jam_TerminalImageRecord.h`, `jam_TerminalTTY_windows.{h,cpp}`.
+
+### Alignment Check
+- [x] BLESSED principles followed — one path form owner per shell at the first input; one session-end path (EOF) on both platforms; resize and close serialized on the owner pool; RAII for every handle.
+- [x] NAMES.md adhered — `shellNotFound` / `failShellNotFound` join `shellExited` / `failShellExited`; `processWait`, `resizeWork` join `readWait`; `pendingWinsize` joins the `pending*` family.
+- [x] MANIFESTO.md principles applied.
+- [ ] Not built after the audit fixes. No agent ran `cast` or a build after Step 6 of the shell plan.
+- [ ] Doxygen not regenerated: EVE has no `doxygen` target in `Builds/Debug`; JAM regenerates in nvim.
+
+### Problems Solved
+- **`cwd` asserted at `juce_File.cpp:162`.** MSYS2 sent `/c/Users/x`. The shell now sends the native form; no reader converts.
+- **No history on Windows.** JUCE keeps the map handle on Windows (`juce_Files_windows.cpp:515`); a `readOnly` open does not share write (`:510`), so every history read failed (208 of 208). The reader maps `readWrite`, which shares write. ARCHITECT confirmed: *"history works."*
+- **`exit` asserted, then did not exit.** ConPTY keeps the pipe open after the shell exits. `processWait` closes the pseudo console, which flushes the last output and breaks the pipe.
+- **Audit, resolved:** F1 (quoting keyed on the whole setting), F2 (macOS fallback unreachable: `login` starts the shell, `jam_TerminalTTY_posix.cpp:101-129`), F3, F4, F5, F7, F8, F10, F11, F12, F13, F14 (non-absolute `cwd`), F15, F16, F17, the diagnostics, the `default-eve.md:217` wording; Pathfinder F1, F3-F7.
+- **Audit, rejected with the read:** F6 Q1 — the `isOpen` guard keeps a second open from overwriting the `shell` row; F6 Q3 — MANIFESTO S abstracts logic that appears "more than twice", and the settings root appears twice; F9 — the runtime log shows `processExit`, the last bytes, then `readEOF` with the bundled ConPTY; the TTY "drift" — ARCHITECT approved the `processWait` design with `/go`; "two names for one shell" — `"powershell"` and `"powershell.exe"` are different values.
+- **Mistakes owned.** I proposed `toNativePath` in the readers before the cause. I offered a JUCE patch, then a new type, then `readWrite`, each before I read the ownership contract. I put a macOS fallback in the plan that the platform cannot reach.
+
+### State for Continuation
+- Build with `cast cast/spell.md --debug` in eve; the Windows TTY changes (RAII, out-parameter removal, `resizeWork`) are not compiled yet.
+- Runtime checks on Windows: history after commands; `exit` closes the app (ARCHITECT saw a delay of a few seconds after `readEOF`; the cause is not located); a resize while the shell runs; a `shell` setting with a quoted path that holds spaces; a missing program shows `shell not found:` and PowerShell runs; `eve preview` under MSYS2.
+- macOS: build and run once; the shell setting and the `shell` row are new there too.
+- `cwd` restore: the shell starts in the saved `cwd` of the last session (`EVETerminalProcessor.cpp:437-438`), by design (`EVETerminalProcessor.h` openTTY block). ARCHITECT asked why macOS does not show it; not answered by evidence yet.
+- `jam_TerminalTTY_windows.h` `open` `@param environment` says a variable replaces an inherited one; `buildEnvironmentBlock` appends after the parent block. The Windows rule for a duplicate name is not verified.
+- `jam_TerminalTTY_windows.cpp:371` pipe timeout literal is 100 s; its old comment said 1 s.
+- LSP returned empty results on JAM files; load the JAM project in nvim before the next LSP check. Run `<leader>bd` in jam.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261105T000000` — Windows runtime test (unchanged; `toNativePath` in its text is deleted).
+
+---
+
 ## Sprint: Keycap and Grapheme Clusters — Clusters Join Across Reads, Keycap in Two Cells with the Digit in the Box, a Cluster Never Narrows, Link Label at the Character, Half-Thickness Underline, Cluster Test Script ✅
 
 **Date:** 2026-11-11

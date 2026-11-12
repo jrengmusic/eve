@@ -48,6 +48,12 @@ resolved against the binary-data / asset search path at load time.
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
 | @string | shell integration directory   | toCamel | shell                                  | toLiteral | Shell hook folder, relative to the settings folder. |
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
+| @string | conpty directory              | toCamel | conpty                                 | toLiteral | ConPTY sidecar folder, relative to settings.        |
++---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
+| @string | conpty library                | toCamel | conpty.dll                             | toLiteral | ConPTY sidecar library.                             |
++---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
+| @string | open console                  | toCamel | OpenConsole.exe                        | toLiteral | ConPTY sidecar console host.                        |
++---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
 | @string | zsh environment               | toCamel | zsh_zshenv.zsh                         | toLiteral | zsh .zshenv that loads the EVE hooks.               |
 +---------+-------------------------------+---------+----------------------------------------+-----------+-----------------------------------------------------+
 | @string | zsh integration               | toCamel | zsh_integration.zsh                    | toLiteral | zsh EVE hooks.                                      |

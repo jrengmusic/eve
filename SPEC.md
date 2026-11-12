@@ -266,7 +266,7 @@ layout event only).
 ### Feature 1: Terminal Session
 
 **Happy path:**
-1. EVE launches → spawns `$SHELL` (fallback `/bin/zsh` macOS, PowerShell Windows) in a PTY at the terminal Component's cell size
+1. EVE launches → spawns the `shell` setting, `<program> <args>`, in a PTY at the terminal Component's cell size. An empty setting gives the platform default: `C:/msys64/usr/bin/zsh.exe -l` on Windows, `$SHELL` (else `/bin/zsh`) on macOS. ARCHITECT: *"why not let user declare explicitly? `<program> <args>`"*; "One row, empty = platform"
 2. Bytes flow: PTY → the clock's tick (`EVETerminalProcessor`'s `jam::VirtualDevice`) → decoder → engine rows → history and live FIFOs → TextEditor (message thread) → layout → paint
 3. Keyboard/mouse → TerminalKeyboard/TerminalMouse encoders → PTY write
 4. Shell exits → the `shellExited` row turns on, and `EVEView` shows `shell exited` in the message overlay; history remains browsable. `EVEView` then invokes `StandardApplicationCommandIDs::quit` through its `commandManager`. In standalone that quits the application. In a plugin no target takes the command, and END closes the pane from the row. ARCHITECT: *"`exit` should close END's pane (exit eve)"*; *"standalone eve should exit, close the app. why cant this be SSOT?"*
@@ -275,7 +275,8 @@ layout event only).
 
 | Condition | User sees | System action |
 |---|---|---|
-| Shell spawn fails | `shell exited` in the message overlay | As on exit: `openTTY` writes the `shellExited` row |
+| Configured shell does not start | `shell not found: <program>` in the message overlay | `openTTY` starts the first fallback that opens (Windows: `powershell.exe`, then `cmd.exe`) and writes the program to the `shellNotFound` row. macOS has no fallback: `/usr/bin/login` starts the shell, so a missing program ends as a shell exit. ARCHITECT: "PowerShell, then cmd"; *"still running without fail"* |
+| No shell starts | `shell exited` in the message overlay | As on exit: `openTTY` writes the `shellExited` row |
 | PTY read error | `shell exited` in the message overlay | Session closed as on exit |
 
 ### Feature 2: Non-Destruction (the headline)
@@ -390,6 +391,8 @@ layout event only).
 to 49. ARCHITECT: *"current understanding is the CANON moving forward"*.
 
 **cwd tracking:** shell integration emits OSC 7; EVE updates `cwd` in the Model.
+
+**Path form:** the file URI is the transport form. The internal form is the path that `juce::File` takes natively: `C:/Users/x` on Windows, `/Users/x` on macOS. Each shell sends a conforming file URI in its own native terms: MSYS2 through `cygpath -m`, PowerShell through `$PWD.Path`. The decoder turns the URI into the path. No reader converts a path. ARCHITECT: *"`native` implementation always at the very first INPUT to read and very last OUTPUT"*; *"whatever juce implemented as `native` dont fight it"*; *"fix the cause not the symptoms, fix the design, design by contract. unidirectional data flow"*.
 
 **Column lists:** the TextEditor tracks the column lists of the history. ARCHITECT:
 *"Left/Right Panel is NOT for ls/eza whatever CLI run as file list"*; *"ls can be

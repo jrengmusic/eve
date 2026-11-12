@@ -41,6 +41,9 @@ namespace files
     extern const juce::String downOver;                  ///< Down-button over icon.
     extern const juce::String downDown;                  ///< Down-button down icon.
     extern const juce::String shellIntegrationDirectory; ///< Shell hook folder, relative to the settings folder.
+    extern const juce::String conptyDirectory;           ///< ConPTY sidecar folder, relative to settings.
+    extern const juce::String conptyLibrary;             ///< ConPTY sidecar library.
+    extern const juce::String openConsole;               ///< ConPTY sidecar console host.
     extern const juce::String zshEnvironment;            ///< zsh .zshenv that loads the EVE hooks.
     extern const juce::String zshIntegration;            ///< zsh EVE hooks.
     extern const juce::String bashIntegration;           ///< bash EVE hooks.

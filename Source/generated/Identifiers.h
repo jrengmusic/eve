@@ -40,6 +40,7 @@ extern const juce::Identifier profiler;
 extern const juce::Identifier selector;
 extern const juce::Identifier shell;
 extern const juce::Identifier shellIntegration;
+extern const juce::Identifier shellNotFound;
 extern const juce::Identifier terminalInput;
 extern const juce::Identifier textEditor;
 extern const juce::Identifier startDirectory;
@@ -47,6 +48,12 @@ extern const juce::Identifier zoom;
 extern const juce::Identifier zoomStep;
 extern const juce::String     failNoOpenFile;
 extern const juce::String     failShellExited;
+extern const juce::String     failShellNotFound;
+extern const juce::String     shellVariable;
+extern const juce::String     defaultShell;
+extern const juce::String     defaultShellWindows;
+extern const juce::String     powershellProgram;
+extern const juce::String     commandPromptProgram;
 
 /**______________________________END OF NAMESPACE______________________________*/
 }// namespace Id

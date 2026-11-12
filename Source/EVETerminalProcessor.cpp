@@ -2,19 +2,31 @@
 #include "TerminalMemoryTTY.h"
 #include "ShellIntegration.h"
 
-static constexpr std::string_view shellVariable { "SHELL" };
-#if JUCE_WINDOWS
-static constexpr std::string_view defaultShell { "powershell.exe" };
-#else
-static constexpr std::string_view defaultShell { "/bin/zsh" };
-#endif
 static constexpr int virtualBlockSize { 65536 };
 static constexpr int nullTerminatorBytes { 1 };
 
 static juce::String getDefaultShell()
 {
-    return juce::SystemStats::getEnvironmentVariable (juce::String { shellVariable.data() }, juce::String { defaultShell.data() });
+#if JUCE_WINDOWS
+    return Id::defaultShellWindows;
+#else
+    return juce::SystemStats::getEnvironmentVariable (Id::shellVariable, Id::defaultShell);
+#endif
 }
+
+#if JUCE_WINDOWS
+static void applySidecar (const juce::File& directory, const juce::String& fileName)
+{
+    const BinaryData::Raw sidecar { fileName };
+    jassert (sidecar.exists());
+    const auto file { directory.getChildFile (fileName) };
+    juce::MemoryBlock content;
+    const auto isMatching { file.loadFileAsData (content) and content.matches (sidecar.data, static_cast<size_t> (sidecar.size)) };
+
+    if (not isMatching)
+        file.replaceWithData (sidecar.data, static_cast<size_t> (sidecar.size));
+}
+#endif
 
 static void applyNames (jam::TerminalFIFO& lane, const std::function<void (const juce::String&)>& callback)
 {
@@ -54,7 +66,10 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
     state.stopTimer();
     jam::ModelLayout::addParameters (state, jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }));
     winsizeAttachment = std::make_unique<jam::Model::ParameterAttachment> (*state.getParameter<jam::Parameter<int64_t>> (jam::Format::toType (Id::terminal), Id::winsize),
-                                                                          [this] (const juce::var&) { restart(); });
+                                                                          [this] (const juce::var&)
+                                                                          {
+                                                                              restart();
+                                                                          });
     registerEvents();
     registerUserInterfaceGetters();
     registerChainEvents();
@@ -108,7 +123,10 @@ void EVETerminalProcessor::flush()
 std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY()
 {
 #if JUCE_WINDOWS
-    std::unique_ptr<jam::TerminalTTY> platformTTY { std::make_unique<jam::TerminalWindowsTTY> (juce::File::getSpecialLocation (juce::File::currentExecutableFile).getParentDirectory()) };
+    const auto conptyDirectory { jam::File::getOrCreateDirectory (jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getParentDirectory(), files::conptyDirectory) };
+    applySidecar (conptyDirectory, files::conptyLibrary);
+    applySidecar (conptyDirectory, files::openConsole);
+    std::unique_ptr<jam::TerminalTTY> platformTTY { std::make_unique<jam::TerminalWindowsTTY> (conptyDirectory) };
 #else
     std::unique_ptr<jam::TerminalTTY> platformTTY { std::make_unique<jam::TerminalUnixTTY>() };
 #endif
@@ -287,14 +305,14 @@ void EVETerminalProcessor::applyOpenCommand (std::string_view command, std::stri
     std::string line { command };
 
     jam::Format::appendUtf8 (line, Chars::space);
-    ShellIntegration::appendPath (line, getShell(), path);
+    ShellIntegration::appendPath (line, state.state.getProperty (Id::shell).toString(), path);
     jam::Format::appendUtf8 (line, Chars::carriageReturn);
     addInput (line.data(), static_cast<int> (line.size()));
 }
 
 std::string EVETerminalProcessor::getQuotedPaths (const juce::StringArray& paths) const
 {
-    const auto shell { getShell() };
+    const auto shell { state.state.getProperty (Id::shell).toString() };
     std::string text;
 
     for (const auto& path : paths)
@@ -399,8 +417,10 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
     if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
     {
         const auto profilerTable { getProfilerTable() };
-        const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), profilerTable[jam::Format::toType (Id::shell)].toString(), profilerTable[jam::Format::toType (Id::args)].toString(), getManifestFile().getParentDirectory().getFullPathName()) };
-        jassert (isOpen);
+        const auto program { profilerTable[jam::Format::toType (Id::shell)].toString() };
+        const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), program, profilerTable[jam::Format::toType (Id::args)].toString(), getManifestFile().getParentDirectory().getFullPathName()) };
+
+        state.storeValue (terminalTag, Id::shell, program.toRawUTF8(), static_cast<int> (program.getNumBytesAsUTF8()));
 
         if (not isOpen)
             state.storeValue (terminalTag, Id::shellExited, 1);
@@ -410,20 +430,36 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
     {
         if (not tty->isOpen())
         {
-            const auto shell { getShell() };
+            const auto shellTokens (juce::StringArray::fromTokens (getShell(), true));
+            const auto program { shellTokens[0].unquoted() };
+            const auto arguments { shellTokens.joinIntoString (juce::String::charToString (Chars::space), 1) };
             const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
-            const auto isIntegrated { ShellIntegration::isShellIntegrated() };
 
-            if (isIntegrated)
-                ShellIntegration::addShellScripts (directory);
+            ShellIntegration::addShellScripts (directory);
 
             const auto cwd { state.state.getProperty (Id::cwd).toString() };
-            const auto startDirectory { cwd.isEmpty() ? ShellIntegration::getStartDirectory() : juce::File { cwd } };
+            const auto startDirectory { juce::File::isAbsolutePath (cwd) ? juce::File { cwd } : ShellIntegration::getStartDirectory() };
 
-            const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), shell, isIntegrated ? ShellIntegration::getShellArguments (shell, directory) : juce::String {}, startDirectory.getFullPathName(), isIntegrated ? ShellIntegration::getShellEnvironment (shell, directory) : juce::StringPairArray {}) };
-            jassert (isOpen);
+            const auto openShell = [this, bufferSize, maximumPeriodMilliseconds, winsize, &directory, &startDirectory] (const juce::String& shell, const juce::String& shellArguments) -> bool
+            {
+                return tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), shell, (shellArguments + juce::String::charToString (Chars::space) + ShellIntegration::getShellArguments (shell, directory)).trim(), startDirectory.getFullPathName(), ShellIntegration::getShellEnvironment (shell, directory));
+            };
 
-            if (not isOpen)
+            const auto isOpen { openShell (program, arguments) };
+#if JUCE_WINDOWS
+            const std::array<juce::String, 2> fallbackShells { Id::powershellProgram, Id::commandPromptProgram };
+#else
+            const std::array<juce::String, 0> fallbackShells {};
+#endif
+            const auto fallbackShell { isOpen ? fallbackShells.end() : std::find_if (fallbackShells.begin(), fallbackShells.end(), [&openShell] (const juce::String& shellName) { return openShell (shellName, {}); }) };
+            const auto isFallbackOpen { fallbackShell != fallbackShells.end() };
+            const auto runningShell { isFallbackOpen ? *fallbackShell : program };
+            const auto missingShell { isFallbackOpen ? program : juce::String {} };
+
+            state.storeValue (terminalTag, Id::shell, runningShell.toRawUTF8(), static_cast<int> (runningShell.getNumBytesAsUTF8()));
+            state.storeValue (terminalTag, Id::shellNotFound, missingShell.toRawUTF8(), static_cast<int> (missingShell.getNumBytesAsUTF8()));
+
+            if (not isOpen and not isFallbackOpen)
                 state.storeValue (terminalTag, Id::shellExited, 1);
         }
     }
@@ -448,7 +484,7 @@ juce::String EVETerminalProcessor::getShell() const
 #if JAM_USING_PROFILER
     return getProfilerTable().getProperty (jam::Format::toType (Id::shell), getDefaultShell()).toString();
 #else
-    return getDefaultShell();
+    return jam::ParameterManager::getInstance()->getDefaultValueForSettings (jam::Format::toTag (Id::shell), getDefaultShell());
 #endif
 }
 

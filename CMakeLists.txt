@@ -136,7 +136,7 @@ set(CAST_VULKAN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Vulkan")
 # JUCE — patched working copy, exact version gate
 # ==============================================================================
 
-set(CAST_JUCE_VERSION 8.0.14)
+set(CAST_JUCE_VERSION 8.0.17)
 
 find_package(Git REQUIRED)
 
@@ -330,7 +330,7 @@ target_sources(${PROJECT_NAME} PRIVATE
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:<JuceHeader.h$<ANGLE-R>>")
 
-if(APPLE)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     target_compile_options(${PROJECT_NAME} PRIVATE "SHELL:-Xclang -fno-pch-timestamp")
 endif()
 
@@ -551,6 +551,14 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf"   # Bundled Display, DisplayMono, Nerd Font and Noto faces
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/shell/*"       # Shell integration hook scripts
 )
+
+if(WIN32)
+    string(TOLOWER "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}" CAST_WINDOWS_ARCHITECTURE)
+    list(APPEND CAST_LAYOUT_FILES
+        "${CMAKE_CURRENT_SOURCE_DIR}/Source/windows/${CAST_WINDOWS_ARCHITECTURE}/conpty.dll"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Source/windows/${CAST_WINDOWS_ARCHITECTURE}/OpenConsole.exe"
+    )
+endif()
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData
     NAMESPACE "BinaryData"

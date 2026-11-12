@@ -3,6 +3,8 @@
 static constexpr std::string_view zshDirectory { "zsh" };
 static constexpr std::string_view zshIntegrationFile { "eve-integration" };
 static constexpr std::string_view zshEnvironmentFile { ".zshenv" };
+static constexpr char homePrefix { '~' };
+static constexpr std::string_view pathSeparators { "/\\" };
 
 bool ShellIntegration::isShellIntegrated()
 {
@@ -13,29 +15,35 @@ bool ShellIntegration::isShellIntegrated()
 
 juce::File ShellIntegration::getStartDirectory()
 {
-    return juce::File { jam::ParameterManager::getInstance()->getDefaultValueForSettings (jam::Format::toTag (Id::startDirectory), juce::File::getSpecialLocation (juce::File::userHomeDirectory).getFullPathName()) };
+    const auto homeDirectory { juce::File::getSpecialLocation (juce::File::userHomeDirectory) };
+    const auto startDirectory { jam::ParameterManager::getInstance()->getDefaultValueForSettings (jam::Format::toTag (Id::startDirectory), homeDirectory.getFullPathName()) };
+
+    return homeDirectory.getChildFile (startDirectory.startsWithChar (homePrefix) ? startDirectory.substring (1).trimCharactersAtStart (pathSeparators.data()) : startDirectory);
 }
 
 void ShellIntegration::addShellScripts (const juce::File& directory)
 {
-    const auto zshFolder { directory.getChildFile (juce::String { zshDirectory.data() }) };
-    const BinaryData::Raw zshEnvironment { files::zshEnvironment };
-    const BinaryData::Raw zshIntegration { files::zshIntegration };
-    const BinaryData::Raw bashIntegration { files::bashIntegration };
-    const BinaryData::Raw powershellIntegration { files::powershellIntegration };
-    const BinaryData::Raw shellCommand { files::shellCommand };
+    if (isShellIntegrated())
+    {
+        const auto zshFolder { directory.getChildFile (juce::String { zshDirectory.data() }) };
+        const BinaryData::Raw zshEnvironment { files::zshEnvironment };
+        const BinaryData::Raw zshIntegration { files::zshIntegration };
+        const BinaryData::Raw bashIntegration { files::bashIntegration };
+        const BinaryData::Raw powershellIntegration { files::powershellIntegration };
+        const BinaryData::Raw shellCommand { files::shellCommand };
 
-    directory.createDirectory();
-    zshFolder.createDirectory();
-    zshFolder.getChildFile (juce::String { zshEnvironmentFile.data() }).replaceWithData (zshEnvironment.data, static_cast<size_t> (zshEnvironment.size));
-    zshFolder.getChildFile (juce::String { zshIntegrationFile.data() }).replaceWithData (zshIntegration.data, static_cast<size_t> (zshIntegration.size));
-    directory.getChildFile (files::bashIntegration).replaceWithData (bashIntegration.data, static_cast<size_t> (bashIntegration.size));
-    directory.getChildFile (files::powershellIntegration).replaceWithData (powershellIntegration.data, static_cast<size_t> (powershellIntegration.size));
+        directory.createDirectory();
+        zshFolder.createDirectory();
+        zshFolder.getChildFile (juce::String { zshEnvironmentFile.data() }).replaceWithData (zshEnvironment.data, static_cast<size_t> (zshEnvironment.size));
+        zshFolder.getChildFile (juce::String { zshIntegrationFile.data() }).replaceWithData (zshIntegration.data, static_cast<size_t> (zshIntegration.size));
+        directory.getChildFile (files::bashIntegration).replaceWithData (bashIntegration.data, static_cast<size_t> (bashIntegration.size));
+        directory.getChildFile (files::powershellIntegration).replaceWithData (powershellIntegration.data, static_cast<size_t> (powershellIntegration.size));
 
-    const auto commandFile { directory.getChildFile (files::shellCommand) };
+        const auto commandFile { directory.getChildFile (files::shellCommand) };
 
-    commandFile.replaceWithData (shellCommand.data, static_cast<size_t> (shellCommand.size));
-    commandFile.setExecutePermission (true);
+        commandFile.replaceWithData (shellCommand.data, static_cast<size_t> (shellCommand.size));
+        commandFile.setExecutePermission (true);
+    }
 }
 
 juce::StringPairArray ShellIntegration::getShellEnvironment (const juce::String& shell, const juce::File& directory)
@@ -68,12 +76,16 @@ juce::StringPairArray ShellIntegration::getShellEnvironment (const juce::String&
         return shellEnvironments;
     }());
 
-    const auto key { juce::File (shell).getFileNameWithoutExtension() };
+    if (isShellIntegrated())
+    {
+        const auto key { juce::File (shell).getFileNameWithoutExtension() };
+        auto environment { shellEnvironments.contains (key) ? shellEnvironments.get (key, directory) : juce::StringPairArray {} };
 
-    auto environment { shellEnvironments.contains (key) ? shellEnvironments.get (key, directory) : juce::StringPairArray {} };
+        environment.set ("CHERE_INVOKING", "1");
+        return environment;
+    }
 
-    environment.set ("CHERE_INVOKING", "1");
-    return environment;
+    return {};
 }
 
 juce::String ShellIntegration::getShellArguments (const juce::String& shell, const juce::File& directory)
@@ -93,7 +105,7 @@ juce::String ShellIntegration::getShellArguments (const juce::String& shell, con
 
     const auto key { juce::File (shell).getFileNameWithoutExtension() };
 
-    if (shellArguments.contains (key)) return shellArguments.get (key, directory);
+    if (isShellIntegrated() and shellArguments.contains (key)) return shellArguments.get (key, directory);
 
     return {};
 }

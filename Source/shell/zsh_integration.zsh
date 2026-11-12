@@ -4,9 +4,15 @@
 # The eve command lies in the parent of this directory
 path=("${${(%):-%x}:h:h}" $path)
 
+if command -v cygpath > /dev/null 2>&1; then
+    _eve_cwd() { printf '/%s' "$(cygpath -m "$PWD")"; }
+else
+    _eve_cwd() { printf '%s' "$PWD"; }
+fi
+
 _eve_precmd() {
     printf '\033]133;D\007'
-    printf '\033]7;file://%s%s\007\033]133;A\007' "$HOST" "$(_eve_encode "$PWD")"
+    printf '\033]7;file://%s%s\007\033]133;A\007' "$HOST" "$(_eve_encode "$(_eve_cwd)")"
 }
 
 _eve_preexec() {
