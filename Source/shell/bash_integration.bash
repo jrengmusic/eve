@@ -28,20 +28,14 @@ if [[ -n "$EVE_BASH_INJECT" ]]; then
     unset ENV
 fi
 
-# The eve command lies beside this file. It also gives _eve_encode to the hooks
+# The eve command lies beside this file. It also gives _eve_encode and _eve_cwd to the hooks
 _eve_directory="${BASH_SOURCE[0]%/*}"
 PATH="$_eve_directory:$PATH"
 source "$_eve_directory/eve"
 unset _eve_directory
 
-if command -v cygpath > /dev/null 2>&1; then
-    _eve_cwd() { printf '/%s' "$(cygpath -m "$PWD")"; }
-else
-    _eve_cwd() { printf '%s' "$PWD"; }
-fi
-
 # Install hooks
-_eve_precmd() { printf '\033]133;D\007'; printf '\033]7;file://%s%s\007\033]133;A\007' "$HOSTNAME" "$(_eve_encode "$(_eve_cwd)")"; }
+_eve_precmd() { printf '\033]133;D\007'; printf '\033]7;file://%s\007\033]133;A\007' "$(_eve_encode "$(_eve_cwd)")"; }
 PS0='$(_eve_preexec > /dev/tty)'
 PROMPT_COMMAND="_eve_precmd${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 

@@ -224,7 +224,7 @@ The tick decodes each report into metadata or a Model row. The dispatch tables a
 | Report | Result |
 |---|---|
 | OSC 0, OSC 2 | The `title` row takes the text. |
-| OSC 7 | The `cwd` row takes the decoded path. |
+| OSC 7 | The `cwd` row takes the raw `file://` URI of the report, without decoding. |
 | OSC 8 | A link record goes through the `images` lane. A click writes the `url` row and invokes the `openFile` command. |
 | OSC 11 `?` | The reply gives the `background` row as `rgb:`. The view writes that row (`EVEView::lookAndFeelChanged`). |
 | OSC 52 | A write of selection `c` goes to the record, and the `clipboard` row names it. A query (`?`) is not handled. |

@@ -12,7 +12,9 @@ function prompt {
     # OSC 133 D - command finished
     $Host.UI.Write("$([char]27)]133;D;$exitCode`a")
     # OSC 7 - current working directory
-    $Host.UI.Write("$([char]27)]7;file://$([System.Net.Dns]::GetHostName())/$(_eve_encode ($PWD.Path -replace '\\','/'))`a")
+    $directory = $PWD.ProviderPath -replace '\\','/'
+    $directory = if ($directory.StartsWith('//')) { $directory.Substring(2) } else { "/$directory" }
+    $Host.UI.Write("$([char]27)]7;file://$(_eve_encode $directory)`a")
     # OSC 133 A - prompt start
     $Host.UI.Write("$([char]27)]133;A`a")
     # Run original prompt
@@ -36,7 +38,7 @@ if (Get-Module PSReadLine -ErrorAction SilentlyContinue) {
 
 function _eve_encode {
     param($Text)
-    [regex]::Replace($Text, '[%;\x00-\x1F\x7F]', { param($match) '%{0:X2}' -f [int][char]$match.Value })
+    [regex]::Replace($Text, '[%;#?\x00-\x1F\x7F]', { param($match) '%{0:X2}' -f [int][char]$match.Value })
 }
 
 function eve {

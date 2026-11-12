@@ -292,11 +292,11 @@ private:
     /**
      * @brief Opens the TTY on the serial context of the device.
      *
-     * In a profile standalone build, the shell, its arguments and its folder come from the `profiler` table of the manifest. The call opens the TTY without the check below. A failed open stores 1 in the `shellExited` property of `state`.
+     * In a profile standalone build, the shell and its arguments come from the `profiler` table of the manifest. The folder is the folder of the manifest file. The call stores the file URL of that folder in the `cwd` row of `state`. The call opens the TTY without the check below. A failed open stores 1 in the `shellExited` property of `state`.
      * In other builds, the call opens the TTY only when it is not open. It takes the program from the first token of getShell(), without its quotes. The other tokens are the arguments.
      * In other builds, the call writes the integration scripts with ShellIntegration::addShellScripts(). Each open appends ShellIntegration::getShellArguments() to the arguments, and it passes ShellIntegration::getShellEnvironment() as the environment.
-     * In other builds, the shell starts in the directory of the `cwd` row of `state` when that row holds an absolute path. Otherwise it starts in ShellIntegration::getStartDirectory().
-     * In other builds, on Windows, when the program does not open, the call tries `powershell.exe` and then `cmd.exe`, without arguments. The first one that opens runs. On the other platforms, no fallback runs.
+     * In other builds, the shell starts in the directory of the `cwd` row of `state` when that row holds a file URL. Otherwise it starts in ShellIntegration::getStartDirectory(). The call then stores the file URL of the start directory in the `cwd` row.
+     * In other builds, on Windows, when the program does not open, the call tries `powershell.exe` and then `cmd.exe`, without the configured arguments. The shell integration arguments still follow. The first one that opens runs. On the other platforms, no fallback runs.
      * In other builds, the `shell` row of `state` holds the program that runs. When no program opens, the row holds the configured program.
      * In other builds, the `shellNotFound` row holds the configured program when a fallback runs. The row is empty otherwise.
      * In other builds, when no program opens, `shellExited` is set to 1.

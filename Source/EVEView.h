@@ -267,30 +267,30 @@ private:
     juce::String getOpenCommand (const juce::File& file) const;
 
     /**
-     * @brief Opens the url of the terminal. A local file goes to `openFile (path, terminal)`. Any other url opens in the default browser.
+     * @brief Opens the url of the terminal. A local file goes to `openFile (file, terminal)`. Any other url opens in the default browser.
      */
     void openFile();
 
     /**
-     * @brief Opens a decoded file path of the terminal.
+     * @brief Opens a file of the terminal.
      *
      * A missing file shows a message. An existing file runs its command when the command is a registered command.
      * Otherwise the file starts as a process when the open command is empty, when the terminal records or uses the alternate screen, or when the path holds a control byte.
      * Otherwise the text editor returns to terminal mode, so that the program gets the keys, and the shell receives the open command with the path.
      *
-     * @param path      Decoded file path to open.
+     * @param file      File to open.
      * @param terminal  The `terminal` tree. It gives the recording and alternate screen state.
      */
-    void openFile (std::string_view path, const juce::ValueTree& terminal);
+    void openFile (const juce::File& file, const juce::ValueTree& terminal);
 
     /**
-     * @brief Returns the local file that the url of the terminal names.
+     * @brief Returns the `Id::url` row of the terminal state as a juce::URL.
      *
-     * The file is empty when the url is not a local file.
+     * Callers test isLocalFile() before getLocalFile(), because getLocalFile() asserts on a url that is not a local file.
      *
-     * @return File of the decoded url path. An empty file when the url is not a local file.
+     * @return The url of the terminal.
      */
-    juce::File getUrlFile() const;
+    juce::URL getUrl() const;
 
     /**
      * @brief Adds a markdown component that shows the file, and parses the file into its document.

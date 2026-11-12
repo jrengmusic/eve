@@ -420,6 +420,9 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
         const auto program { profilerTable[jam::Format::toType (Id::shell)].toString() };
         const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), program, profilerTable[jam::Format::toType (Id::args)].toString(), getManifestFile().getParentDirectory().getFullPathName()) };
 
+        const auto startUrl { juce::URL { getManifestFile().getParentDirectory() }.toString (false) };
+
+        state.storeValue (terminalTag, Id::cwd, startUrl.toRawUTF8(), static_cast<int> (startUrl.getNumBytesAsUTF8()));
         state.storeValue (terminalTag, Id::shell, program.toRawUTF8(), static_cast<int> (program.getNumBytesAsUTF8()));
 
         if (not isOpen)
@@ -437,8 +440,11 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
 
             ShellIntegration::addShellScripts (directory);
 
-            const auto cwd { state.state.getProperty (Id::cwd).toString() };
-            const auto startDirectory { juce::File::isAbsolutePath (cwd) ? juce::File { cwd } : ShellIntegration::getStartDirectory() };
+            const juce::URL cwd { state.state.getProperty (Id::cwd).toString() };
+            const auto startDirectory { cwd.isLocalFile() ? cwd.getLocalFile() : ShellIntegration::getStartDirectory() };
+            const auto startUrl { juce::URL { startDirectory }.toString (false) };
+
+            state.storeValue (terminalTag, Id::cwd, startUrl.toRawUTF8(), static_cast<int> (startUrl.getNumBytesAsUTF8()));
 
             const auto openShell = [this, bufferSize, maximumPeriodMilliseconds, winsize, &directory, &startDirectory] (const juce::String& shell, const juce::String& shellArguments) -> bool
             {

@@ -5,9 +5,9 @@ _eve_encode() {
     local LC_ALL=C
     local text="$1" char encoded='' i
     for (( i = 0; i < ${#text}; ++i )); do
-        char="${text:i:1}"
+        char="${text:$i:1}"
         case "$char" in
-            '%'|';'|[[:cntrl:]]) encoded+="$(printf '%%%02X' "'$char")" ;;
+            '%'|';'|'#'|'?'|[[:cntrl:]]) encoded+="$(printf '%%%02X' "'$char")" ;;
             *) encoded+="$char" ;;
         esac
     done
@@ -16,8 +16,17 @@ _eve_encode() {
 
 if command -v cygpath > /dev/null 2>&1; then
     _eve_path() { cygpath -m "$(realpath "$1")"; }
+    _eve_cwd() {
+        local directory
+        directory="$(cygpath -m "$PWD")"
+        case "$directory" in
+            //*) printf '%s' "${directory#//}" ;;
+            *) printf '/%s' "$directory" ;;
+        esac
+    }
 else
     _eve_path() { realpath "$1"; }
+    _eve_cwd() { printf '%s' "$PWD"; }
 fi
 
 eve() {

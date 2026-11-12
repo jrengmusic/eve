@@ -83,7 +83,7 @@ bool EVEView::keyPressed (const juce::KeyPress& key)
 {
     auto markdownState { getOrCreateMarkdownState() };
 
-    return commandManager->invokeKey (key, markdownState) or markdownState.hasProperty (Id::mode);
+    return commandManager->invokeKey (key, markdownState, false) or markdownState.hasProperty (Id::mode);
 }
 
 void EVEView::resizeStart()
@@ -361,8 +361,10 @@ void EVEView::registerCallbacks()
                              [] (const juce::String&, juce::Component& c)
                              {
                                  auto& editor { static_cast<EVEView&> (c) };
+                                 const auto url { editor.getUrl() };
 
-                                 editor.getTerminalState().setProperty (Id::markdownFile, editor.getUrlFile().getFullPathName(), nullptr);
+                                 if (url.isLocalFile())
+                                     editor.getTerminalState().setProperty (Id::markdownFile, url.getLocalFile().getFullPathName(), nullptr);
                              });
 
     registry->callbacks.add (map::CommandId::getInstance()->get (map::CommandId::dismiss),
@@ -538,24 +540,17 @@ juce::String EVEView::getOpenCommand (const juce::File& file) const
 
 void EVEView::openFile()
 {
-    const auto terminal { getTerminalState() };
-    const juce::URL url { terminal.getProperty (Id::url).toString() };
+    const auto url { getUrl() };
 
     if (url.isLocalFile())
-    {
-        const auto path { getUrlFile().getFullPathName() };
-
-        openFile (path.toRawUTF8(), terminal);
-    }
+        openFile (url.getLocalFile(), getTerminalState());
     else
-    {
         url.launchInDefaultBrowser();
-    }
 }
 
-void EVEView::openFile (std::string_view path, const juce::ValueTree& terminal)
+void EVEView::openFile (const juce::File& file, const juce::ValueTree& terminal)
 {
-    const juce::File file { juce::String::fromUTF8 (path.data(), static_cast<int> (path.size())) };
+    const auto path { file.getFullPathName() };
     const auto value { getOpenCommand (file) };
     const auto* command { value.isEmpty() ? nullptr : commandManager->getCommandForName (juce::Identifier { value }) };
     const auto isBusy { static_cast<bool> (terminal.getProperty (Id::isRecording)) or static_cast<bool> (terminal.getProperty (Id::alternateScreen)) };
@@ -563,11 +558,11 @@ void EVEView::openFile (std::string_view path, const juce::ValueTree& terminal)
     if (file.exists())
     {
         if (command != nullptr) commandManager->invokeDirectly (command->commandID, false);
-        else if (value.isEmpty() or isBusy or ShellIntegration::hasControlByte (path)) file.startAsProcess();
+        else if (value.isEmpty() or isBusy or ShellIntegration::hasControlByte (path.toRawUTF8())) file.startAsProcess();
         else
         {
             applyToTextEditors ([] (jam::TextEditor& editor) { editor.setMode (map::EditorMode::terminal); });
-            getTerminalProcessor().applyOpenCommand (value.toRawUTF8(), path);
+            getTerminalProcessor().applyOpenCommand (value.toRawUTF8(), path.toRawUTF8());
         }
     }
     else
@@ -576,20 +571,9 @@ void EVEView::openFile (std::string_view path, const juce::ValueTree& terminal)
     }
 }
 
-juce::File EVEView::getUrlFile() const
+juce::URL EVEView::getUrl() const
 {
-    const auto url { getTerminalState().getProperty (Id::url).toString() };
-    juce::File file;
-
-    if (juce::URL { url }.isLocalFile())
-    {
-        jam::TerminalProcessor::applyToDecodedText (jam::TerminalProcessor::getUriPath (url.toRawUTF8()), [&file] (std::string_view path)
-        {
-            file = juce::File { juce::String::fromUTF8 (path.data(), static_cast<int> (path.size())) };
-        });
-    }
-
-    return file;
+    return juce::URL { getTerminalState().getProperty (Id::url).toString() };
 }
 
 void EVEView::addMarkdown (const juce::File& file, bool shouldGrabFocus)
