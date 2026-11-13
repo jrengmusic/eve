@@ -372,7 +372,15 @@ void EVETerminalProcessor::prepare()
 #endif
 
     device.stop();
-    device.open ({}, {}, virtualSampleRate, virtualBufferSize);
+    {
+#if JAM_USING_PROFILER
+        const jam::Profiler::Zone zone { Id::deviceOpen };
+#endif
+        device.open ({}, {}, virtualSampleRate, virtualBufferSize);
+    }
+#if JAM_USING_PROFILER
+    const jam::Profiler::Zone zone { Id::deviceStart };
+#endif
     start();
 }
 
@@ -400,10 +408,15 @@ void EVETerminalProcessor::restart()
 
 void EVETerminalProcessor::audioDeviceAboutToStart (juce::AudioIODevice*)
 {
-    input.prepare (virtualBlockSize);
-    commands.prepare (virtualBlockSize);
-    gridEvents.prepare (virtualBlockSize);
-    terminalProcessor.prepare (virtualBlockSize);
+    {
+#if JAM_USING_PROFILER
+        const jam::Profiler::Zone zone { Id::queuesPrepare };
+#endif
+        input.prepare (virtualBlockSize);
+        commands.prepare (virtualBlockSize);
+        gridEvents.prepare (virtualBlockSize);
+        terminalProcessor.prepare (virtualBlockSize);
+    }
 
     if (const auto winsize { getWinsize() }; winsize.isValid())
         prepare (winsize, getHistoryCapacity());
@@ -504,11 +517,31 @@ void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCap
 
     const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (device.getCurrentSampleRate() / virtualBlockSize / jam::CpuGraphicsEngine::getRefreshRateHz()))) };
 
-    terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * virtualBlockSize + winsize.rows);
-    swap.prepare (terminalBuffer.getNumBytes());
-    terminalProcessor.reset (terminalBuffer, winsize);
-    swap.setCapacity (historyCapacity);
-    handleUpdateNow();
+    {
+#if JAM_USING_PROFILER
+        const jam::Profiler::Zone zone { Id::bufferPrepare };
+#endif
+        {
+#if JAM_USING_PROFILER
+            const jam::Profiler::Zone rowsZone { Id::rowsPrepare };
+#endif
+            terminalBuffer.prepare (winsize.cols, winsize.rows, blocksPerVblank * virtualBlockSize + winsize.rows);
+        }
+        {
+#if JAM_USING_PROFILER
+            const jam::Profiler::Zone swapZone { Id::swapPrepare };
+#endif
+            swap.prepare (terminalBuffer.getNumBytes());
+        }
+        {
+#if JAM_USING_PROFILER
+            const jam::Profiler::Zone resetZone { Id::processorReset };
+#endif
+            terminalProcessor.reset (terminalBuffer, winsize);
+        }
+        swap.setCapacity (historyCapacity);
+        handleUpdateNow();
+    }
 
     const auto vblankMilliseconds { juce::RelativeTime::seconds (1.0 / jam::CpuGraphicsEngine::getRefreshRateHz()).inSeconds() * 1000.0 };
     openTTY (device.getCurrentBufferSizeSamples(), vblankMilliseconds, winsize);

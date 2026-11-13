@@ -36,6 +36,8 @@ public:
              jam::PluginEditorLayout& newLayout,
              juce::AudioProcessor& processorToConnectTo);
 
+    ~EVEView() override;
+
     /** @brief Paints the transition over the children. @param g Graphics context to paint into. */
     void paintOverChildren (juce::Graphics& g) override;
 
@@ -394,6 +396,10 @@ private:
      * When `JAM_USING_PROFILER` is set, the `numPrompts` handler repaints the view when the count is 1, and it sets the `Id::promptPainted` callback of the processor.
      */
     void registerTerminalEvents();
+
+#if JAM_USING_PROFILER
+    std::optional<jam::Profiler::Zone> editorDelete;
+#endif
 
     /** Shared instance of the `map::CommandId` map. */
     jam::SharedInstance<map::CommandId> commandId { std::in_place };

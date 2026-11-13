@@ -32,18 +32,10 @@ EVEProcessor::EVEProcessor()
 
 EVEProcessor::~EVEProcessor()
 {
-    model.state.removeListener (this);
-
 #if JAM_USING_PROFILER
-    if (wrapperType == juce::AudioProcessor::wrapperType_Standalone)
-    {
-        const auto manifestFile { EVETerminalProcessor::getManifestFile() };
-
-        profiler->drain();
-        profiler->writeSamples (
-            manifestFile, jam::Format::toType (juce::Identifier { ProjectInfo::projectName }));
-    }
+    processorDelete.emplace (Id::processorDelete);
 #endif
+    model.state.removeListener (this);
 }
 
 const juce::String EVEProcessor::getName() const { return JucePlugin_Name; }
@@ -96,12 +88,18 @@ void EVEProcessor::changeProgramName (int index, const juce::String& newName)
 
 void EVEProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+#if JAM_USING_PROFILER
+    const jam::Profiler::Zone zone { Id::processorPrepare };
+#endif
     juce::ignoreUnused (sampleRate, samplesPerBlock);
     terminalProcessor.prepare();
 }
 
 void EVEProcessor::releaseResources()
 {
+#if JAM_USING_PROFILER
+    const jam::Profiler::Zone zone { Id::processorRelease };
+#endif
     terminalProcessor.releaseResources();
 }
 

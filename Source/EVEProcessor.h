@@ -110,6 +110,7 @@ private:
 
 #if JAM_USING_PROFILER
     jam::SharedInstance<jam::Profiler> profiler { std::in_place, jam::Profiler::defaultCapacity };
+    std::optional<jam::Profiler::Zone> processorDelete;
     std::optional<jam::Profiler::Zone> launchPrompt { std::in_place, Id::launchPrompt };
     std::optional<jam::Profiler::Zone> processorLayout { std::in_place, Id::processorLayout };
 #endif

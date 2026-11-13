@@ -7,6 +7,7 @@
 | @source            | source.cast                         |          |
 | @cmake             | cmake.cast                          |          |
 | @project-info      | ../project-info.md                  |          |
+| @profile-info      | ../profile-info.md                  |          |
 | @modules           | ../../jam/user-modules-info.md      |          |
 | @juce              | ../../jam/cast/juce.cast            |          |
 | @signing           | signing.md                          |          |

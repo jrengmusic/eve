@@ -18,6 +18,13 @@ EVEView::EVEView (jam::AudioModel& newModel,
     getTerminalState().setProperty (Id::markdownFile, juce::String {}, nullptr);
 }
 
+EVEView::~EVEView()
+{
+#if JAM_USING_PROFILER
+    editorDelete.emplace (Id::editorDelete);
+#endif
+}
+
 void EVEView::resized()
 {
     if (isTimerRunning() or not isResizing())
