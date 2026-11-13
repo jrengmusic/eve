@@ -414,6 +414,8 @@ void EVETerminalProcessor::audioDeviceStopped() {}
 void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMilliseconds, jam::TerminalWinsize winsize)
 {
 #if JAM_USING_PROFILER
+    const jam::Profiler::Zone zone { Id::ttyOpen };
+
     if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
     {
         const auto profilerTable { getProfilerTable() };

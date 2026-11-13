@@ -28,6 +28,10 @@ namespace Id
     const juce::Identifier numCommands          { juce::String::fromUTF8 ("numCommands") };
     const juce::Identifier numGridEvents        { juce::String::fromUTF8 ("numGridEvents") };
     const juce::Identifier deviceClock          { juce::String::fromUTF8 ("deviceClock") };
+    const juce::Identifier launchPrompt         { juce::String::fromUTF8 ("launchPrompt") };
+    const juce::Identifier processorLayout      { juce::String::fromUTF8 ("processorLayout") };
+    const juce::Identifier processorEditor      { juce::String::fromUTF8 ("processorEditor") };
+    const juce::Identifier ttyOpen              { juce::String::fromUTF8 ("ttyOpen") };
     const juce::Identifier historyCapacity      { juce::String::fromUTF8 ("historyCapacity") };
     const juce::Identifier openWith             { juce::String::fromUTF8 ("openWith") };
     const juce::Identifier pluginState          { juce::String::fromUTF8 ("pluginState") };

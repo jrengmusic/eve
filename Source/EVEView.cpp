@@ -225,7 +225,7 @@ void EVEView::registerTerminalEvents()
             if (auto* peer { getPeer() })
                 peer->performAnyPendingRepaintsNow();
 
-            getEVEProcessor().set (Id::promptPainted, [] {});
+            getEVEProcessor().set (Id::promptPainted, [this] { commandManager->invokeDirectly (juce::StandardApplicationCommandIDs::quit, true); });
         }
     });
 #endif

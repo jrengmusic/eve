@@ -16,8 +16,18 @@ EVEProcessor::EVEProcessor()
     const auto settings { layout.getOrCreateSettings() };
 
     layout.populateTree (model, settings);
-    styleManager.create (layout.fonts, settings);
+
+    {
+#if JAM_USING_PROFILER
+        const jam::Profiler::Zone zone { Id::styleRegisterStyle };
+#endif
+        styleManager.create (layout.fonts, settings);
+    }
+
     model.state.addListener (this);
+#if JAM_USING_PROFILER
+    processorLayout.reset();
+#endif
 }
 
 EVEProcessor::~EVEProcessor()
@@ -145,6 +155,9 @@ bool EVEProcessor::hasEditor() const { return true; }
 
 juce::AudioProcessorEditor* EVEProcessor::createEditor()
 {
+#if JAM_USING_PROFILER
+    const jam::Profiler::Zone zone { Id::processorEditor };
+#endif
     return new EVEView (model, layout, *this);
 }
 
@@ -188,6 +201,11 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 
 void EVEProcessor::valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier& property)
 {
+#if JAM_USING_PROFILER
+    if (property == Id::numPrompts)
+        launchPrompt.reset();
+#endif
+
     static const std::array hostRows { Id::title, Id::foregroundProcess, Id::cwd, Id::zoom, Id::shellExited, Id::markdownFile };
 
     if (std::find (hostRows.begin(), hostRows.end(), property) != hostRows.end())

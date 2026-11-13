@@ -108,6 +108,12 @@ private:
     jam::debug::Log::Scope logScope { jam::File::getDebugLog() };
     Generated generated;
 
+#if JAM_USING_PROFILER
+    jam::SharedInstance<jam::Profiler> profiler { std::in_place, jam::Profiler::defaultCapacity };
+    std::optional<jam::Profiler::Zone> launchPrompt { std::in_place, Id::launchPrompt };
+    std::optional<jam::Profiler::Zone> processorLayout { std::in_place, Id::processorLayout };
+#endif
+
     jam::PluginEditorLayout layout {
         jam::PluginEditorLayout::create<jam::SettingsDocument<jam::ConfigDocument>> (
             BinaryData::fetcher,
@@ -128,10 +134,6 @@ private:
                             jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
 
     jam::SharedInstance<jam::StyleManager> styleManager;
-
-#if JAM_USING_PROFILER
-    jam::SharedInstance<jam::Profiler> profiler { std::in_place, jam::Profiler::defaultCapacity };
-#endif
 
     EVETerminalProcessor terminalProcessor { *this, model };
 
