@@ -282,7 +282,7 @@ Every field is a complete literal; nothing downstream derives, concatenates, or 
 | @user-module | jam_debug             | Debug instruments — console, log, model monitor              |
 +--------------+-----------------------+--------------------------------------------------------------+
 | @user-module | jam_data_structures   | ValueTree management and data model utilities — model,       |
-|              |                       | parameters, JSON conversion                                  |
+|              |                       | parameters                                                   |
 +--------------+-----------------------+--------------------------------------------------------------+
 | @user-module | jam_dsp               | DSP processors — filters, waveshaping, hysteresis modelling, |
 |              |                       | transient control, oversampling, FIR, noise generation,      |
