@@ -36,6 +36,34 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Build Against the jam Document Contract ✅
+
+**Date:** 2026-11-14
+**Duration:** part of one session. `jam/carol/SPRINT-LOG.md` Sprint 187 is the primary record.
+
+### Files Modified
+- `Source/EVEProcessor.h:135` — `jam::ParameterLayout::get (*jam::MarkdownDocument::getOrCreate (…))`.
+- `Source/EVEView.cpp` — `*jam::HtmlDocument::getOrCreate (…)` (`:348`); `markdown->setDocument (std::move (*document))` (`:612`).
+- `Source/EVETerminalProcessor.cpp` — caller of the pointer-returning parse.
+- `project-info.md`, `CMakeLists.txt` — the `jam_data_structures` description drops "JSON conversion".
+
+### Alignment Check
+- [x] BLESSED principles followed
+- [x] NAMES.md adhered
+- [x] MANIFESTO.md principles applied
+
+### Problems Solved
+- EVE did not compile against `getOrCreate` returning `const T*` and `parse` returning `std::unique_ptr`. END with EVE builds.
+
+### State for Continuation
+- Runtime not tested this session.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- None
+
 ## Sprint: Windows Terminal — Native Path Form, Shell Setting with Fallback, ConPTY Exit by Pipe EOF, History Reader Shares the Writer's Maps, Audit Sweep ✅
 
 **Date:** 2026-11-12

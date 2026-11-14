@@ -255,7 +255,7 @@ endif()
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_core")             # JAM Core
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_audio_devices")    # JAM Audio Device Abstractions
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_debug")            # Debug instruments — console, log, model monitor
-juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_data_structures")  # ValueTree management and data model utilities — model, parameters, JSON conversion
+juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_data_structures")  # ValueTree management and data model utilities — model, parameters
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_dsp")              # DSP processors — filters, waveshaping, hysteresis modelling, transient control, oversampling, FIR, noise generation, spectrum analysis
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_gui")              # GUI foundation — Window, Modal, Glass
 juce_add_module("${CMAKE_CURRENT_SOURCE_DIR}/../jam/jam_graphics")         # Graphics utilities, blur, shadows, colours, fonts, mesh

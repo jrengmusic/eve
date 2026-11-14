@@ -64,7 +64,7 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
       state (model.state.getOrCreateChildWithName (jam::Format::toType (Id::terminal), nullptr))
 {
     state.stopTimer();
-    jam::ModelLayout::addParameters (state, jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }));
+    jam::ModelLayout::addParameters (state, *jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }));
     winsizeAttachment = std::make_unique<jam::Model::ParameterAttachment> (*state.getParameter<jam::Parameter<int64_t>> (jam::Format::toType (Id::terminal), Id::winsize),
                                                                           [this] (const juce::var&)
                                                                           {
@@ -496,7 +496,10 @@ juce::ValueTree EVETerminalProcessor::getProfilerTable() const
     else
         dynamic_cast<const jam::ENAXClientExtensions&> (processor).set (Id::manifestFile, [] (juce::File&) {}, manifestFile);
 
-    return jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()).getValueTree (Id::manifest).getChildWithName (jam::Format::toType (Id::profiler));
+    if (const auto document { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()) }; document != nullptr)
+        return document->getValueTree (Id::manifest).getChildWithName (jam::Format::toType (Id::profiler));
+
+    return {};
 }
 #endif
 

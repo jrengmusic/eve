@@ -345,7 +345,7 @@ void EVEView::registerViewComponents (jam::Registry::Registration& registration)
             Id::settings,
             [] (const juce::String&, jam::AudioModel& modelToUse, juce::LookAndFeel& lookAndFeel)
             {
-                return jam::ViewSettings::create (modelToUse, lookAndFeel, jam::HtmlDocument::getOrCreate (juce::Identifier { files::settingsLayout }));
+                return jam::ViewSettings::create (modelToUse, lookAndFeel, *jam::HtmlDocument::getOrCreate (juce::Identifier { files::settingsLayout }));
             });
     };
 }
@@ -591,26 +591,36 @@ void EVEView::addMarkdown (const juce::File& file, bool shouldGrabFocus)
 
     if (source.getData() != nullptr)
     {
-        const auto markdownType { Id::markdown.toString() };
-        auto* markdown { static_cast<jam::TextEditor*> (jam::ViewManager::addComponent (ephemerals,
-                                                                                               ephemeralStyles,
-                                                                                               jam::Registry::getInstance(),
-                                                                                               markdownType,
-                                                                                               juce::String {},
-                                                                                               markdownType,
-                                                                                               juce::String {},
-                                                                                               juce::String {},
-                                                                                               model.getAppearance(),
-                                                                                               markdownType)) };
+        const std::string_view text { static_cast<const char*> (source.getData()), source.getSize() };
 
-        addAndMakeVisible (markdown);
-        markdown->setBounds (getLocalBounds());
-        markdown->setDocument (jam::MarkdownDocument::parse (std::string_view { static_cast<const char*> (source.getData()), source.getSize() }, file.getFullPathName()));
-        markdown->setWantsKeyboardFocus (true);
-        markdown->setExplicitFocusOrder (firstFocusOrder);
-        markdown->toFront (shouldGrabFocus);
-        messageOverlay.toFront (false);
-        getOrCreateMarkdownState().setProperty (Id::mode, static_cast<int> (map::EditorMode::panel), nullptr);
+        if (auto document { jam::MarkdownDocument::parse (text, file.getFullPathName()) }; document != nullptr)
+        {
+            const auto markdownType { Id::markdown.toString() };
+            auto* markdown { static_cast<jam::TextEditor*> (jam::ViewManager::addComponent (ephemerals,
+                                                                                                   ephemeralStyles,
+                                                                                                   jam::Registry::getInstance(),
+                                                                                                   markdownType,
+                                                                                                   juce::String {},
+                                                                                                   markdownType,
+                                                                                                   juce::String {},
+                                                                                                   juce::String {},
+                                                                                                   model.getAppearance(),
+                                                                                                   markdownType)) };
+
+            addAndMakeVisible (markdown);
+            markdown->setBounds (getLocalBounds());
+            markdown->setDocument (std::move (*document));
+            markdown->setWantsKeyboardFocus (true);
+            markdown->setExplicitFocusOrder (firstFocusOrder);
+            markdown->toFront (shouldGrabFocus);
+            messageOverlay.toFront (false);
+            getOrCreateMarkdownState().setProperty (Id::mode, static_cast<int> (map::EditorMode::panel), nullptr);
+        }
+        else
+        {
+            getTerminalState().setProperty (Id::markdownFile, juce::String {}, nullptr);
+            messageOverlay.showMessage (jam::MarkdownDocument::isValid (text, file.getFullPathName()).getErrorMessage());
+        }
     }
     else
     {

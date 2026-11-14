@@ -132,7 +132,7 @@ private:
 
     jam::AudioModel model { parameterManager,
                             *this,
-                            jam::ParameterLayout::get (jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
+                            jam::ParameterLayout::get (*jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
 
     jam::SharedInstance<jam::StyleManager> styleManager;
 
