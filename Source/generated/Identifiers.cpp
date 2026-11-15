@@ -51,6 +51,7 @@ namespace Id
     const juce::Identifier pluginState          { juce::String::fromUTF8 ("pluginState") };
     const juce::Identifier previewComponent     { juce::String::fromUTF8 ("previewComponent") };
     const juce::Identifier profiler             { juce::String::fromUTF8 ("profiler") };
+    const juce::Identifier runtime              { juce::String::fromUTF8 ("runtime") };
     const juce::Identifier selector             { juce::String::fromUTF8 ("selector") };
     const juce::Identifier shell                { juce::String::fromUTF8 ("shell") };
     const juce::Identifier shellIntegration     { juce::String::fromUTF8 ("shellIntegration") };

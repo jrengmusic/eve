@@ -652,9 +652,12 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   1. The GUI side, on the message thread: the window resize reaches the
      TextEditor, which reflows the history at its width.
   2. The terminal side: the TextEditor writes the packed `jam::TerminalWinsize`
-     to the `winsize` row of the Model lane. The processor's attachment on that
-     row restarts the chain, which prepares the grid and sends `TIOCSWINSZ` and
-     `SIGWINCH`.
+     to the `winsize` row of the Model lane. EVEProcessor hears the row on its own
+     `model.state` listener and tells the chain `prepare()`. ARCHITECT: *"must be
+     UNIDIRECTIONAL, one flow, one path"*. `prepare()` is a setup change of its driver, `jam::VirtualDevice`, in
+     the JUCE order (stop, open, start). `audioDeviceAboutToStart` prepares the grid
+     and sends `TIOCSWINSZ` and `SIGWINCH`. ARCHITECT: *"VirtualDevice is our audio
+     drivers"*; *"then just reset at sigwinch? winsize changed, prepare whatever"*.
   - ARCHITECT: *"resizing can call SIGWINCH, clear live buffer, realloc, then
     redraw active prompt, whatever it needs to be done as tty, history should be
     UNAFFECTED"*. `[AMENDED 2026-11-10]` A prepare keeps the screen rows whole. A
@@ -682,8 +685,8 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
        (the viewport less the scroll bar). It writes the winsize only while
        `isResizing` is false, and only when the winsize is valid.
     4. The Model `winsize` row has no default. `audioDeviceAboutToStart` prepares
-       the grid and opens the TTY only with a valid winsize (`parameters.md:59`,
-       `EVETerminalProcessor.cpp:300-301`). ARCHITECT: *"Amend SPEC (Recommended)"*.
+       the grid and opens the TTY only with a valid winsize (`parameters.md:57`,
+       `EVETerminalProcessor.cpp:402-403`). ARCHITECT: *"Amend SPEC (Recommended)"*.
        A fresh start has no valid winsize until a layout writes one. The view
        builds the TextEditor with its gate open (`jam_ViewEditor.h:127-130`), and
        that first write forks the shell. A restored state forks at the restored
@@ -694,11 +697,15 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
        the layout. The timer runs `resizeEnd`, which is the final stop. A live
        resize holds the gate with no timer, so `resized` adds nothing. ARCHITECT:
        *"Both (Recommended)"*.
-    6. Under END, the pane is the sole author of the `width` and `height` rows.
-       END writes them before it creates the editor (`EditorView.cpp:240`), so EVE
-       is built at the pane size. `EVEView::resizeEnd` does not write them under
-       END. ARCHITECT: *"you fix the cause, the design, the race, you'll fix both.
-       DESIGN BY CONTRACT."*
+    6. The host is the sole author of the `width` and `height` rows. The processor
+       gives their default at construction, from the `size` row of the display
+       config: *"default fallback carried by binary and user can override, disk
+       always win. but when hosted on END that values are ignored"*. A host sizes the
+       editor through the JUCE editor contract (`setBounds`); it never writes the rows
+       through `setStateInformation`. The saved state carries the rows, and JUCE saves
+       it. EVEView writes neither. ARCHITECT: *"sole author of
+       winsize is WINDOW, downstream to eventually reach winsize"*; *"at END as the
+       host, sole autor is END"*.
   - **Active prompt anchor.** ARCHITECT: *"clear: draw active prompt at 0"*.
     While a prompt is active, a prepare puts the cursor at home
     `[AMENDED 2026-11-10]`. The shell redraws its prompt there on
@@ -816,13 +823,19 @@ comparison"*.
   when an event arrives, and send the bytes through the `terminalInput` chain
   event (`TextEditor::bindToEvents`).
 - **Tree.** The Model tree is the `terminal` child of the APVTS state.
-  `getStateInformation` saves it as a `pluginState` child, the state instance that a host holds.
-  ARCHITECT: *"the correct design is not `terminal`, but the state instance of `EVE`. `EVE` could
-  be any plugin"*. On `setStateInformation`, EVE suspends
-  processing. The Model takes the restored values, and its tree replaces the
-  restored child in the incoming state. Then the APVTS replaces its whole tree,
-  so one tree remains. No callback takes part: `jam::PluginEditor` owns
-  `onSetState`.
+  `getStateInformation` writes the model, `model.copyState()`, less the rows that `parameters.md`
+  marks `runtime` and less the `gridStarts` child: a preset filters at save. ARCHITECT: *"END as
+  whole application including ALL its plugin instance not limited to EVE terminal session
+  preserverance is the CONTRACT"*; a preset *"never copy it filters"*. On `setStateInformation`,
+  EVE suspends processing. The Model applies the values that the restored `terminal` child holds
+  (`jam::Model::setValuesFrom`), as a preset load applies the values it holds, and its tree
+  replaces the restored child in the incoming state. Then the APVTS replaces its whole tree, so
+  one tree remains. No callback takes part: `jam::PluginEditor` owns `onSetState`. `prepare` resets the
+  runtime rows from the decoder: `TerminalProcessor::reset` publishes its state, and the Model
+  flushes it. A host saves and restores the whole state only; it never reads or writes a row
+  inside it (Architecture Constraints). ARCHITECT: *"why we need copy? why we need
+  pluginState?"*; *"POKING getState/setState MANUALLY IS NOT ALLOWED. it's ARCHITECTURAL
+  CONTRACT GUARANGEED by juce."*
 
 ### Cell-bearing element
 
@@ -957,9 +970,16 @@ An end-user can:
   setValueNotifyingHost is smell"*
 - ❌ A second copy of a truth: a counter beside a row's atom count, a member
   that mirrors a Model value, a second dirty flag
-- ❌ A second prepare path beside the clock's start; a clock start outside the
-  host's `prepareToPlay` / `releaseResources` pair
+- ❌ A second prepare path beside the clock's start. The clock starts through
+  `prepare()` only: from the host's `prepareToPlay`, and from a `winsize`
+  change. It stops in `releaseResources`. ARCHITECT: *"winsize changed,
+  prepare whatever"*; *"must be UNIDIRECTIONAL, one flow, one path"*
 - ❌ A second thread context between PTY readiness and the clock
+- ❌ A manual call of `getStateInformation` or `setStateInformation` to read or write one
+  value (a row, a size, a focus), or to carry rows between a host and EVE. A host saves
+  and restores the whole state; JUCE guarantees that contract. ARCHITECTURAL CONTRACT.
+  ARCHITECT: *"POKING getState/setState MANUALLY IS NOT ALLOWED. it's ARCHITECTURAL
+  CONTRACT GUARANGEED by juce."*
 - ✅ Single-surface: one PTY, one buffer, one widget per instance; END muxes
 - ✅ Two lanes, one tree: AudioModel for automatable parameters, jam::Model for
   the terminal state machine, its tree inside the APVTS state

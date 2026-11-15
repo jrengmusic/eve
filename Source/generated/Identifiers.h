@@ -55,6 +55,7 @@ extern const juce::Identifier openWith;
 extern const juce::Identifier pluginState;
 extern const juce::Identifier previewComponent;
 extern const juce::Identifier profiler;
+extern const juce::Identifier runtime;
 extern const juce::Identifier selector;
 extern const juce::Identifier shell;
 extern const juce::Identifier shellIntegration;

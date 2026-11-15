@@ -24,6 +24,13 @@ EVEProcessor::EVEProcessor()
         styleManager.create (layout.fonts, settings);
     }
 
+    const auto size { jam::Model::getValue<juce::var> (jam::StyleManager::getInstance()->getConfig (jam::StyleManager::getDisplaySheet()), jam::Format::toType (Id::size)) };
+    auto terminal { model.state.getChildWithName (jam::Format::toType (Id::terminal)) };
+
+    jassert (terminal.isValid());
+    terminal.setProperty (Id::width, size[0], nullptr);
+    terminal.setProperty (Id::height, size[1], nullptr);
+
     model.state.addListener (this);
 #if JAM_USING_PROFILER
     processorLayout.reset();
@@ -163,14 +170,17 @@ void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     terminalProcessor.flush();
 
+    const auto& document { *jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }) };
     auto state { model.copyState() };
     auto terminal { state.getChildWithName (jam::Format::toType (Id::terminal)) };
-    juce::ValueTree pluginState { jam::Format::toType (Id::pluginState) };
 
-    pluginState.copyPropertiesAndChildrenFrom (terminal, nullptr);
-    pluginState.removeChild (pluginState.getChildWithName (jam::Format::toType (Id::gridStarts)), nullptr);
-    state.removeChild (terminal, nullptr);
-    state.appendChild (pluginState, nullptr);
+    jassert (terminal.isValid());
+
+    for (auto* row : document.getTableRows (Id::model))
+        if (document.getTableValue (*row, Id::runtime).getIntValue() == 1)
+            terminal.removeProperty (juce::Identifier { document.getTableValue (*row, Id::id) }, nullptr);
+
+    terminal.removeChild (terminal.getChildWithName (jam::Format::toType (Id::gridStarts)), nullptr);
 
     juce::MemoryOutputStream stream { destData, false };
     state.writeToStream (stream);
@@ -180,20 +190,10 @@ void EVEProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto state { juce::ValueTree::readFromData (data, sizeInBytes) }; state.isValid())
     {
-        if (state.hasType (jam::Format::toType (Id::pluginState)))
-        {
-            terminalProcessor.setRows (state);
-        }
-        else
-        {
-            suspendProcessing (true);
-            terminalProcessor.restart ([this, &state]
-                                       {
-                                           terminalProcessor.setState (state);
-                                           model.setState (state);
-                                       });
-            suspendProcessing (false);
-        }
+        suspendProcessing (true);
+        terminalProcessor.setState (state);
+        model.setState (state);
+        suspendProcessing (false);
     }
 }
 
@@ -203,6 +203,9 @@ void EVEProcessor::valueTreePropertyChanged (juce::ValueTree&, const juce::Ident
     if (property == Id::numPrompts)
         launchPrompt.reset();
 #endif
+
+    if (property == Id::winsize)
+        terminalProcessor.prepare();
 
     static const std::array hostRows { Id::title, Id::foregroundProcess, Id::cwd, Id::zoom, Id::shellExited, Id::markdownFile };
 

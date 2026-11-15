@@ -103,14 +103,6 @@ void EVEView::resizeEnd()
 {
     stopTimer();
     setResizing (false);
-
-    if (not jam::PluginHostType().isEND())
-    {
-        auto terminal { getTerminalState() };
-
-        terminal.setProperty (Id::width, getWidth(), nullptr);
-        terminal.setProperty (Id::height, getHeight(), nullptr);
-    }
 }
 
 void EVEView::setResizing (bool newIsResizing)

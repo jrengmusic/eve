@@ -5,6 +5,8 @@
 EVEStandaloneApp::MainWindow::MainWindow (std::unique_ptr<juce::Component> editor, const juce::String& name)
     : jam::Window (std::move (editor), name, false, true)
 {
+    jassert (getEditor() != nullptr);
+
     juce::LookAndFeel::setDefaultLookAndFeel (&getContentComponent()->getLookAndFeel());
 
     setVisible (true);
@@ -12,8 +14,7 @@ EVEStandaloneApp::MainWindow::MainWindow (std::unique_ptr<juce::Component> edito
 
 EVEStandaloneApp::MainWindow::~MainWindow()
 {
-    if (auto* editor { getEditor() })
-        editor->processor.editorBeingDeleted (editor);
+    getEditor()->processor.editorBeingDeleted (getEditor());
 
     clearContentComponent();
 

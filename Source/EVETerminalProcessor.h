@@ -56,29 +56,6 @@ public:
     /** @brief Stops the clock, then closes the device. */
     void releaseResources();
 
-    /**
-     * @brief Stops the clock, calls @p callback, then starts the clock again only when it ran before the call.
-     *
-     * A stopped clock stays stopped.
-     *
-     * @tparam Callback  Callable type with no argument.
-     * @param callback   Callable that runs while the clock is stopped.
-     */
-    template <typename Callback>
-    void restart (Callback&& callback)
-    {
-        const auto isPlaying { device.isPlaying() };
-
-        device.stop();
-        callback();
-
-        if (isPlaying)
-            start();
-    }
-
-    /** @brief Restarts with no change. The chain prepares again from the winsize of `state` and the history capacity of the model, when the clock starts. */
-    void restart();
-
     /** @brief Clears the history rows of the terminal buffer inside a restart, while the clock is stopped. */
     void clearHistory();
 
@@ -91,15 +68,6 @@ public:
      * @param newState  State tree that the host restored. It receives the tree of `state`.
      */
     void setState (juce::ValueTree newState);
-
-    /**
-     * @brief Copies each property of @p rows to the `terminal` tree of the Model.
-     *
-     * The call sets the properties on the terminal tree and does not restart the clock.
-     *
-     * @param rows  Tree whose properties are the rows to write.
-     */
-    void setRows (const juce::ValueTree& rows);
 
     /** @brief Takes the message manager lock, then flushes the Model lane to its tree. */
     void flush();
@@ -344,25 +312,23 @@ private:
     jam::Model
         state;///< Terminal Model. Its tree is the `terminal` child of the model state. The events store the terminal state into it, and the flush writes it to the tree.
     const juce::Identifier terminalTag { jam::Format::toType (Id::terminal) };///< Identifier of the `terminal` tree, built at construction.
-    std::unique_ptr<jam::Model::ParameterAttachment>
-        winsizeAttachment;///< Listens to the winsize parameter of `state`. A change calls `restart()`, so the chain prepares again for the new grid only while the clock runs.
     jam::TerminalProcessor::Events
         events;///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
     std::string pendingInput;    ///< Input bytes that wait for room in the input lane.
     jam::TerminalFIFO input;///< Input lane from the view to the TTY.
     jam::TerminalFIFO commands;///< Command names from the shell to the view.
     jam::TerminalFIFO gridEvents;///< @brief Carries the grid events from handleAsyncUpdate() to applyGridEvents().
-    jam::VirtualDevice device {
-        jam::VirtualDeviceType::virtualDeviceTypeName,
-        jam::VirtualDeviceType::virtualDeviceTypeName
-    };///< Clock of the chain. This object is its callback.
-    std::unique_ptr<jam::TerminalTTY> tty { createTTY() };///< Pseudo terminal of the shell.
     jam::TerminalProcessor
         terminalProcessor;///< Decoder of the TTY output into the rows of `terminalBuffer`.
 
     jam::TerminalBuffer
         terminalBuffer;///< Row grid that the terminal processor writes. `writePendingData()` moves its history rows to the swap.
     jam::TerminalSwap swap;///< Store of the history lines and the live area. The view reads it.
+    jam::VirtualDevice device {
+        jam::VirtualDeviceType::virtualDeviceTypeName,
+        jam::VirtualDeviceType::virtualDeviceTypeName
+    };///< Clock of the chain. This object is its callback.
+    std::unique_ptr<jam::TerminalTTY> tty { createTTY() };///< Pseudo terminal of the shell.
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVETerminalProcessor)

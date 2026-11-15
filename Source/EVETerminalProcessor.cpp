@@ -20,10 +20,8 @@ static void applySidecar (const juce::File& directory, const juce::String& fileN
     const BinaryData::Raw sidecar { fileName };
     jassert (sidecar.exists());
     const auto file { directory.getChildFile (fileName) };
-    juce::MemoryBlock content;
-    const auto isMatching { file.loadFileAsData (content) and content.matches (sidecar.data, static_cast<size_t> (sidecar.size)) };
 
-    if (not isMatching)
+    if (not file.existsAsFile())
         file.replaceWithData (sidecar.data, static_cast<size_t> (sidecar.size));
 }
 #endif
@@ -65,11 +63,6 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
 {
     state.stopTimer();
     jam::ModelLayout::addParameters (state, *jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }));
-    winsizeAttachment = std::make_unique<jam::Model::ParameterAttachment> (*state.getParameter<jam::Parameter<int64_t>> (jam::Format::toType (Id::terminal), Id::winsize),
-                                                                          [this] (const juce::var&)
-                                                                          {
-                                                                              restart();
-                                                                          });
     registerEvents();
     registerUserInterfaceGetters();
     registerChainEvents();
@@ -82,10 +75,7 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
     };
 }
 
-EVETerminalProcessor::~EVETerminalProcessor()
-{
-    releaseResources();
-}
+EVETerminalProcessor::~EVETerminalProcessor() = default;
 
 #if JAM_USING_PROFILER
 juce::File EVETerminalProcessor::getManifestFile()
@@ -96,7 +86,7 @@ juce::File EVETerminalProcessor::getManifestFile()
 
 void EVETerminalProcessor::setState (juce::ValueTree newState)
 {
-    const auto restored { newState.getChildWithName (jam::Format::toType (Id::pluginState)) };
+    const auto restored { newState.getChildWithName (terminalTag) };
 
     if (restored.isValid())
     {
@@ -106,11 +96,6 @@ void EVETerminalProcessor::setState (juce::ValueTree newState)
 
     state.state.getParent().removeChild (state.state, nullptr);
     newState.appendChild (state.state, nullptr);
-}
-
-void EVETerminalProcessor::setRows (const juce::ValueTree& rows)
-{
-    state.setValuesFrom (rows);
 }
 
 void EVETerminalProcessor::flush()
@@ -282,6 +267,10 @@ void EVETerminalProcessor::registerChainEvents()
 
 void EVETerminalProcessor::addInput (const char* bytes, int size)
 {
+#if JUCE_DEBUG
+    jam::debug::Log::write ("input", size);
+#endif
+
     pendingInput.append (bytes, static_cast<size_t> (size));
     applyPendingInput();
 }
@@ -394,16 +383,12 @@ void EVETerminalProcessor::releaseResources()
 {
     device.stop();
     device.close();
+    tty->close();
 }
 
 void EVETerminalProcessor::audioDeviceIOCallbackWithContext (const float* const*, int, float* const*, int, int, const juce::AudioIODeviceCallbackContext&)
 {
     process();
-}
-
-void EVETerminalProcessor::restart()
-{
-    restart ([] {});
 }
 
 void EVETerminalProcessor::audioDeviceAboutToStart (juce::AudioIODevice*)
@@ -540,7 +525,7 @@ void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCap
 #if JAM_USING_PROFILER
             const jam::Profiler::Zone resetZone { Id::processorReset };
 #endif
-            terminalProcessor.reset (terminalBuffer, winsize);
+            terminalProcessor.reset (terminalBuffer, winsize, events);
         }
         swap.setCapacity (historyCapacity);
         handleUpdateNow();
@@ -549,6 +534,7 @@ void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCap
     const auto vblankMilliseconds { juce::RelativeTime::seconds (1.0 / jam::CpuGraphicsEngine::getRefreshRateHz()).inSeconds() * 1000.0 };
     openTTY (device.getCurrentBufferSizeSamples(), vblankMilliseconds, winsize);
     tty->setWinsize (winsize);
+    state.flush();
 }
 
 void EVETerminalProcessor::process() noexcept
@@ -565,9 +551,8 @@ void EVETerminalProcessor::process() noexcept
 
 void EVETerminalProcessor::clearHistory()
 {
-    restart ([this]
-             {
-                 handleUpdateNow();
-                 terminalProcessor.clear (terminalBuffer);
-             });
+    device.stop();
+    handleUpdateNow();
+    terminalProcessor.clear (terminalBuffer);
+    start();
 }
