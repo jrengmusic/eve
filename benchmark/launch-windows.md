@@ -9,9 +9,9 @@
 +----------+--------+-------------------------------------------------------------+
 | samples  | string | launch-windows-samples.md                                   |
 +----------+--------+-------------------------------------------------------------+
-| output   | string | launch-windows-report.md                                    |
+| output   | string | launch-windows-contract-report.md                           |
 +----------+--------+-------------------------------------------------------------+
-| baseline | string |                                                             |
+| baseline | string | launch-windows-report.md                                    |
 +----------+--------+-------------------------------------------------------------+
 
 ## profiler
