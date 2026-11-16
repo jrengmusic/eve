@@ -26,32 +26,22 @@ static void applySidecar (const juce::File& directory, const juce::String& fileN
 }
 #endif
 
-static void applyNames (jam::TerminalFIFO& lane, const std::function<void (const juce::String&)>& callback)
+static void applyNames (jam::TerminalFIFO& lane, const std::function<void (std::string_view)>& callback)
 {
-    juce::String cut {};
-
-    lane.applyPendingData ([&callback, &cut] (const char* data, int size)
+    lane.applyPendingData ([&callback] (const char* data, int size) -> int
     {
+        const char* const start { data };
         const char* const end { data + size };
+        const char* terminator { std::find (data, end, static_cast<char> (Chars::nullCharacter)) };
 
-        while (data < end)
+        while (terminator != end)
         {
-            const char* const terminator { std::find (data, end, static_cast<char> (Chars::nullCharacter)) };
-
-            if (terminator == end)
-            {
-                cut += juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (end) };
-            }
-            else
-            {
-                const auto name { cut + juce::String { juce::String::CharPointerType (data), juce::String::CharPointerType (terminator) } };
-
-                cut = juce::String {};
-                callback (name);
-            }
-
-            data = juce::jmin (terminator + 1, end);
+            callback (std::string_view { data, static_cast<size_t> (terminator - data) });
+            data = terminator + 1;
+            terminator = std::find (data, end, static_cast<char> (Chars::nullCharacter));
         }
+
+        return static_cast<int> (data - start);
     });
 }
 
@@ -180,10 +170,10 @@ void EVETerminalProcessor::registerImageEvents()
 
 void EVETerminalProcessor::applyCommands (const std::function<void (const juce::Identifier&)>& callback)
 {
-    applyNames (commands, [&callback] (const juce::String& name)
+    applyNames (commands, [&callback] (std::string_view name)
     {
-        if (name.isNotEmpty())
-            callback (juce::Identifier { name });
+        if (not name.empty())
+            callback (juce::Identifier { juce::String::CharPointerType (name.data()), juce::String::CharPointerType (name.data() + name.size()) });
     });
 }
 
@@ -224,15 +214,15 @@ void EVETerminalProcessor::applyGridEvents()
     auto lists { state.getOrCreateChildWithName (listsType) };
     juce::Identifier event {};
 
-    applyNames (gridEvents, [&lists, &event] (const juce::String& name)
+    applyNames (gridEvents, [&lists, &event] (std::string_view name)
     {
         if (event.isNull())
         {
-            event = juce::Identifier { name };
+            event = juce::Identifier { juce::String::CharPointerType (name.data()), juce::String::CharPointerType (name.data() + name.size()) };
         }
         else
         {
-            listUpdates.get (event, lists, juce::int64 { name.getLargeIntValue() });
+            listUpdates.get (event, lists, juce::int64 { juce::CharacterFunctions::getIntValue<juce::int64> (juce::String::CharPointerType (name.data())) });
             event = juce::Identifier {};
         }
     });

@@ -22,14 +22,23 @@ public:
     explicit TerminalMemoryTTY (std::unique_ptr<jam::TerminalTTY> platformTTY);
 
     /**
+     * @brief Closes the platform TTY and drops the queued update while every member is alive.
+     *
+     * The body runs before the members are destroyed.
+     * The readiness callback triggers handleAsyncUpdate(), which reads the members.
+     * close() stops that callback, so no update reads a destroyed member.
+     */
+    ~TerminalMemoryTTY() override;
+
+    /**
      * @brief Opens the platform TTY, records its output, then starts the replay.
      *
      * The call blocks until the platform TTY reports the end of the shell output, for at most `recordTimeoutMs`.
      * It then makes the stream of the record. With the profiler enabled, it drains and clears the profiler,
-     * so the profile holds the replay only. On macOS it then calls `onBytesReady (0)` on @p context.
+     * so the profile holds the replay only. On macOS it then submits one call of `onBytesReady (0)` on the context of @p context.
      * `onBytesReady` must be set (jassert). When the stream exists, the call changes nothing and returns `true`.
      *
-     * @param context           Serial context for the readiness source of the platform TTY and for the first `onBytesReady` of the replay (macOS).
+     * @param context           Serial context of the replay (macOS). The replay runs its one `onBytesReady (0)` call on it. The platform TTY runs its readiness callbacks on the context of this object. On Windows the call does not use @p context.
      * @param bufferSize        Device buffer size. It sizes the block that records the platform output. The call passes it to the platform TTY.
      * @param maximumPeriodMilliseconds  Longest wait between two readiness ticks, in milliseconds. The call passes it to the platform TTY.
      * @param dims              Initial terminal dimensions.
@@ -39,11 +48,16 @@ public:
      * @param environment       Variables that the shell receives in addition to the environment of the parent.
      * @return                  `true` when the record is complete. `false` when the platform TTY fails to open or the record times out.
      */
-    bool open (jam::AsyncUpdater::Context context, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
+    bool open (const jam::AsyncUpdater* context, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
                const juce::String& args, const juce::String& workingDirectory,
                const juce::StringPairArray& environment) override;
 
-    /** @brief Closes the platform TTY. */
+    /**
+     * @brief Stops the platform TTY, then drops the queued update.
+     *
+     * tty->close() runs first. It stops the readiness callbacks that trigger the update.
+     * cancelPendingUpdate() then drops a queued update and waits for an update in progress.
+     */
     void close() override;
 
     bool isOpen() const noexcept override;
@@ -90,6 +104,13 @@ private:
 
     /** @brief Stream over `fixture` that `read()` serves. It exists after the record is complete. */
     std::unique_ptr<juce::MemoryInputStream> stream;
+
+    /**
+     * @brief Work item that delivers the one `onBytesReady (0)` call of the replay. macOS only.
+     *
+     * open() opens it on the context that it receives, and submits it once the record is complete.
+     */
+    jam::AsyncUpdater::Work replay;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TerminalMemoryTTY)
 };

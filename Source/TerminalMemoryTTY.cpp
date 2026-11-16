@@ -5,7 +5,12 @@ TerminalMemoryTTY::TerminalMemoryTTY (std::unique_ptr<jam::TerminalTTY> platform
 {
 }
 
-bool TerminalMemoryTTY::open (jam::AsyncUpdater::Context context, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
+TerminalMemoryTTY::~TerminalMemoryTTY()
+{
+    close();
+}
+
+bool TerminalMemoryTTY::open (const jam::AsyncUpdater* context, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
                               const juce::String& args, const juce::String& workingDirectory,
                               const juce::StringPairArray& environment)
 {
@@ -35,7 +40,11 @@ bool TerminalMemoryTTY::open (jam::AsyncUpdater::Context context, int bufferSize
 #endif
 
 #if JUCE_MAC
-        dispatch_async_f (context, this, [] (void* memoryTTY) { static_cast<TerminalMemoryTTY*> (memoryTTY)->onBytesReady (0); });
+        replay.onWork = [this] { onBytesReady (0); };
+        const bool isReplayOpen { replay.open (context) };
+        jassert (isReplayOpen);
+        juce::ignoreUnused (isReplayOpen);
+        replay.submit();
 #endif
     }
 
@@ -50,6 +59,7 @@ bool TerminalMemoryTTY::isOpen() const noexcept
 void TerminalMemoryTTY::close()
 {
     tty->close();
+    cancelPendingUpdate();
 }
 
 int TerminalMemoryTTY::read (char* buf, int maxBytes)
