@@ -23,6 +23,8 @@ juce::File ShellIntegration::getStartDirectory()
 
 void ShellIntegration::addShellScripts (const juce::File& directory)
 {
+    directory.createDirectory();
+
     if (isShellIntegrated())
     {
         const auto zshFolder { directory.getChildFile (juce::String { zshDirectory.data() }) };
@@ -32,7 +34,6 @@ void ShellIntegration::addShellScripts (const juce::File& directory)
         const BinaryData::Raw powershellIntegration { files::powershellIntegration };
         const BinaryData::Raw shellCommand { files::shellCommand };
 
-        directory.createDirectory();
         zshFolder.createDirectory();
         zshFolder.getChildFile (juce::String { zshEnvironmentFile.data() }).replaceWithData (zshEnvironment.data, static_cast<size_t> (zshEnvironment.size));
         zshFolder.getChildFile (juce::String { zshIntegrationFile.data() }).replaceWithData (zshIntegration.data, static_cast<size_t> (zshIntegration.size));
@@ -45,6 +46,50 @@ void ShellIntegration::addShellScripts (const juce::File& directory)
         commandFile.setExecutePermission (true);
     }
 }
+
+#if JUCE_WINDOWS
+juce::File ShellIntegration::getOrCreateCygwinPty (const juce::File& directory)
+{
+    static const juce::String cygwinPtyHash { CAST_CYGWIN_PTY_HASH };
+
+    const auto stamp { directory.getChildFile (files::cygwinPtyStamp) };
+    const auto isOffloaded { stamp.loadFileAsString().compare (cygwinPtyHash) == 0 };
+    juce::File cygwinPty;
+
+    for (int resourceIndex { 0 }; resourceIndex < BinaryData::namedResourceListSize; ++resourceIndex)
+    {
+        const char* resourceName { BinaryData::namedResourceList[resourceIndex] };
+
+        if (juce::File::createFileWithoutCheckingPath (BinaryData::getNamedResourceOriginalFilename (resourceName)).hasFileExtension (files::archiveExtension))
+            cygwinPty = getOrCreateCygwinPty (resourceName, directory, isOffloaded);
+    }
+
+    if (not isOffloaded and cygwinPty.exists())
+    {
+        [[maybe_unused]] const bool isStamped { stamp.replaceWithText (cygwinPtyHash) };
+        jassert (isStamped);
+    }
+
+    return cygwinPty;
+}
+
+juce::File ShellIntegration::getOrCreateCygwinPty (const char* resourceName, const juce::File& directory, bool isOffloaded)
+{
+    int resourceSize { 0 };
+    const char* resourceData { BinaryData::getNamedResource (resourceName, resourceSize) };
+    juce::MemoryInputStream stream { resourceData, static_cast<size_t> (resourceSize), false };
+    juce::ZipFile zip { stream };
+    const auto cygwinPty { directory.getChildFile (zip.getEntry (0)->filename) };
+
+    if (isOffloaded and cygwinPty.exists())
+        return cygwinPty;
+
+    const auto unpacked { zip.uncompressTo (directory, true) };
+    jassert (unpacked.wasOk());
+
+    return unpacked.wasOk() ? cygwinPty : juce::File {};
+}
+#endif
 
 juce::StringPairArray ShellIntegration::getShellEnvironment (const juce::String& shell, const juce::File& directory)
 {

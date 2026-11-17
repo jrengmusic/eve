@@ -128,8 +128,7 @@ private:
     /**
      * @brief Ends the resize. It clears the resizing mark of the text editors.
      *
-     * It writes the width and the height of the view to the `width` and `height` rows of the terminal tree, except under END.
-     * Under END the pane is the sole author of those rows, and the view follows them.
+     * It writes the width and the height of the view to the `width` and `height` rows of the terminal tree.
      * It stops the coalesce timer. The timer also runs this call as the final stop of a frame change from outside the window.
      */
     void resizeEnd() override;
@@ -158,7 +157,7 @@ private:
      * @brief Reacts to a change of a property in the model tree.
      *
      * A change of a property of the `terminal` tree runs the handler of `terminalEvents` for that property, when a handler exists.
-     * The handlers cover `Id::numCommands`, `Id::numGridEvents`, `Id::clipboard`, `Id::shellExited`, `Id::zoom`, `Id::width`, `Id::height`,
+     * The handlers cover `Id::numCommands`, `Id::numGridEvents`, `Id::clipboard`, `Id::shellExited`, `Id::shellNotFound`, `Id::zoom`, `Id::width`, `Id::height`,
      * `Id::focus`, `Id::markdownFile`, and, when `JAM_USING_PROFILER` is set, `Id::numPrompts`.
      *
      * The base class gets every change.

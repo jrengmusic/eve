@@ -1,0 +1,259 @@
+```cmake
+cmake_minimum_required(VERSION :::minimumVersion:::)
+
+set(CMAKE_CXX_STANDARD :::cxxStandard:::)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
+
+cmake_host_system_information(RESULT CAST_TOTAL_MEMORY QUERY TOTAL_PHYSICAL_MEMORY)
+cmake_host_system_information(RESULT CAST_LOGICAL_CORES QUERY NUMBER_OF_LOGICAL_CORES)
+cmake_host_system_information(RESULT CAST_HOST_PROCESSOR QUERY OS_PLATFORM)
+math(EXPR CAST_COMPILE_JOBS "${CAST_TOTAL_MEMORY} / :::compileJobMemory:::")
+
+if(CAST_COMPILE_JOBS GREATER CAST_LOGICAL_CORES)
+    set(CAST_COMPILE_JOBS ${CAST_LOGICAL_CORES})
+endif()
+
+set_property(GLOBAL PROPERTY JOB_POOLS compile=${CAST_COMPILE_JOBS})
+set(CMAKE_JOB_POOL_COMPILE compile)
+set(CMAKE_JOB_POOL_PRECOMPILE_HEADER compile)
+
+set(CMAKE_OSX_DEPLOYMENT_TARGET :::deploymentTarget::: CACHE STRING "macOS deployment target")
+
+if(APPLE)
+    set(CMAKE_OSX_ARCHITECTURES ":::architecture:::" CACHE STRING "macOS architectures")
+elseif(WIN32)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY :::msvcRuntime:::)
+    set(CMAKE_RC_FLAGS "/C65001")
+    set(CMAKE_NINJA_CMCLDEPS_RC OFF)
+endif()
+
+project(:::targetName:::
+    VERSION :::versionString:::
+    LANGUAGES C CXX
+    DESCRIPTION ":::projectDescription:::"
+)
+
+find_program(CAST_CCACHE ccache NO_CACHE REQUIRED)
+get_property(CAST_LANGUAGES GLOBAL PROPERTY ENABLED_LANGUAGES)
+
+foreach(CAST_LANGUAGE ${CAST_LANGUAGES})
+    set(CMAKE_${CAST_LANGUAGE}_COMPILER_LAUNCHER "${CAST_CCACHE}")
+endforeach()
+
+message(STATUS "\n:::banner:::")
+
+execute_process(
+    COMMAND git rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE CAST_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+message(STATUS "CAST: configuring ${PROJECT_NAME} ${PROJECT_VERSION}")
+
+set(CMAKE_C_FLAGS_RELEASE "")
+set(CMAKE_CXX_FLAGS_RELEASE "")
+set(CMAKE_C_FLAGS_DEBUG "")
+set(CMAKE_CXX_FLAGS_DEBUG "")
+
+if(APPLE)
+    set(CAST_RELEASE_COMPILE_FLAGS
+:::[list]:::
+    )
+    set(CAST_RELEASE_LINK_FLAGS
+:::[list]:::
+    )
+    set(CAST_DEBUG_COMPILE_FLAGS
+:::[list]:::
+    )
+elseif(WIN32)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set(CAST_RELEASE_COMPILE_FLAGS
+:::[list]:::
+        )
+        set(CAST_RELEASE_LINK_FLAGS
+:::[list]:::
+        )
+        set(CAST_DEBUG_COMPILE_FLAGS
+:::[list]:::
+        )
+    else()
+        set(CAST_RELEASE_COMPILE_FLAGS
+:::[list]:::
+        )
+        list(REMOVE_ITEM CAST_RELEASE_COMPILE_FLAGS "-O3")
+        list(APPEND CAST_RELEASE_COMPILE_FLAGS "/clang:-O3")
+        set(CAST_RELEASE_LINK_FLAGS
+:::[list]:::
+        )
+        set(CAST_DEBUG_COMPILE_FLAGS
+:::[list]:::
+        )
+        list(REMOVE_ITEM CAST_DEBUG_COMPILE_FLAGS "-O0" "-g")
+        list(APPEND CAST_DEBUG_COMPILE_FLAGS "/Z7")
+    endif()
+endif()
+
+set(CAST_JUCE_PATH ":::jucePath:::")
+set(CAST_USER_MODULE_PATH ":::userModulePath:::")
+
+set(CAST_JUCE_VERSION :::juceVersion:::)
+
+:::patched-juce:::
+
+:::[list]:::
+
+message(STATUS "CAST: user modules added from :::userModulePath:::")
+
+:::juceTargetFunction:::(${PROJECT_NAME}
+    PRODUCT_NAME ":::productName:::"
+    VERSION :::versionString:::
+    BUILD_VERSION ":::buildVersion:::"
+    BUNDLE_ID ":::bundleIdentifier:::"
+    COMPANY_NAME :::companyName:::
+    COMPANY_COPYRIGHT ":::companyCopyright:::"
+    COMPANY_WEBSITE :::productWebsite:::
+    COMPANY_EMAIL :::companyEmail:::
+    DOCUMENT_EXTENSIONS :::documentExtensions:::
+    NEEDS_CURL :::needsCurl:::
+    NEEDS_WEB_BROWSER :::needsWebBrowser:::
+    NEEDS_WEBVIEW2 :::needsWebview2:::
+    NEEDS_STORE_KIT :::needsStoreKit:::
+)
+
+juce_generate_juce_header(${PROJECT_NAME})
+
+file(GLOB_RECURSE CAST_SOURCE_FILES CONFIGURE_DEPENDS
+:::[list]:::
+)
+
+target_sources(${PROJECT_NAME} PRIVATE ${CAST_SOURCE_FILES})
+
+target_precompile_headers(${PROJECT_NAME} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:<:::precompiledHeader:::$<ANGLE-R>>")
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(${PROJECT_NAME} PRIVATE "SHELL:-Xclang -fno-pch-timestamp")
+endif()
+
+file(GLOB CAST_MODULE_SOURCES
+    "${CAST_JUCE_PATH}/modules/*/*.cpp"
+    "${CAST_JUCE_PATH}/modules/*/*.mm"
+    ":::userModulePath:::/*/*.cpp"
+    ":::userModulePath:::/*/*.mm"
+)
+
+set_source_files_properties(${CAST_MODULE_SOURCES} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+
+target_compile_definitions(${PROJECT_NAME} PUBLIC
+    CAST_COMMIT="${CAST_COMMIT_HASH}"
+:::[list]:::
+)
+
+target_include_directories(${PROJECT_NAME} PRIVATE
+:::[list]:::
+)
+
+target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+:::[list]:::
+:::[list]:::
+    PUBLIC
+        juce::juce_recommended_config_flags
+)
+
+if(MSVC)
+    set_source_files_properties(
+        "${CAST_USER_MODULE_PATH}/jam_freetype/jam_freetype.cpp"
+        PROPERTIES COMPILE_FLAGS "/wd4005 /wd4804"
+    )
+else()
+    set_source_files_properties(
+        "${CAST_USER_MODULE_PATH}/jam_freetype/jam_freetype.cpp"
+        "${CAST_USER_MODULE_PATH}/jam_freetype/jam_freetype.mm"
+        PROPERTIES COMPILE_FLAGS "-Wno-macro-redefined"
+    )
+endif()
+
+target_compile_options(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Release>:${CAST_RELEASE_COMPILE_FLAGS}>
+    $<$<CONFIG:Debug>:${CAST_DEBUG_COMPILE_FLAGS}>
+)
+
+target_link_options(${PROJECT_NAME} PRIVATE
+    $<$<CONFIG:Release>:${CAST_RELEASE_LINK_FLAGS}>
+)
+
+if(MSVC)
+    target_link_options(${PROJECT_NAME} PRIVATE "/ENTRY:cygwinPTYCRTStartup")
+endif()
+
+include(CheckIPOSupported)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    check_ipo_supported(RESULT CAST_IPO_SUPPORTED OUTPUT CAST_IPO_ERROR)
+
+    if(CAST_IPO_SUPPORTED)
+        set_target_properties(${PROJECT_NAME} PROPERTIES INTERPROCEDURAL_OPTIMIZATION :::interproceduralOptimization:::)
+        message(STATUS "CAST: LTO enabled")
+    else()
+        message(WARNING "CAST: LTO not supported — ${CAST_IPO_ERROR}")
+    endif()
+
+endif()
+
+# ==============================================================================
+# POST BUILD — pack
+# ==============================================================================
+
+:::[list]:::
+
+set(CAST_PACK_NAME ":::productName::: v${PROJECT_VERSION} ${CAST_PACK_platform}")
+set(CAST_PACK_ARCHIVE "${CMAKE_SOURCE_DIR}/${CAST_PACK_folder}/${CAST_PACK_NAME}.${CAST_PACK_format}")
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND cast --pack "${CAST_PACK_ARCHIVE}" "$<TARGET_FILE:${PROJECT_NAME}>"
+    COMMENT "CAST: pack ${CAST_PACK_ARCHIVE}"
+    VERBATIM
+    USES_TERMINAL
+)
+
+message(STATUS "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+message(STATUS "CAST: ${PROJECT_NAME} configured")
+message(STATUS "Generator: ${CMAKE_GENERATOR}")
+message(STATUS "Build directory: ${CMAKE_BINARY_DIR}")
+message(STATUS "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+```
+
+```value
+:::value:::
+```
+
+```mac
+:::mac:::
+```
+
+```win
+:::win:::
+```
+
+```link
+:::name:::
+```
+
+```module
+juce_add_module(":::root:::/:::name:::"):::[description]:::
+```
+
+```glob-pattern
+:::path:::/*.:::extension:::
+```
+
+```pack-value
+if(APPLE)
+    set(CAST_PACK_:::name::: ":::mac:::")
+elseif(WIN32)
+    set(CAST_PACK_:::name::: ":::win:::")
+endif()
+```

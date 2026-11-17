@@ -24,6 +24,7 @@ namespace Id
 /** @brief Product identifier and name-string vocabulary — branding, buttons, view component types, and images — not already carried by jam. */
 
     const juce::Identifier args                 { juce::String::fromUTF8 ("args") };
+    const juce::Identifier recordCapacity       { juce::String::fromUTF8 ("recordCapacity") };
     const juce::Identifier button               { juce::String::fromUTF8 ("button") };
     const juce::Identifier numCommands          { juce::String::fromUTF8 ("numCommands") };
     const juce::Identifier numGridEvents        { juce::String::fromUTF8 ("numGridEvents") };
@@ -55,6 +56,8 @@ namespace Id
     const juce::Identifier selector             { juce::String::fromUTF8 ("selector") };
     const juce::Identifier shell                { juce::String::fromUTF8 ("shell") };
     const juce::Identifier shellIntegration     { juce::String::fromUTF8 ("shellIntegration") };
+    const juce::Identifier msysRuntime          { juce::String::fromUTF8 ("msysRuntime") };
+    const juce::Identifier cygwinRuntime        { juce::String::fromUTF8 ("cygwinRuntime") };
     const juce::Identifier shellNotFound        { juce::String::fromUTF8 ("shellNotFound") };
     const juce::Identifier terminalInput        { juce::String::fromUTF8 ("terminalInput") };
     const juce::Identifier textEditor           { juce::String::fromUTF8 ("textEditor") };
@@ -67,6 +70,8 @@ namespace Id
     const juce::String     shellVariable        { juce::String::fromUTF8 ("SHELL") };
     const juce::String     defaultShell         { juce::String::fromUTF8 ("/bin/zsh") };
     const juce::String     defaultShellWindows  { juce::String::fromUTF8 ("C:/msys64/usr/bin/zsh.exe -l") };
+    const juce::String     defaultMsysRuntime   { juce::String::fromUTF8 ("C:/msys64/usr/bin/msys-2.0.dll") };
+    const juce::String     defaultCygwinRuntime { juce::String::fromUTF8 ("C:/cygwin64/bin/cygwin1.dll") };
     const juce::String     powershellProgram    { juce::String::fromUTF8 ("powershell.exe") };
     const juce::String     commandPromptProgram { juce::String::fromUTF8 ("cmd.exe") };
 

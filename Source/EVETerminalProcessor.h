@@ -15,7 +15,7 @@
  * The object owns a terminal `jam::Model`, `state`. Its tree is the `terminal` child of the APVTS state of the model.
  * The constructor adds the parameters of the `parametersLayout` document to `state` through `jam::ModelLayout::addParameters`.
  * The events call `storeValue` on `state`. The decoder fires them on the clock. The swap write in `handleAsyncUpdate()` fires the grid events.
- * The Model does not run its own timer. The text editor getter in `userInterfaceGetters` flushes it, and `flush()` flushes it under the message manager lock.
+ * The Model does not run its own timer. The text editor getter in `userInterfaceGetters` flushes it, `prepare()` flushes it at its end, and `flush()` flushes it under the message manager lock.
  *
  * @par Clock
  * The object owns its clock, `jam::VirtualDevice device`. The object is the `juce::AudioIODeviceCallback` of the clock.
@@ -25,7 +25,7 @@
  *
  * @par Thread contract
  * `process()` runs on the serial context of the device. It writes the input lane to the TTY, then decodes the TTY output.
- * The winsize attachment of `state` calls `restart()` when the winsize changes. A stopped clock stays stopped, so a winsize change prepares the chain only while the clock runs.
+ * A winsize change calls `prepare()` from the processor. `prepare()` starts the clock unconditionally, so a winsize change also starts a stopped clock.
  */
 class EVETerminalProcessor
     : private jam::AsyncUpdater
@@ -43,7 +43,7 @@ public:
      */
     EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse);
 
-    /** @brief Stops the clock through `releaseResources()`. */
+    /** @brief Destroys the members. The destructor does not call `releaseResources()`, which `EVEProcessor::releaseResources()` calls. */
     ~EVETerminalProcessor() override;
 
     /**
@@ -53,16 +53,20 @@ public:
      */
     void prepare();
 
-    /** @brief Stops the clock, then closes the device. */
+    /** @brief Stops the clock, closes the device, then closes the TTY. */
     void releaseResources();
 
-    /** @brief Clears the history rows of the terminal buffer inside a restart, while the clock is stopped. */
+    /**
+     * @brief Clears the terminal buffer with the clock stopped.
+     *
+     * The call runs the pending update before it clears the buffer. It ends with prepare(), which starts the clock again.
+     */
     void clearHistory();
 
     /**
      * @brief Joins the Model lane to a restored state tree.
      *
-     * When @p newState has a `pluginState` child, `state` takes the values of that child, and the child leaves @p newState.
+     * When @p newState has a `terminal` child, `state` takes the values of that child, and the child leaves @p newState.
      * The tree of `state` then moves from its parent to @p newState.
      *
      * @param newState  State tree that the host restored. It receives the tree of `state`.
@@ -250,7 +254,7 @@ private:
      * Between the first and the second run, the decoder applies the window size to the buffer through applyWinsize().
      * On the normal screen, applyWinsize() scrolls the buffer up by the rows that the cursor exceeds the last row of the new winsize, and it moves the cursor up by the same count.
      * The call then sizes the buffer for the blocks of one vblank, prepares the swap with the byte count of the buffer, resets the decoder, and sets the history capacity.
-     * It then opens the TTY and sets its window size.
+     * It then opens the TTY, sets its window size, and calls flush(), which flushes the Model lane under the message manager lock.
      *
      * @param winsize          Window size of the grid.
      * @param historyCapacity  Number of history lines that the swap keeps.
@@ -298,11 +302,31 @@ private:
 #endif
 
     /**
-     * @brief Returns the TTY of the platform.
+     * @brief Returns the pseudo terminal of the platform, for the program that the shell starts.
      *
+     * On Windows, the call gives a Cygwin TTY when getRuntime() finds the runtime next to @p program.
+     * Otherwise the call gives a Windows console TTY with the Model callbacks. On other platforms, it gives a Unix TTY.
      * When EVE_USING_REPLAY is set, the platform TTY is wrapped in a TerminalMemoryTTY.
+     * The readiness callback of the returned TTY clocks the device.
+     *
+     * @param program    Shell program. On Windows, the runtime is found only for an absolute path. An empty program gives the Windows console TTY.
+     * @param directory  Folder that receives the unpacked helper files. Only the Cygwin TTY uses it.
+     * @return           The TTY, with its readiness callback set.
      */
-    static std::unique_ptr<jam::TerminalTTY> createTTY();
+    std::unique_ptr<jam::TerminalTTY> createTTY (const juce::String& program, const juce::File& directory);
+
+#if JUCE_WINDOWS
+    /**
+     * @brief Returns the runtime DLL that sits next to the program, or an empty File.
+     *
+     * The candidates are the msys runtime and the cygwin runtime from the settings, with the shipped defaults.
+     * The first candidate whose file name sits in the folder of @p program is returned.
+     *
+     * @param program  Shell program, as an absolute path. A relative path gives an empty File.
+     * @return         Runtime file, or an empty File when no candidate is found.
+     */
+    static juce::File getRuntime (const juce::String& program);
+#endif
 
     juce::AudioProcessor&
         processor;///< Processor that owns this object. The object reads its wrapper type in profile builds.
@@ -315,9 +339,11 @@ private:
     jam::TerminalProcessor::Events
         events;///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
     std::string pendingInput;    ///< Input bytes that wait for room in the input lane.
+    size_t pendingInputOffset { 0 };    ///< Index of the first byte of `pendingInput` that waits for room in the input lane. The bytes before it already entered the lane.
     jam::TerminalFIFO input;///< Input lane from the view to the TTY.
     jam::TerminalFIFO commands;///< Command names from the shell to the view.
     jam::TerminalFIFO gridEvents;///< @brief Carries the grid events from handleAsyncUpdate() to applyGridEvents().
+    const std::array<juce::Identifier, 3> gridEventTypes { Id::gridStart, Id::removedGridStart, Id::firstLine };    ///< The three identifiers select the list update of each index. The position of each identifier is the index that its event writes to `gridEvents`. Index 0 appends a grid start. Index 1 removes the grid start at a line. Index 2 drops the grid starts before a line.
     jam::TerminalProcessor
         terminalProcessor;///< Decoder of the TTY output into the rows of `terminalBuffer`.
 
@@ -328,7 +354,7 @@ private:
         jam::VirtualDeviceType::virtualDeviceTypeName,
         jam::VirtualDeviceType::virtualDeviceTypeName
     };///< Clock of the chain. This object is its callback.
-    std::unique_ptr<jam::TerminalTTY> tty { createTTY() };///< Pseudo terminal of the shell.
+    std::unique_ptr<jam::TerminalTTY> tty { createTTY ({}, {}) };///< Pseudo terminal of the shell. On Windows, the constructor gives the console TTY, because the program is empty. openTTY() replaces it with the TTY of the configured program.
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVETerminalProcessor)

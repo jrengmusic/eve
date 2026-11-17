@@ -44,12 +44,19 @@ among ours.
    Audio thread … Renderer is Vulkan … message thread"*.
    - **The TTY backend clocks the device in the PTY's rhythm.** Each readiness
      event is one tick; its payload is the tick's numSamples: on macOS the bytes
-     the PTY holds, on Windows the completed read plus the bytes still queued in
-     the pipe. After the tick, `jam::TerminalClock` waits one period on the
-     clock's context; the macOS backend then re-arms readiness while the PTY is
-     connected, and the Windows backend's next overlapped read is the re-arm.
-     The period follows the measured traffic rate and never exceeds one vblank,
-     so the reader never races the writer. ARCHITECT: *"One vblank"*;
+     the PTY holds, on Windows the bytes that `PeekNamedPipe` reports queued in
+     the pipe. Nothing waits on the clock's context. After the tick, a
+     one-shot timer on the clock's context ends the listening window of
+     `jam::TerminalClock` and re-arms readiness after the clock's period; the
+     period follows the measured traffic rate and never exceeds one vblank, so
+     the reads follow the PTY's rhythm (863.5 bytes per read on `seq`,
+     `jam/carol/SPRINT-LOG.md:550`). Windows ticks in the PTY rhythm the same
+     way as macOS, through one shared readiness type, `jam::AsyncOutputStream`
+     in `jam_terminal`, with a macOS half and a Windows half. On Windows the
+     one-shot timer is a thread-pool timer on the clock's context, and the
+     re-arm is a zero-byte overlapped read. ARCHITECT: *"One shared JAM
+     type"*; *"move AsyncOutputStream to Terminal"*; *"nothing should wait"*;
+     *"so no time ever lost"*; *"One vblank"*;
      *"the rhythm synchronization IS THE ABSTRACTION to implement"*; *"buffer
      size should be STILL dictated by hardware == how fast native tty can
      deliver"*; *"why no TerminalClock? i just wanted to ensure nothing is
@@ -332,9 +339,7 @@ layout event only).
      clock tick reads the PTY until it is empty: a read that returns less than
      it asked for has emptied the PTY (`tty_dev.c:699-705`), so the tick ends
      there. ARCHITECT: *"why failed? what failed? why leave it failed?"*.
-     Between ticks the driver waits
-     one period; the wait is the driver's, never the tick's. ARCHITECT: *"the
-     full throttle only when it RUNS"*. The ring holds one vblank of
+     ARCHITECT: *"the full throttle only when it RUNS"*. The ring holds one vblank of
      blocks in transit; `prepareToPlay` sizes it. Input whose output does not
      fit stays in the PTY. ARCHITECT: *"PTY holds the input"*.
    - History is append-only. ARCHITECT: *"history is append-only, clear with
@@ -697,15 +702,18 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
        the layout. The timer runs `resizeEnd`, which is the final stop. A live
        resize holds the gate with no timer, so `resized` adds nothing. ARCHITECT:
        *"Both (Recommended)"*.
-    6. The host is the sole author of the `width` and `height` rows. The processor
-       gives their default at construction, from the `size` row of the display
-       config: *"default fallback carried by binary and user can override, disk
-       always win. but when hosted on END that values are ignored"*. A host sizes the
-       editor through the JUCE editor contract (`setBounds`); it never writes the rows
-       through `setStateInformation`. The saved state carries the rows, and JUCE saves
-       it. EVEView writes neither. ARCHITECT: *"sole author of
-       winsize is WINDOW, downstream to eventually reach winsize"*; *"at END as the
-       host, sole autor is END"*.
+    6. The host is the sole author of the editor size. The processor gives the
+       default of the `width` and `height` rows at construction, from the `size` row
+       of the display config: *"default fallback carried by binary and user can
+       override, disk always win. but when hosted on END that values are ignored"*.
+       A host sizes the editor through the JUCE editor contract (`setBounds`); it
+       never writes the rows through `setStateInformation`. `EVEView::resizeEnd`, the
+       final stop of a resize, writes the size the editor has into the rows, with no
+       host-type branch, as EVE commit 0ea0fb4 did. The saved state carries the rows,
+       and JUCE saves it. ARCHITECT: *"sole author of winsize is WINDOW, downstream to
+       eventually reach winsize"*; *"at END as the host, sole autor is END"*;
+       *"already deterministically solved in the past commit. probably wrong
+       implementation but the principle HOLDS"*.
   - **Active prompt anchor.** ARCHITECT: *"clear: draw active prompt at 0"*.
     While a prompt is active, a prepare puts the cursor at home
     `[AMENDED 2026-11-10]`. The shell redraws its prompt there on
@@ -831,8 +839,8 @@ comparison"*.
   (`jam::Model::setValuesFrom`), as a preset load applies the values it holds, and its tree
   replaces the restored child in the incoming state. Then the APVTS replaces its whole tree, so
   one tree remains. No callback takes part: `jam::PluginEditor` owns `onSetState`. `prepare` resets the
-  runtime rows from the decoder: `TerminalProcessor::reset` publishes its state, and the Model
-  flushes it. A host saves and restores the whole state only; it never reads or writes a row
+  decoder rows from the decoder: `TerminalProcessor::reset` publishes its state (`applyEvents`),
+  and the Model flushes it on the message thread. A host saves and restores the whole state only; it never reads or writes a row
   inside it (Architecture Constraints). ARCHITECT: *"why we need copy? why we need
   pluginState?"*; *"POKING getState/setState MANUALLY IS NOT ALLOWED. it's ARCHITECTURAL
   CONTRACT GUARANGEED by juce."*
@@ -971,8 +979,9 @@ An end-user can:
 - ❌ A second copy of a truth: a counter beside a row's atom count, a member
   that mirrors a Model value, a second dirty flag
 - ❌ A second prepare path beside the clock's start. The clock starts through
-  `prepare()` only: from the host's `prepareToPlay`, and from a `winsize`
-  change. It stops in `releaseResources`. ARCHITECT: *"winsize changed,
+  `prepare()` only: from the host's `prepareToPlay`, from a `winsize` change,
+  and from `clearHistory`, which runs its body through the same setup change.
+  `releaseResources` stops it and closes the device. ARCHITECT: *"winsize changed,
   prepare whatever"*; *"must be UNIDIRECTIONAL, one flow, one path"*
 - ❌ A second thread context between PTY readiness and the clock
 - ❌ A manual call of `getStateInformation` or `setStateInformation` to read or write one

@@ -24,12 +24,12 @@ EVEProcessor::EVEProcessor()
         styleManager.create (layout.fonts, settings);
     }
 
-    const auto size { jam::Model::getValue<juce::var> (jam::StyleManager::getInstance()->getConfig (jam::StyleManager::getDisplaySheet()), jam::Format::toType (Id::size)) };
+    const auto [width, height] { jam::ViewManager::getUISize<jam::MarkdownDocument> (juce::Identifier { files::viewLayout }) };
     auto terminal { model.state.getChildWithName (jam::Format::toType (Id::terminal)) };
 
     jassert (terminal.isValid());
-    terminal.setProperty (Id::width, size[0], nullptr);
-    terminal.setProperty (Id::height, size[1], nullptr);
+    terminal.setProperty (Id::width, width, nullptr);
+    terminal.setProperty (Id::height, height, nullptr);
 
     model.state.addListener (this);
 #if JAM_USING_PROFILER
@@ -177,8 +177,8 @@ void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
     jassert (terminal.isValid());
 
     for (auto* row : document.getTableRows (Id::model))
-        if (document.getTableValue (*row, Id::runtime).getIntValue() == 1)
-            terminal.removeProperty (juce::Identifier { document.getTableValue (*row, Id::id) }, nullptr);
+        if (document.hasTableValue (*row, Id::runtime))
+            terminal.removeProperty (row->id, nullptr);
 
     terminal.removeChild (terminal.getChildWithName (jam::Format::toType (Id::gridStarts)), nullptr);
 

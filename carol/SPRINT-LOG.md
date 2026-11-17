@@ -36,6 +36,203 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Cygwin PTY — zsh on Windows runs over an msys2 pty through eve-cygwinPTY, ConDrv stays for pwsh and cmd ✅
+
+**Date:** 2026-11-17 to 2026-11-18
+**Duration:** one session, across a context compaction. The start and end times are not recorded.
+**Scope (ARCHITECT):** `PLAN-cygwin-pty.md`. Rulings: *"msys-2.0.dll and cygwin1.dll must be explicitly written at eve.md, we shipped default path assuming user install it, and at default path. user can still override. but still internal fallback, when those arent available just like zsh, we run powershell by default"*; *"config dll just follow verbatim established pattern. eve.md is crosplatform single dot config. windows lane are harmless for mac."*; helper name *"eve-cygwinPTY.exe"*; helper home *"Sub-project in eve/"*; *"make it identical then. we have working pattern, why deviates"* (the EVE to END pack and offload pattern); *"dont change this machine toolchain. encapsulate"*; *"UNIDIRECTIONAL data flow, fully event driven"*; *"/audit, doxygen pass, then /log"*. ARCHITECT's run result: *"works, from empirical observations only this is faster than conpty."*
+
+### Agents Participated
+- COUNSELOR — the reads of the msys2 runtime source and of JAM; the plan; the validation of every Engineer return; the filter of the audit findings; the whatdbg trace specs; the read of each doxygen block against the code; this log.
+- Engineer — the plan steps 1 to 8; the audit fixes (10 findings applied, builds exit 0, no warnings).
+- Pathfinder — the whatdbg traces; the git evidence; the doxygen pass in four runs (new headers, the Console, Output and Input headers, and the TTY, helper and EVE headers).
+- Auditor — one run over the sprint.
+
+### Files Modified
+- `jam_terminal/tty/native/jam_TerminalCygwinTTY_windows.{h,cpp}` (new) — `TerminalCygwinTTY` implements `TerminalTTY` over three named pipes (input, output, size) with overlapped I/O. `open` starts the helper with `"<runtime>" <size pipe handle> <packed start size> "<shell>" <args>` (`.cpp:78`). `read` is `TerminalFIFO::read (output.get(), buf, maxBytes)` (`.cpp:121-124`). `write` starts one overlapped `WriteFile` and checks it with `GetOverlappedResult (..., FALSE)`, so the tick never waits (`.cpp:126-158`). `setWinsize` writes the packed 64-bit size (`.cpp:160-168`).
+- `jam_terminal/processor/jam_TerminalFIFO.h`, `processor/native/jam_TerminalFIFO_windows.cpp:50-72` — public static `read (Handle, char*, int)`: peek the pipe, then read only the available bytes.
+- `jam_terminal/tty/native/jam_TerminalConsole_windows.{h,cpp}` — static `createProcess` (`.cpp:184-229`), shared by `spawnProcess` (`.cpp:346`) and `TerminalCygwinTTY::open`. The dedicated server context is undone (U5 to U1 of `PLAN-windows-console-throughput.md`), and `isServerOpen` is gone.
+- `jam_terminal/tty/native/jam_TerminalConsoleOutput_windows.{h,cpp}`, `jam_TerminalConsoleInput_windows.{h,cpp}` — the same undo: `std::string sequence`, one `queue`, no `clientQueue`, no `numInterrupts`.
+- `jam_terminal/jam_terminal.h` — the include of the new backend.
+- `eve/cygwinPTY/` (new sub-project): `project-info.md`, `cast/{spell.md,cmake.cast}` (`/ENTRY:cygwinPTYCRTStartup`, `cast/cmake.cast:188-190`), `Source/Main.cpp`, `Source/Runtime.{h,cpp}`, `Source/Session.{h,cpp}`. `Runtime` loads the runtime DLL with `juce::DynamicLibrary`, calls `msys_dll_init` or `cygwin_dll_init`, and binds 16 functions by name. `Session` opens the pty with the start size, makes the slave the controlling terminal, starts the shell with `spawnv` between `dup` and `dup2` of fd 0 to 2, ignores `SIGTTIN` and `SIGTTOU`, puts the shell in its own process group and makes it the foreground group, relays stdio and the size pipe, and on shell exit calls `setpgid (0, shell)` and `setsid` (`Session.cpp:43-72`, `:148-152`).
+- `eve/Source/EVETerminalProcessor.{h,cpp}` — `createTTY (program, directory)` and `getRuntime (program)`: a program with a configured runtime DLL in its folder gets `TerminalCygwinTTY`, any other program gets `TerminalWindowsTTY` (`.cpp:61-122`). `openTTY` builds the TTY of the program it opens (`.cpp:428`, `:460`). The conpty sidecar code is deleted.
+- `eve/Source/ShellIntegration.{h,cpp}` — `getOrCreateCygwinPty`: finds the zip resource, unpacks it with `juce::ZipFile`, keeps a stamp of `CAST_CYGWIN_PTY_HASH` (`.cpp:51-91`).
+- `eve/cast/identifiers.md`, `eve/Source/layout/default-eve.md:219,:221`, `eve/Source/generated/Identifiers.*` — `msysRuntime`, `cygwinRuntime`, `defaultMsysRuntime`, `defaultCygwinRuntime`, and the two settings rows.
+- `eve/cast/files.md`, `eve/cast/cmake.cast:346-372`, `eve/Source/generated/Files.*`, `eve/cast/spell.md`, `eve/project-info.md` — the pack and offload pattern of END: the helper's cast packs the zip into `Source/windows`, EVE's cast globs it, filters by platform, and hashes it.
+- `eve/PLAN-cygwin-pty.md` — the locked plan, with each correction found at run time.
+- `eve/DEBT.md` — two entries (see Debts Deferred).
+- Doxygen pass: `jam_TerminalCygwinTTY_windows.h`, `jam_TerminalFIFO.h`, `jam_TerminalConsole_windows.h`, `jam_TerminalConsoleOutput_windows.h`, `jam_TerminalConsoleInput_windows.h`, `jam_TerminalTTY_windows.h`, `EVETerminalProcessor.h`, `ShellIntegration.h`, `cygwinPTY/Source/Runtime.h`, `cygwinPTY/Source/Session.h`. The working tree also holds uncommitted work of earlier sprints; `git status` lists both trees.
+
+### Alignment Check
+- [x] BLESSED principles followed — one backend object per platform behind `TerminalTTY`; the tick never waits; the helper owns the runtime, the pty and the shell.
+- [x] NAMES.md adhered — every name comes from the plan and its families.
+- [x] MANIFESTO.md principles applied.
+- [ ] Not built after the doxygen pass. The pass changed comments only.
+- [ ] The project doxygen regeneration did not run. `ninja doxygen` in `Builds/Debug` fails: `unknown target 'doxygen'`. JAM `<leader>bd` did not run. The zero-warning result comes from scratch runs with the project Doxyfile template, in the session scratchpad.
+- [ ] Open rulings: see State for Continuation items 1 to 3.
+
+### Problems Solved
+- **zsh runs over the msys2 pty.** The runtime loads inside the helper, where `main` is the helper's. EVE and its host never load it. ARCHITECT: *"works, from empirical observations only this is faster than conpty."*
+- **Resize without a stall.** `TIOCSWINSZ` on a master whose group is not the foreground group waits 60000 ms for a self-signal (`pty.cc:2526-2537`, `sigproc.cc:29`, `:844-847`). `Session::openShell` sets the shell group and the foreground group before the relays open.
+- **Master read and write failing with `EIO`.** `bg_check` (`pty.cc:2464`, `:2238`) with an orphaned group. `SIGTTIN` and `SIGTTOU` are ignored after the spawn.
+- **Shutdown chain.** The shell exit calls `releaseTerminal`, the master read ends, the helper exits. EOF of the helper stdin hangs up the shell.
+- **Helper delivery.** The first form embedded no helper in a Release build. ARCHITECT ruled *"make it identical then. we have working pattern, why deviates"*. The form now mirrors END (`end/cast/cmake.cast:370-397`, `Nexus::getOrCreatePlugin`).
+- **Audit.** Ten findings applied; each was read against the code before the fix. F1 and the copy note were not applied (see State for Continuation item 1).
+- **Doxygen pass.** New blocks on every symbol above. Stale blocks corrected from the code: `numInterrupts`, `clientQueue`, `addClientInput`, `isServerOpen`, the `handleAsyncUpdate` of the Console, and the render and read split of the Console output. Scratch validation with the project Doxyfile template: 0 warnings for the ten headers.
+- **Mistakes owned.** I stopped the first doxygen run at the 15-minute watchdog before it reported, and re-asked for the report. I read the `Winsize` brief against code and found a layout claim that no header supports; the block was corrected to the code. The sentence limit of 20 words was missed once; it was corrected.
+
+### State for Continuation
+- Open ruling 1, for ARCHITECT: `Session.cpp:187-193` reads the master into `buffer`, then `stdio.write` copies it into the ring. MANIFESTO E lists *"A copy per hop"* as forbidden. `PLAN-cygwin-pty.md` BLESSED D says bytes cross each boundary once. Both citations hold; neither is asserted.
+- Open ruling 2, for ARCHITECT: `jam_TerminalTTY.h:102` says `close` terminates the child process if it is still alive. `TerminalCygwinTTY::close` (`jam_TerminalCygwinTTY_windows.cpp:96-119`) closes the handles and does not terminate the helper. `PLAN-cygwin-pty.md` Step 4.6 says the helper ends on EOF of its stdin.
+- Open ruling 3, for ARCHITECT: `jam_TerminalTTY.h:88-89` says the environment replaces the parent block. `buildEnvironmentBlock` (`jam_TerminalConsole_windows.cpp:155-161`) appends the variables after the parent block.
+- Verify first: the cast pack from the helper into `Source/windows` runs after each helper build. An earlier read found that a Release build also installs the VST and VST3 files. This was not read again in this span.
+- Verify at runtime (ARCHITECT): `^C`, job control, resize, pwsh and cmd, and the fallback to powershell when the runtime file is absent (`PLAN-cygwin-pty.md` Step 9).
+- Verify first, a Debug launch under whatdbg crashes before the helper path runs. Trace `trace-eve-order.out.txt`: `process` (`EVETerminalProcessor.cpp:555`) runs on a pool thread before `openTTY` (`:546`, `:460`). The call reaches `TerminalConsole::read` (`jam_TerminalConsole_windows.cpp:628`) on the TTY of the member initializer (`EVETerminalProcessor.h:357`), whose `getOutputMode` is empty because `open` never ran (`jam_TerminalTTY_windows.cpp:50`). `prepare` calls `openTTY` only when `winsize.isValid()` (`EVETerminalProcessor.cpp:410`). Not read: why ARCHITECT's own launches run `openTTY` first. `git` has no history for `jam_TerminalConsole_windows.cpp` (untracked).
+- Observations from the doxygen pass, not validated against a clause: `TerminalConsoleInput::writeLine` consumes the line before the payload write, so a failed write loses the line (`jam_TerminalConsoleInput_windows.cpp:246-260`); `writeScrollLines` writes `CSI 0 L` for a zero distance, which no current caller reaches (`jam_TerminalConsoleOutput_windows.cpp:191-202`); `writeClearScreen` has no call site found, and the LSP gave no references.
+- LSP on JAM files returns no symbols. Load the project in nvim, so `.clangd` points at the `JUCE_WINDOWS` project, before the next `findReferences`.
+- `CLAUDE.md` of EVE names `ninja doxygen`. The target does not exist in `Builds/Debug`.
+- Nothing from this sprint is committed.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261117T223541` — seq on the cygwin pty starts line by line, then pages and chokes (ARCHITECT: *"add to DEBT as issues need to be resolved next sprint"*; the Windows lane needs the clock of macOS, driven by the pty speed).
+- `DEBT-20261117T223545` — the active prompt prints before seq finishes.
+- `DEBT-20261115T221459` — END: load and close of each EVE instance, and focus and keyboard on Windows (unchanged).
+- `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
+
+---
+
+## Handoff to COUNSELOR: Windows console throughput — undo the dedicated server context
+
+**From:** COUNSELOR
+**Date:** 2026-11-17
+**Status:** Ready for Implementation
+
+### Read First
+- `PLAN-windows-console-throughput.md`, section "Undo: remove the dedicated server context". It is the only record of the pre-sprint console code, because git does not track the console files.
+- `PLAN-windows-console-throughput.md`, Context and Steps 2-5. The `old :N` cites of the undo point into these.
+- `jam_TerminalSwap.cpp:50-109` and `jam_TextEditor.cpp:1476-1530`. They hold the two lanes behind the prompt symptom.
+
+### Context
+- Goal: Windows `seq` throughput through the in-process ConDrv server, with a message thread that never chokes.
+- The sprint moved the console server onto its own `jam::AsyncUpdater` context. Client writes complete when the payload is in the `sequence` ring.
+- ARCHITECT's Step 9 test result: *"current state still slow, active prompt still prints before the whole seq finished arrived at history"*, and *"it didnt give significant differences in user experience"*.
+- ARCHITECT then ordered the undo document, the doxygen fix, and this handoff.
+
+### Completed
+- Steps 0-8 of the PLAN are done. Step 9 ran by ARCHITECT, with the result above.
+- Measurement, 10k, rev 3, 19:37: epoch 2.226 s (`benchmark/seq-10k-windows-server-time-report.md:10`). Before the sprint, 17:20: 6.62 s.
+- The benchmark runs `zsh -c "/usr/bin/seq 1 10000"` (`benchmark/seq-10k-windows-server-time.md:24`). Its epoch also holds `standalone initialise` 0.612 s (`report:90`) and `standalone shutdown` 0.255 s (`report:120`). No run measured an interactive `seq 1 1000000`.
+- Prompt symptom, read: the live block and the history blocks are separate jobs.
+  - `TerminalSwap::setLiveLines` writes one latest-wins slot (`jam_TerminalSwap.cpp:50-71`).
+  - `writeFromTerminalBuffer` writes history lines (`:78-109`).
+  - `TextEditor::applyJobs` applies a finished `LiveJob` without regard to `HistoryJob` (`jam_TextEditor.cpp:1519-1529`).
+  - The sprint did not change these files.
+- Doxygen: the `present` block of `jam_VulkanComposition_windows.h:43-56` is rewritten to the code. It documents `fenceValue`, and the stale host-wait text is gone (`jam_VulkanComposition_windows.cpp:99`, `jam_VulkanGraphics.cpp:490-495`, `:530`). JAM doxygen regenerated with exit 0 and no warnings. After that run, COUNSELOR changed "current back buffer" to "buffer 0", per `GetBuffer (0, …)` at `.cpp:102`.
+- Undo document written: PLAN section "Undo", steps U5 to U1.
+
+### Remaining
+1. COUNSELOR: on ARCHITECT's go, delegate the undo to @Engineer in the order U5, U4, U3, U2, U1. Paste each U step verbatim into its prompt.
+2. COUNSELOR: after each U step, build with the scout toolchain rows: `scout D:/Poems/dev/eve/benchmark/seq-10k-windows-server-time.md`.
+3. COUNSELOR: after the undo, regenerate the JAM doxygen and fix each block that names a deleted member.
+4. Not verified: audit Bug 4 (a stall after a partial accept). The undo removes the code it covers.
+5. Not measured: the cause of "still slow" in an interactive `seq 1 1000000`. A scout manifest for that run does not exist.
+6. Not verified: the cause of the prompt before the history. The lane read above is a read, not a run.
+
+### Key Decisions
+- *"0 rules. non-negotiable. NO COPY, NO ALLOC, NO TEMP CONTAINERS, NO SHADOW STATE, only exception copy is cross thread."*
+- *"message thread could lock, async, even spawn parallel job. but MUST NEVER BLOCKED, CHOKED, NEVER"*
+- *"use CriticalSection or MessageManagerLock NEVER HANDROLL"*
+- *"jam always priority over juce"*
+- *"CONTRACT: - juce::Value ALWAYS message thread only - other thread use atomic for the exact parameter."*
+- *"NO SIDECAR. NEVER FUCKING SUGGEST CONTRACT VIOLATION."*
+- *"DONT FUCKING USE NUMBERS AS CONSTRAINTS"*
+- *"TextEditor contract should NOT be changed."*
+- *"this is not rendering problem, this is traffic problem."*
+- *"the crossplatform layers must holds as is"*
+- *"always read the contract before you even asked"*
+- *"documents comprehensively how to undo the whole circus of dedicated thread, because it didnt give significant differences in user experience"*
+
+### Files Modified
+- `D:\Poems\dev\jam\jam_terminal\processor\jam_TerminalFIFO.h` — `writeFromDevice` is public (Step 1).
+- `D:\Poems\dev\jam\jam_terminal\tty\native\jam_TerminalConsole_windows.{h,cpp}` — private `AsyncUpdater` base, `handleAsyncUpdate`, `isServerOpen`, `numInterrupts`, writes complete into the ring, doxygen (Steps 2-5, 8).
+- `D:\Poems\dev\jam\jam_terminal\tty\native\jam_TerminalConsoleOutput_windows.{h,cpp}` — `TerminalFIFO sequence`, `read` copies published bytes, doxygen (Steps 3, 4, 8).
+- `D:\Poems\dev\jam\jam_terminal\tty\native\jam_TerminalConsoleInput_windows.{h,cpp}` — `clientQueue`, `addClientInput`, `writeComplete`, `echoOffset`, `applyEcho`, one-ring `applyBytes`, doxygen (Steps 5, 8).
+- `D:\Poems\dev\jam\jam_core\document\jam_Document.h` — doxygen of the move constructor and `operator=` (Step 8). The move fix in `jam_Document.cpp:260-279` came before the sprint. Keep it.
+- `D:\Poems\dev\jam\jam_vulkan\context\native\jam_VulkanComposition_windows.h` — `present` doxygen.
+- `D:\Poems\dev\eve\PLAN-windows-console-throughput.md` — Step 5 revisions, tables, and the Undo section.
+
+### Open Questions
+- Whether to run the undo: ARCHITECT decides.
+- What to measure next for "still slow" and for the prompt before the history: ARCHITECT decides.
+
+### Next Steps
+- Start at Remaining 1 when ARCHITECT says go on the undo.
+
+## Sprint: EVE on Windows at Native Parity — Shell Stdio Is the Pseudoconsole, the Clear Covers the Clip, the TTY Read Takes Every Ready Byte, the Host Is the Sole Author of State and Size ✅
+
+**Date:** 2026-11-15 to 2026-11-16
+**Duration:** one session. Start 2026-11-15T00:40Z (transcript line 7). The end time is not recorded.
+**Scope (ARCHITECT):** the objectives in order: *"fix eve first, fix the rendering"*; *"eve standalone close must also instant and CLEAN"*; then END. Rulings: *"no fucking new semantics. no new pattern. no fucking plugin state poking layer bullshit. no manual state management. no hack. no workaround. no patch. no fixing symptoms. no handroll anything. make NO FUCKING MISTAKE. OBEY THE PROTOCOL. DESIGN BY CONTRACT"*; *"rendering is one SSOT always, divergence only at native OS"*; *"deep dive research and proof runtime, no understanding gaps should be filled in with inference"*; *"fix it. design by contract"*; *"this sprint only covers eve side, we still have debt for END side for next sprint"*; *"what i mean by EVE side including JAM"*. Plans: `PLAN-eve-plugin-contract.md`, `PLAN-windows-native-parity.md`.
+
+### Agents Participated
+- COUNSELOR — the reads; the ODE log reads and the log-point iterations; the validation of every edit; the filter of 18 audit findings; the SPEC and `parameters.md` amendments; this log.
+- Engineer (sonnet) — the plan steps; the ODE instrumentation and its removal; the Windows TTY read fix; the audit fixes; the END debt entry.
+- Pathfinder (haiku) — discovery; git evidence; the ConPTY version and VtIo history reads; the zsh startup chain and the highlighter source; the doxygen pass (23 blocks).
+- Librarian (haiku) — the msys2-runtime 3.6.12 console write path.
+- Auditor (opus) — one run over EVE `cfe8b34`..working tree and JAM `e27ebb084`..working tree, 18 findings.
+
+### Files Modified
+- `eve/Source/EVEProcessor.cpp` — `getStateInformation` writes the model less the rows that `parameters.md` marks `runtime` (`hasTableValue`, row key `row->id`) and less `gridStarts`; `setStateInformation` has one path; a `winsize` change calls `terminalProcessor.prepare()`; the `width`/`height` defaults come from `jam::ViewManager::getUISize<jam::MarkdownDocument>`.
+- `eve/Source/EVETerminalProcessor.{h,cpp}` — `restart` and `winsizeAttachment` deleted; `prepare()` is stop, open, start; `releaseResources` also closes the TTY; `clearHistory` ends with `prepare()` (plan Step 1); `prepare (winsize, …)` passes `events` to the decoder reset and ends with `flush()` under the message-manager lock (`jam_Model.h:15`); `applySidecar` writes only when the file is absent (ARCHITECT: *"only write to disk when not exist"*).
+- `eve/Source/EVEView.cpp:102-111` — `resizeEnd` writes `width` and `height` with no host-type branch, the principle of commit `0ea0fb4` (ARCHITECT: *"already deterministically solved in the past commit. probably wrong implementation but the principle HOLDS"*).
+- `eve/Source/EVEStandaloneApp.cpp` — the editor is asserted at construction; the destructor, `resizeStart` and `resizeEnd` have no guard (`EVEView.cpp:14` sets the constrainer). `focusGained` keeps its guard: `clearContentComponent` (`:19`) moves the focus to the window while EVEView is destroyed, and `getEditor()` then returns nullptr.
+- `jam/user-modules-info.md:270` — the `jam_core` row for `debug/jam_Log.cpp`; configure generates the include block of `jam_core.cpp` from it.
+- `eve/Source/layout/parameters.md`, `eve/cast/identifiers.md`, `eve/Source/generated/Identifiers.*` — the `runtime` column and id (ARCHITECT: *"Filter at save"*, *"Column in ## model"*, *"runtime"*); the `width`/`height` descriptions.
+- `eve/SPEC.md` — Resize item 6, Tree, the clock-start rule.
+- `eve/.gitignore` — `*.ode`. `eve/EVE Standalone mac.ode` deleted (committed in `1be7133`).
+- `eve/benchmark/typing-windows.{md,sh}` and the scout reports.
+- `jam/jam_terminal/tty/native/jam_TerminalTTY_windows.{h,cpp}` — `STARTF_USESTDHANDLES` in `spawnProcess` (Microsoft Terminal `ConptyConnection.cpp:34-36`); `read` copies every ready view until none is ready or `buf` is full (owner contract `jam_TerminalTTY.h:116-125`).
+- `jam/jam_vulkan/engine/jam_VulkanGraphicsEngine.{h,cpp}` — the Windows clear is `dirtyBounds` × `scaleFactor`, the rect of the clip, as on macOS; the unused `physicalWidth`/`physicalHeight` removed.
+- `jam/jam_core/native/jam_AsyncOutputStream{.h,_windows.cpp}` — no `ConnectNamedPipe` (ARCHITECT: *"Stream reads only"*); the overlapped is reset after a failed `ReadFile`, so EOF is reported.
+- `jam/jam_terminal/processor/jam_TerminalProcessor.{h,cpp}` — `reset` takes `events` and ends with `applyEvents`.
+- `jam/jam_core/debug/jam_Log.{h,cpp}`, `jam/jam_core/jam_core.cpp:8` — `write` stamps each line with the millisecond time and the thread id (ARCHITECT chose *"write stamps every line"*); the non-template bodies moved to the new `jam_Log.cpp`.
+- Doxygen pass: `EVEProcessor.h`, `EVETerminalProcessor.h`, `EVEView.h`, `jam_TerminalProcessor.h`, `jam_TerminalTTY_windows.h`, `jam_AsyncOutputStream.h`, `jam_Log.h`, `jam_VulkanGraphicsEngine.{h,cpp}`, `jam_CpuLowLevelGraphicsContext.h`.
+
+### Alignment Check
+- [x] BLESSED principles followed — divergence only in the Windows native files; one read contract for both platforms; one setup-change path.
+- [x] NAMES.md adhered — the one new term is `runtime`, ratified by ARCHITECT.
+- [x] MANIFESTO.md principles applied.
+- [ ] Not built after the audit fixes and the `jam_Log` split. ARCHITECT's last build tested the TTY read fix: *"fixed."*
+- [ ] Zero doxygen warnings unconfirmed; no index was regenerated.
+
+### Problems Solved
+- **Shell output never reached the decoder.** `spawnProcess` set no `STARTF_USESTDHANDLES`, so zsh kept EVE's stdout.
+- **Caret trail.** The Windows clear was scaled by `logicalScaleY` (0.8005) and the clip by `scaleFactor` (1.25); rows 46 and 67 kept the old caret.
+- **Typing twitch, proven by the ODE log.** `ready 1 53`: EVE read the BS alone, published the partial frame, and the clock waited 18.9 ms while 53 bytes sat in the pipe. msys2 writes each escape sequence in its own `WriteConsoleW` (`console.cc:3956-3961`, `:182-186`); OpenConsole flushes once per call (`VtIo.cpp:458-469`, identical in 1.25 and HEAD); the macOS log shows one chunk per key. The Windows read now drains every ready view. ARCHITECT reported *"fixed."* on a Debug build that still held the ODE log points. After their removal ARCHITECT reported *"twitchy visual bug resurface"*. The read fix covers only bytes already in the pipe; a key whose first piece completes the read alone (`ready 1 0`) still publishes a partial frame and then waits one clock period. NOT SOLVED.
+- **Measured outside EVE and JAM.** JAM's input `WriteFile` completes at once (`write 1 1 1 true`). The ~30 ms before a highlighted redraw is inside msys zsh with `zsh-syntax-highlighting` 0.8.1-dev (`C:\Users\jreng\.zshrc:110`), which forks `builtin type -w` per key for an unknown word (`main-highlighter.zsh:209-214`). A plain echo takes 2-5 ms; macOS takes 1-6 ms for the same bytes.
+- **Audit, resolved:** F2, F4, F6, F7, F11, F13, F14, F15, F16. **Rejected with the read:** F1 and F8 (ARCHITECT rulings), F3 (`jam_TerminalProcessor.cpp:88`, `:94` republish each tick), F5 (`jam_TextEditor.cpp:1378` writes the tree; `Model::flush` writes only stored values), F9 (permitted copy 2: the OVERLAPPED buffer stays in kernel use), F10 (no host path read), F12 (clear and clip share the context scale), F17 (measurement evidence; scout output), F18 (two copies, not more than twice). Doxygen-pass findings rejected: reference members (the clause names pointers), the repeated gate write (no clause).
+- **Mistakes owned.** I added a second `Log::Scope` beside `EVEProcessor.h:108`. I said the bytes enter the pipe 20 ms apart; the log point was at the read, and I withdrew it. I said the input delay was outside EVE before the write log point existed; I withdrew it and then proved it. I wrote "not EVE's code" for JAM-owned behaviour. **Failures after the audit:** (1) I accepted audit F13 and removed the `focusGained` guard; standalone exit crashed at `EVEStandaloneApp.cpp:27` (null editor during `clearContentComponent`). The guard is restored. (2) I put the `jam_Log.cpp` include into the generated block of `jam_core.cpp` by hand; configure dropped it and the link failed. The row is now in `user-modules-info.md`. (3) I logged the twitch as fixed from a run with the ODE log points still active, after I had stated that `ready 1 0` keys are not covered. The twitch is back. (4) I asked ARCHITECT two F11 questions that the past commit `0ea0fb4` answered.
+
+### State for Continuation
+- Build EVE Debug and Release with `cast`. Check first at compile: the `jam_Log.h`/`jam_Log.cpp` split (`jam_core.cpp:8`); `EVEProcessor.cpp:27` (`getUISize<jam::MarkdownDocument>` with a structured binding); `EVEProcessor.cpp:180-181` (`row->id`).
+- Runtime checks: standalone exit no longer crashes (`EVEStandaloneApp.cpp:26-27`); a standalone resize survives a relaunch (`EVEView.cpp:102-111`); `clearHistory`; close is instant and clean.
+- OPEN: the typing twitch on Windows. Measure, without file I/O on the reader thread, the time from the first ConPTY piece of a key to the last; the cause is the publish of the first piece followed by `clock.wait()` (`jam_TerminalTTY_windows.cpp:667-672`).
+- Nothing from this sprint is committed (ARCHITECT: *"nothing is committed."*); `git status` lists both trees.
+- Processes left from the killed debugger runs (OpenConsole 19712, 15440; zsh 8484, 22848, 3456): why a ConPTY child outlives a killed EVE is not read.
+- Run `<leader>bd` in jam and `ninja doxygen` in eve; confirm zero warnings. JUCE's handling of a nullptr from `externalContextFactory` is not read; the `createContext` doc no longer claims it.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261115T221459` — END: load and close of each EVE instance, and focus and keyboard on Windows (ARCHITECT: *"we still have debt for END side for next sprint"*).
+- `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
+
+---
+
 ## Sprint: Build Against the jam Document Contract ✅
 
 **Date:** 2026-11-14
@@ -232,177 +429,8 @@
 
 ---
 
-## Sprint: Invalid Config Never Stops the Plugin — Validator Covers the Style Path, Failed Loads Reach the Overlay, Pane Is the Sole Size Author, MoltenVK False Trigger Removed ✅
 
-**Date:** 2026-11-10
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"i told you invalid config must never failed, but showing error. no fucking garbage assert. this is unacceptable"*; *"fix it first"* (the `[recovery]` messages); *"[1] and [2] are same defects. you fix the cause, the design, the race, you'll fix both. DESIGN BY CONTRACT."*; *"jam_Resizer.h is DEAD. should be deleted."*; *"Function::Map defer, wrap this sprint first"*.
 
-### Agents Participated
-- COUNSELOR — the reads of the config, style, VST2 and size paths; the filter of 15 audit findings; direct edits of `Session.cpp`, `Session.h`, `jam_VulkanDevice.cpp`, the `description` skip, `EditorView.cpp`, `EVEView.{h,cpp}`, `SPEC.md`; this log.
-- Engineer (sonnet) — the Validator rules and two correction rounds; the deletion of `jam_Resizer.h`.
-- Auditor (opus) — one run on the invalid-config fix, 15 findings.
-- Pathfinder (haiku) — the `Function::Map` inventory; the doxygen pass over `jam_ConfigValidator.h`, `jam_Model.h`, `Session.h`.
-
-### Files Modified
-- `jam/jam_markdown/document/jam_ConfigValidator.{h,cpp}` — `metrics`, `fonts`, `window` rules (`getMetricsFailures`, `getFontFailures`, `getStyleTextFailures`, the last skips `description`); `getValueFailures` requires a value for number and boolean types; `getKeyFailures` rejects a key with no row key; `getSetText` for the repeated set text.
-- `jam/jam_plugin_bootstrap/layout/jam_PluginEditorLayout.cpp` — `getSourceFailures` (embedded file with a font extension) is in the settings and the theme rules; `getSettingsTree` adds the children a table gained on disk.
-- `jam/jam_data_structures/model/jam_Model.{h,cpp}` — `Model::addChildrenFrom`, because `setValuesFrom` skips a child with no match.
-- `jam/jam_vulkan/device/jam_VulkanDevice.cpp` — only a MoltenVK message that holds `MTLCommandBuffer` requests recovery. A later edit by another agent removed the `[recovery]` log line from this block.
-- `jam/jam_core/buffer/jam_Resizer.h` — deleted; include and module row removed.
-- `end/Source/plugins/Session.{h,cpp}` — the two asserts on external load results are removed; a failed scan or a null instance writes the overlay message.
-- `end/Source/config/ConfigTheme.cpp` — `addChildrenFrom` after `setValuesFrom`.
-- `end/Source/ui/EditorView.cpp:240` — `resized()` before `createProcessorEditor()`, so the rows hold the pane size when the plugin editor is built.
-- `eve/Source/EVEView.{h,cpp}` — `resizeEnd` does not write `width` and `height` under END.
-- `eve/SPEC.md` — Resize item 6.
-
-### Alignment Check
-- [x] BLESSED principles followed — validation stays in the Validator; size flows one way from the pane.
-- [x] NAMES.md adhered — new names join the `get…Failures` family; `addChildrenFrom` joins `setValuesFrom`.
-- [x] MANIFESTO.md principles applied.
-- [x] No change to `jam_StyleManager`, KANJUT or JFS; no version bump. `jam_vulkan` was touched only on ARCHITECT's *"fix it first"*.
-- [ ] Zero doxygen warnings unconfirmed; no index was regenerated by an agent.
-
-### Problems Solved
-- **A stale config killed the load.** The `EVEProcessor` constructor reads the disk theme. A throw reached `catch (...)` in JUCE (`juce_VSTPluginFormatImpl.h:2167`), and END received a null instance. The exact row is unrecoverable, because the file was deleted. The rules now reject every input the Auditor traced to a throw or a null read.
-- **New faces on disk were dropped.** An alias to a new face would throw in `StyleManager::getFont`. `addChildrenFrom` carries the face.
-- **Every MoltenVK message requested recovery**, and each burst marked the glyph atlas and the texture cache dirty. The `primitive restart` warning no longer does.
-- **EVE drew at 800×600 in a larger pane, and OMP wrapped.** EVE was built at the default rows and corrected later, and it wrote its own size back to the rows it follows. ARCHITECT reports no issue so far on pressure run, size and wrap.
-- **Audit:** 1–8, 10, 12, 15 resolved. Rejected with the read: 9 (EVE's default differs from END's theme, `jam_PluginEditorLayout.cpp:116`), 11 (one `Session` creation, no erase found in `end/Source`), 13 (MANIFESTO S: more than twice), 14 (no clause).
-- **Mistakes owned.** I handed ARCHITECT "delete once" for a stale file instead of making the loader safe. My first table cited `jam_Css.cpp:2068`; the throw is at `:301`. My `window` rule scanned `description` and rejected a valid default file. I edited a `Session.h` comment before the audit.
-
-### State for Continuation
-- Corrupt `theme.md` run not reported: check defaults render and the overlay shows the error.
-- `<leader>bd` in jam, `ninja doxygen` in eve and end; confirm zero warnings.
-- `jam/PLAN-gpu-memory-failure-recovery.md:139-142` still says any MoltenVK id triggers recovery; the code at `jam_VulkanDevice.cpp:408-413` narrows it. Confirm a real failure carries `MTLCommandBuffer`; the text comes from that plan's `:41`, and no MoltenVK source was read.
-- `eve/Source/layout/parameters.md:73`, `:75` do not state the END exception.
-- Real `get`/`add` mismatches, not fixed: `ggwp/Source/Artwork.cpp:68`; endless `TTY.cpp:64`, `Processor.cpp:432`, `VideoDCS.cpp:94`, `:117`, `VideoOSCExt.cpp:111`, `VideoOSC.cpp:218`.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `Function::Map` replacement (no ledger id; ARCHITECT: *"Function::Map defer"*). Agreed shape, not implemented: variadic signatures with overload selection, an explicit size per map over `juce::FixedSizeFunction`, `Function::Array` deleted, `ViewManager::Events` a variadic map keyed by `juce::Identifier` (ARCHITECT: *"prefer the latter"*).
-- `DEBT-20261108T145906` — Ctrl+L destroys the Claude Code prompt on the normal screen (unchanged).
-- `DEBT-20261105T000000` — Windows runtime test (unchanged).
-
----
-
-## Sprint: The Theme File Is the Style Sheet in Markdown — One Mirror per CSS Block, CssWriter Feeds the CSS Parse, Fixed-Signature Function::Map ✅
-
-**Date:** 2026-11-09 to 2026-11-10
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"theme.md user should not care about hierarchy. fonts is fonts, colours is colours, metrics is metrics."*; *"there should be only ONE metrics table"*; *"DESIGN BY CONTRACT UNIVERSAL and GENERIC. no harcoding of assumptions, that only works for this pattern. must be ABSTRACTION"*; *"what is tree with key? what the fuck is this new bullshit foreign"*; *"dont fix the symptoms. wrong name means wrong mental model ... fix the cause, fix the design"*; *"if ConfigDocument need to be rewritten from scratch as SettingsDocument to be BLESSED compliant, FIX IT NOW. no more hack and patch, no hardcoding, no workaround"*. The plan was approved through plan mode. During the run: *"if all args are always juce::ValueTree&, why not define it as jam::Function::Map<juce::Identifier, juce::ValueTree&> events; ? then add could be auto deduce?"* (option "Events: fixed-signature map" chosen); *"can we add to CODING, template with erased type such as <..., void> only allowed for different return args?"*.
-
-### Agents Participated
-- COUNSELOR — the reads of ConfigDocument, the Validator, CssDocument, StyleManager, the END and EVE theme lanes, `jam::Function` and `juce::FixedSizeFunction`; the plan copy; SPEC, ARCHITECTURE and CODING edits; the `getThemeTree` signature fix; the `user-modules-info.md` rows; the filter of 28 audit findings and the doxygen findings; this log.
-- Pathfinder (haiku) — the rewrite inventory; the doxygen pass over eight headers; two `Function::Map` census runs (END with JAM, JFS with KANJUT; still running at this log).
-- Engineer (sonnet) — Steps 1–4, Step 5, Step 6, the lossless-mirror batch, audit fixes A (stopped by the watchdog at 15 minutes and resumed) and B, the final two fixes, the `Function::Map` specialization and its callers, the DRY and header-body fixes.
-- Auditor (opus) — one run, 28 findings, 5 blocking.
-
-### Files Modified
-- `jam/jam_markdown/document/jam_ConfigDocument.{h,cpp}` — the sheet emit and the sheet parse are deleted (`getSheetType`, `getPropertyKey`, `getComponentWords`, `addSubTable`, `###` tables, COMPONENT, lexicon guessing, `getColourValue`, the `em` UNIT child, the colour type guess). `toDocument (const CssDocument&)` writes one table per section: `colours` (palette + colour-id rows), `fonts` (face rows + font-id rows, attributes from the fonts section on the first face), `metrics`, `window`, one per class; record columns (`dark`, …) come from the section's record children. `getAliasKey` is the one lexicon rule for the writer and the Validator. `getRowKey` is public; `isRowType` is new. `toDocument (const juce::ValueTree&)` stays for `jam_Profiler.cpp:172`.
-- `jam/jam_markdown/document/jam_CssWriter.{h,cpp}` (new) — `CssWriter : Document::Writer` writes the css text of a theme document. `CssDocument::parse` of that text builds the sections, so the css document is the only builder of its sections.
-- `jam/jam_markdown/document/jam_ConfigValidator.{h,cpp}` — the `alias` rule (key from `getAliasKey`; each value or record cell names a colour row or a face row); `row` split into `row`, `row.key`, `row.numbers`, `row.value`, `row.src`, `row.type` (type change against the default row); palette, face and alias rows need no default row; a `colour` cell is hex in every table; named boolean terms.
-- `jam/jam_markdown/jam_markdown.{h,cpp}`, `jam/user-modules-info.md` — the CssWriter submodule rows and includes.
-- `jam/jam_web/css/jam_Css.{h,cpp}` — the COMPONENT section is deleted; face records are typed `Format::toType` of the family (the `addWidgets` form); `getSheetType (styleSheet)` is new.
-- `jam/jam_core/function_map/jam_Function.h` — partial specialization `Map<KeyType, ReturnType (Args...)>` over `jam::HashMap<KeyType, std::function<ReturnType (Args...)>>`: `add (key, fn)` with no template argument, `get` with no `dynamic_cast`, `contains`.
-- `jam/jam_plugin_bootstrap/layout/jam_PluginEditorLayout.{h,cpp}` — `getStyleTree`, `getThemeTree (defaultDocument)`, `getSettingsTree (…, getTree)`; `getThemeSettings` writes `toDocument` of the style sheet that `StyleManager::getStyleSheet()` names (`std::find_if`, no sentinel); under END only `getThemeRules()` apply; the theme default parses with origin `files::theme`.
-- `end/Source/config/ConfigTheme.cpp`, `ConfigDirectory.{h,cpp}`, `ConfigModel.{h,cpp}` — `addFileTables` and `addDefaultTables` take `getDefaultDocument` and `getTree`; `getStyleTree` is `CssDocument::parse (CssWriter {}.getText (document)).getValueTree (THEMES, sheet type)`; `getDefaultText` (no memo); `getConfigTree`, `getDefaultDocument`; `saveToPath` body in the `.cpp`.
-- `end/Source/config/display.md` — `## tab` and `## pane` moved here from `theme.md`. `end/Source/config/theme/gfx/theme.md` — front matter only.
-- `end/Source/Main.{h,cpp}`, `lookAndFeel/ENDLookAndFeel.{h,cpp}`, `ui/ENDView.{h,cpp}`, `ui/EditorView.{h,cpp}` — events maps are `jam::Function::Map<juce::Identifier, void (juce::ValueTree&)>`; `add` has no template argument.
-- `end/SPEC.md` (Theme style, Theme on disk, Theme load, Pane padding), `end/ARCHITECTURE.md` (Config Chain), `end/PLAN-style-driven-theme.md` (the locked plan with Execution facts).
-- `~/.carol/CODING.md` — CRITICAL RULES and checklist: "Uniform signature in the type".
-- Doxygen pass over the eight headers above.
-
-### Alignment Check
-- [x] BLESSED principles followed — one Model (`CssDocument`), two serializations; the owner builds its sections; no tier is derived in ConfigDocument.
-- [x] NAMES.md adhered — `CssWriter` joins `MarkdownWriter`; `getAliasKey`, `getSheetType`, `getStyleTree`, `getThemeTree`, `isRowType` join their families; the `Map` specialization adds no name.
-- [x] MANIFESTO.md principles applied.
-- [x] No file under `jam_vulkan`; no change to `jam_StyleManager`, KANJUT or JFS; no version bump.
-- [ ] Not built. No agent ran `cast` or a build.
-- [ ] Zero doxygen warnings unconfirmed; no index was regenerated.
-
-### Problems Solved
-- **The tiers were guessed back.** The emit started from the collapsed `getValueTree` tree and rebuilt the css tiers with predicates, COMPONENT and `###` tables. Now the markdown is written from the sections and read back through the css parse.
-- **Two metrics tables, sheet hierarchy on disk.** `theme.md` has `## colours`, `## fonts`, one `## metrics`, `## window` and one table per class, with plain words.
-- **The reader mutated a finished `CssDocument` from outside its owner** (Auditor 5). `CssWriter` + `CssDocument::parse` replaced it.
-- **EVE inside END rejected END's theme** (Auditor 1): the reference rule compared END's palette with EVE's. Under END only the theme rules apply.
-- **Audit, resolved:** 1–12, 15 (record columns), 16, 17, 19–23, 25–27. **Rejected with the read:** 13 (a pair of handles, MANIFESTO "A scalar, a handle ... does not copy"), 14 (`style.md:114` has no `colour id` suffix), 15 rest (YAGNI; `toType` tree identity, `jam_Css.cpp:2183`; plan excludes page/element), 18 and 28 (work buffers in creation), 24 (ConfigDocument is one object after the reader moved; CODING "Never make a small .cpp to meet 300/30/3").
-- **Doxygen pass findings:** DRY `isRowType` and the header body of `saveToPath` resolved; the `atRuleTypes` instance, the `add` container parameters (NAMES Rule 1 `addToken` example), a bare line count and a two-copy list rejected.
-- **Mistakes owned.** I briefed `getThemeTree()` with no parameter, so it parsed the defaults twice; I fixed the signature. I called the type-erased `Function::Map` a breach of fail-fast; ARCHITECT corrected it: the `dynamic_cast` assert is deterministic. I copied the `add<…>` family shape into my own briefs without testing it against BLESSED.
-
-### State for Continuation
-- ARCHITECT runs `cast` in jam, eve and end, builds all three, and deletes `~/.config/dev/themes/gfx/theme.md` once (same version, never overwritten).
-- Check first at compile: `jam::HashMap::insert ({ key, std::function })` in the `Map` specialization (`jam_Function.h:347-373`); the `getThemeTree (defaultDocument)` declaration (`jam_PluginEditorLayout.h`).
-- Runtime: a fresh `theme.md` (tables above); a palette colour, a colour id, a face height and a metric edited live; a corrupt row renders defaults with the error; hosted EVE under END with END's colours; Markdown and Mermaid colours and fonts; dark appearance.
-- Run `<leader>bd` in jam and `ninja doxygen` in eve and end; confirm zero warnings.
-- The `Function::Map` census (END with JAM, JFS with KANJUT) is running. Its result decides whether uniform maps store `juce::FixedSizeFunction<N, R (Args...)>` (`juce_FixedSizeFunction.h:96-101`, no allocation) and the buffer size `N`.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261108T145906` — Ctrl+L destroys the Claude Code prompt on the normal screen (unchanged).
-- `DEBT-20261105T000000` — Windows runtime test (unchanged).
-
----
-
-## Sprint: END Theme on the Style Contract — style.css Is the One Source of Fonts, Colours and Metrics, the Markdown Emit Is the Inverse of the Parse, Style Reads the Disk Tree ✅
-
-**Date:** 2026-11-09
-**Duration:** one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"previous sprint counselor tried to fix theme.md config contract because it was messy"*; *"it's either we fix this mess, or we could start from HEAD"*; the config contract: *"ConfigDocument should not doing any garbage defensive programming with bullshit jassert"*, *"error should never be failure. carried binary always provide the default fallback. validation is always Document::Validator job"*, *"binary write to virgin state to disk, disk always win."*, *"if disk was invalid, rendering never fails ... BUT Validator must show error."*; the css contract: *"css contract: ALL RELATED STYLE SSOT - fonts - colour - metrics"*, *"StyleManager build the map - StyleCustom consume downstream, style related `config` always through Style, never by poking config directly."*, *"config - file watcher listener events - style changed - component repaint"*; the format contract: *"md must be using plain words without any redudancy of `colour id`, `font id`"*, *"the contract is at CALLEE. starts from SSOT cast table manifest ... the problem is INCONSISTENCY"*; *"why both options are garbage? why there are shadow state?"*; *"there are other agents working on Vulkan at jam ... be VERY CAREFUL"*. The plan was approved through plan mode.
-
-### Agents Participated
-- COUNSELOR — the reads of StyleManager (jam and KANJUT), the theme lane, ConfigDocument and Css; the plan; Step 1 and Step 8 edits; every read-back; the filter of 49 audit findings; this log.
-- Pathfinder (haiku) — tree state and diffs of eight repos, StyleManager history, plans and logs, HEAD `theme.md`, two inventories, the removed emit code, the doxygen pass.
-- Engineer (sonnet) — the emit inverse and the `getOrCreate` overload; the style data, ConfigTheme and consumers; the audit fixes; the plan copy.
-- Auditor (opus) — one run stopped by the watchdog at 15 minutes (one run held six traces), then two partitions, 21 and 28 findings.
-
-### Files Modified
-- `jam/jam_markdown/document/jam_ConfigDocument.{h,cpp}` — no `jassert`. The emit is the parse's inverse again: `getKeyWords` drops the component words and the id suffix, `getCellText` writes an alias in words, `addSheetTables` writes `### colours`, one table per component, `### fonts`, `### appearance` and `### metrics` under one `##` sheet; a table with child rows writes its properties as `### metrics`. `hasIdEntry` knows an id key by lexicon membership, because `text button text colour off id` (`cast/style.md:114`) does not end with `colour id`. An empty dark cell parses as the light value. `getOrCreate (name, text)` memoizes a document parsed from given text. Doxygen synced.
-- `jam/jam_markdown/document/jam_ConfigValidator.cpp:231-237` — a font `src` that names no default file is a validation failure (`failUnknownReference`), so a bad disk file never reaches `StyleManager::getOrCreateTypeface`.
-- `jam/jam_style/jam_StyleCustom.{h,cpp}` — `getDefaultScrollbarWidth` has no `isEND()` branch; the `scrollBarThickness` metric of the style sheet is the one path.
-- `jam/jam_web/css/jam_Css.{h,cpp}` — the comma-list attribute and `getStyleAttributeType` are deleted.
-- `end/Source/config/theme/gfx/style.css` (was `gfx.css`) — the three faces whose file END does not ship are deleted (`symbols`, `--notoSymbols`, `--notoEmoji`: the crash at `jam_StyleManager.cpp:105-107`); `.window` (`blur`, `mac`, `win`); `--ResizableWindow--backgroundColourId`; tab and pane metrics; `tab` and `overlay` faces. The file name makes the sheet `STYLE`, the sheet hosted EVE reads.
-- `end/Source/config/theme/gfx/theme.md` — only rows that are not a font, colour or metric: `## tab` (`position`, `always visible`, `uppercase`), `## pane` (`split line`).
-- `end/Source/config/ConfigTheme.{h,cpp}` — `getOrCreateDefaultText`: carried `theme.md`, a newline, then the markdown built from `style.css`, once per file name (the canon form `kuassa_PluginEditorLayout.cpp:601-603`); the virgin write uses it.
-- `end/Source/lookAndFeel/ENDLookAndFeel.{h,cpp}` — StyleManager is created over the THEMES tree; the `theme` event runs `registerStyle`, `applyColours`, `applyFontStyles`, `loadGraphics`; fonts, metrics, window and colours read through StyleManager; the per-table events and the menu opacity read are deleted. Doxygen synced.
-- `end/Source/Main.{h,cpp}` — `initialiseStyle` is the one init call. Doxygen synced.
-- `end/cast/files.md`, `end/cast/identifiers.md` — `style.css`; eight metric ids added, seven ids with no reader deleted.
-- `end/SPEC.md:164-`, `end/ARCHITECTURE.md` (engine lifecycle, thread table, config chain), `end/PLAN-style-driven-theme.md` (replaced by the locked plan).
-
-### Alignment Check
-- [x] BLESSED principles followed — one source per row, one runtime tree, one flow for init and reload.
-- [x] NAMES.md adhered — `hasIdEntry` joins `isIdEntry`, `getOrCreateDefaultText` joins `getOrCreate`, the metric ids join `scrollBarThickness`.
-- [x] MANIFESTO.md principles applied.
-- [x] No file under `jam_vulkan` and no change to `jam_StyleManager`.
-- [ ] Not built. No agent ran `cast` or a build.
-- [ ] Zero doxygen warnings unconfirmed; the jam XML still names `getStyleAttributeType`.
-
-### Problems Solved
-- **Two truths for the theme.** Embolden and scrollbar thickness lived in `theme.md` and in `gfx.css`; StyleManager held a css-only tree beside the config tree. Now `style.css` holds every font, colour and metric, the disk file is built from it, and StyleManager registers the one THEMES tree on every change.
-- **SCREAMING values and `colour id` keys on disk.** The css parse stores a reference as a tag (`jam_Css.cpp:411-412`) and the emit wrote it raw; the previous sprint had deleted the emit's suffix strip. The emit and the parse are inverses again, at the callee.
-- **No colours a user can override.** The previous sprint's hand-written `theme.md` had no colour table. The built file has the palette and every component table.
-- **Audit, resolved:** A-F1, A-F2 (lexicon membership), A-F10 (dark column), B-1 (font file validation), B-3 (empty dark cell), B-5 (default text per name), B-11 (one init flow).
-- **Audit, rejected with the read:** B-6 — `Main.cpp:61-65` cascades on `Id::theme`, after the LookAndFeel listener (`juce_ListenerList.h:403-413`). B-12 — `setAppearance` changes the laf colours, not `colourScheme`, which `loadGraphics` reads (`ENDLookAndFeel.cpp:500`). A-F8 — every StyleManager lookup applies `Format::toType` (`jam_StyleManager.cpp:83`, `jam_StyleManager.h:195`), so the key case of the css tree and the disk tree meet.
-- **Mistakes owned.** I first reported a StyleManager contract change, then corrected it: the KANJUT differences came from the locked isomorphism plan. I offered a HEAD-or-fix disposition and a row-source question that the contract answered. My first plan kept hand-authored style rows in `theme.md`.
-
-### State for Continuation
-- ARCHITECT runs `cast` in jam, eve and end, builds all three, and deletes `~/.config/dev/themes/gfx/theme.md` once (same `version: 0.0.1`, never overwritten).
-- Runtime checks: a fresh `theme.md` with `## style` and its `###` tables; a colour, metric and font height edited live; a corrupt file renders defaults with the error; hosted EVE with END's colours; Markdown and Mermaid fonts and colours; EVE standalone writes its own file in the same shape; dark appearance.
-- Run `<leader>bd` in jam and `ninja doxygen` in eve and end; confirm zero warnings.
-- Audit findings not resolved, each read and real, larger than this plan: A-F3, F4 (component and dark loss for font-only or palette rows), A-F5 (component tables also hold metrics, and an `### appearance` table exists, against Plan Step 2.4 wording), A-F6, F7 (font-lexicon guess outside `### fonts`), A-F9 (font numbers as strings), A-F11 (units other than `em`), A-F12 to F28 (Lean, DRY and form in `jam_ConfigDocument.cpp` 719 lines and `jam_ConfigValidator.cpp` 382 lines), B-2, B-4 (hosted EVE overlay drops nested children), B-7, B-8 (popup `SafePointer` and `callAsync`), B-9, B-10 (rasterizer assert), B-13 to B-21 (repeats, sentinel, forms, duplicate `theme`/`themes` ids).
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261108T145906` — Ctrl+L destroys the Claude Code prompt on the normal screen (unchanged).
-- `DEBT-20261105T000000` — Windows runtime test (unchanged).
-
----
 
 
 

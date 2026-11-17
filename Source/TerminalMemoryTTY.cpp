@@ -1,16 +1,12 @@
 #include "TerminalMemoryTTY.h"
 
-TerminalMemoryTTY::TerminalMemoryTTY (std::unique_ptr<jam::TerminalTTY> platformTTY)
+TerminalMemoryTTY::TerminalMemoryTTY (std::unique_ptr<jam::TerminalTTY> platformTTY, int recordCapacity)
     : tty { std::move (platformTTY) }
 {
+    fixture.prepare (recordCapacity);
 }
 
-TerminalMemoryTTY::~TerminalMemoryTTY()
-{
-    close();
-}
-
-bool TerminalMemoryTTY::open (const jam::AsyncUpdater* context, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
+bool TerminalMemoryTTY::open (const jam::AsyncUpdater*, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
                               const juce::String& args, const juce::String& workingDirectory,
                               const juce::StringPairArray& environment)
 {
@@ -18,7 +14,6 @@ bool TerminalMemoryTTY::open (const jam::AsyncUpdater* context, int bufferSize, 
 
     if (isOpen()) return true;
 
-    chunk.setSize (static_cast<size_t> (bufferSize));
     tty->onBytesReady = [this] (int) { triggerAsyncUpdate(); };
 
     const auto isOpen { tty->open (getContext(), bufferSize, maximumPeriodMilliseconds, dims, shell, args, workingDirectory, environment) };
@@ -29,22 +24,12 @@ bool TerminalMemoryTTY::open (const jam::AsyncUpdater* context, int bufferSize, 
 
     if (isRecorded)
     {
-        stream = std::make_unique<juce::MemoryInputStream> (fixture, false);
-
 #if JAM_USING_PROFILER
         if (auto* profiler { jam::Profiler::getInstance() })
         {
             profiler->drain();
             profiler->clear();
         }
-#endif
-
-#if JUCE_MAC
-        replay.onWork = [this] { onBytesReady (0); };
-        const bool isReplayOpen { replay.open (context) };
-        jassert (isReplayOpen);
-        juce::ignoreUnused (isReplayOpen);
-        replay.submit();
 #endif
     }
 
@@ -53,21 +38,26 @@ bool TerminalMemoryTTY::open (const jam::AsyncUpdater* context, int bufferSize, 
 
 bool TerminalMemoryTTY::isOpen() const noexcept
 {
-    return stream != nullptr;
+    return recorded.wait (0);
 }
 
 void TerminalMemoryTTY::close()
 {
     tty->close();
-    cancelPendingUpdate();
+    recorded.reset();
 }
 
 int TerminalMemoryTTY::read (char* buf, int maxBytes)
 {
     int result { -1 };
 
-    if (stream != nullptr and not stream->isExhausted())
-        result = stream->read (buf, maxBytes);
+    fixture.applyPendingData ([buf, maxBytes, &result] (const char* data, int size)
+    {
+        result = juce::jmin (size, maxBytes);
+        std::memcpy (buf, data, static_cast<size_t> (result));
+
+        return result;
+    });
 
     return result;
 }
@@ -83,13 +73,12 @@ void TerminalMemoryTTY::setWinsize (jam::TerminalWinsize)
 
 void TerminalMemoryTTY::handleAsyncUpdate()
 {
-    const auto blockSize { static_cast<int> (chunk.getSize()) };
-    auto bytesRead { tty->read (static_cast<char*> (chunk.getData()), blockSize) };
+    auto bytesRead { fixture.writeFromTerminalTTY (*tty) };
 
     while (bytesRead > 0)
     {
-        fixture.append (chunk.getData(), static_cast<size_t> (bytesRead));
-        bytesRead = tty->read (static_cast<char*> (chunk.getData()), blockSize);
+        jassert (fixture.getFreeSpace() > 0);
+        bytesRead = fixture.writeFromTerminalTTY (*tty);
     }
 
     if (bytesRead < 0)

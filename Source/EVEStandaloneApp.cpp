@@ -29,14 +29,12 @@ void EVEStandaloneApp::MainWindow::focusGained (FocusChangeType)
 
 void EVEStandaloneApp::MainWindow::resizeStart()
 {
-    if (auto* constrainer { getEditor()->getConstrainer() })
-        constrainer->resizeStart();
+    getEditor()->getConstrainer()->resizeStart();
 }
 
 void EVEStandaloneApp::MainWindow::resizeEnd()
 {
-    if (auto* constrainer { getEditor()->getConstrainer() })
-        constrainer->resizeEnd();
+    getEditor()->getConstrainer()->resizeEnd();
 }
 
 juce::AudioProcessorEditor* EVEStandaloneApp::MainWindow::getEditor() const noexcept

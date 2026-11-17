@@ -28,6 +28,7 @@ namespace Id
 /** @brief Product identifier and name-string vocabulary — branding, buttons, view component types, and images — not already carried by jam. */
 
 extern const juce::Identifier args;
+extern const juce::Identifier recordCapacity;
 extern const juce::Identifier button;
 extern const juce::Identifier numCommands;
 extern const juce::Identifier numGridEvents;
@@ -59,6 +60,8 @@ extern const juce::Identifier runtime;
 extern const juce::Identifier selector;
 extern const juce::Identifier shell;
 extern const juce::Identifier shellIntegration;
+extern const juce::Identifier msysRuntime;
+extern const juce::Identifier cygwinRuntime;
 extern const juce::Identifier shellNotFound;
 extern const juce::Identifier terminalInput;
 extern const juce::Identifier textEditor;
@@ -71,6 +74,8 @@ extern const juce::String     failShellNotFound;
 extern const juce::String     shellVariable;
 extern const juce::String     defaultShell;
 extern const juce::String     defaultShellWindows;
+extern const juce::String     defaultMsysRuntime;
+extern const juce::String     defaultCygwinRuntime;
 extern const juce::String     powershellProgram;
 extern const juce::String     commandPromptProgram;
 

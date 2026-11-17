@@ -551,15 +551,46 @@ file(GLOB CAST_LAYOUT_FILES CONFIGURE_DEPENDS
     "${CAST_USER_MODULE_PATH}/resources/svg/*.svg"     # Shared JAM SVG icons
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/fonts/*.ttf"   # Bundled Display, DisplayMono, Nerd Font and Noto faces
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/shell/*"       # Shell integration hook scripts
+    "${CMAKE_CURRENT_SOURCE_DIR}/Source/windows/*.zip" # MSYS2 and Cygwin pty helper archive, packed by cygwinPTY/
 )
 
-if(WIN32)
-    string(TOLOWER "${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}" CAST_WINDOWS_ARCHITECTURE)
-    list(APPEND CAST_LAYOUT_FILES
-        "${CMAKE_CURRENT_SOURCE_DIR}/Source/windows/${CAST_WINDOWS_ARCHITECTURE}/conpty.dll"
-        "${CMAKE_CURRENT_SOURCE_DIR}/Source/windows/${CAST_WINDOWS_ARCHITECTURE}/OpenConsole.exe"
-    )
+if(APPLE)
+    set(CAST_PACK_folder "../end/Source/plugins")
+elseif(WIN32)
+    set(CAST_PACK_folder "../end/Source/plugins")
 endif()
+if(APPLE)
+    set(CAST_PACK_format "zip")
+elseif(WIN32)
+    set(CAST_PACK_format "zip")
+endif()
+if(APPLE)
+    set(CAST_PACK_platform "macOS")
+elseif(WIN32)
+    set(CAST_PACK_platform "Windows")
+endif()
+
+set(CAST_CYGWIN_PTY_FILES ${CAST_LAYOUT_FILES})
+list(FILTER CAST_CYGWIN_PTY_FILES INCLUDE REGEX "[.]zip$")
+list(FILTER CAST_LAYOUT_FILES EXCLUDE REGEX "[.]zip$")
+list(FILTER CAST_CYGWIN_PTY_FILES INCLUDE REGEX " ${CAST_PACK_platform}[.]zip$")
+list(LENGTH CAST_CYGWIN_PTY_FILES CAST_CYGWIN_PTY_COUNT)
+
+if(WIN32 AND NOT CAST_CYGWIN_PTY_COUNT EQUAL 1)
+    message(FATAL_ERROR "CAST: one pty helper archive for ${CAST_PACK_platform} expected in Source/windows, found: ${CAST_CYGWIN_PTY_FILES}")
+endif()
+
+list(APPEND CAST_LAYOUT_FILES ${CAST_CYGWIN_PTY_FILES})
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CAST_CYGWIN_PTY_FILES})
+
+set(CAST_CYGWIN_PTY_HASH_CONCAT "")
+foreach(CAST_CYGWIN_PTY_FILE ${CAST_CYGWIN_PTY_FILES})
+    file(SHA256 "${CAST_CYGWIN_PTY_FILE}" CAST_CYGWIN_PTY_FILE_HASH)
+    string(APPEND CAST_CYGWIN_PTY_HASH_CONCAT "${CAST_CYGWIN_PTY_FILE_HASH}")
+endforeach()
+string(SHA256 CAST_CYGWIN_PTY_HASH "${CAST_CYGWIN_PTY_HASH_CONCAT}")
+
+set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/Source/ShellIntegration.cpp" PROPERTIES COMPILE_DEFINITIONS "CAST_CYGWIN_PTY_HASH=\"${CAST_CYGWIN_PTY_HASH}\"" SKIP_PRECOMPILE_HEADERS ON)
 
 juce_add_binary_data(${PROJECT_NAME}_BinaryData
     NAMESPACE "BinaryData"
@@ -638,22 +669,6 @@ if(WIN32)
         string(REPLACE "$COMMONFILES64" "$ENV{CommonProgramW6432}" CAST_INSTALL_DIRECTORY_${CAST_FORMAT} "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}")
         file(TO_CMAKE_PATH "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}" CAST_INSTALL_DIRECTORY_${CAST_FORMAT})
     endforeach()
-endif()
-
-if(APPLE)
-    set(CAST_PACK_folder "../end/Source/plugins")
-elseif(WIN32)
-    set(CAST_PACK_folder "../end/Source/plugins")
-endif()
-if(APPLE)
-    set(CAST_PACK_format "zip")
-elseif(WIN32)
-    set(CAST_PACK_format "zip")
-endif()
-if(APPLE)
-    set(CAST_PACK_platform "macOS")
-elseif(WIN32)
-    set(CAST_PACK_platform "Windows")
 endif()
 
 if(CAST_SIGNING_PROFILE STREQUAL "jreng")

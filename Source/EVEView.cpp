@@ -103,6 +103,11 @@ void EVEView::resizeEnd()
 {
     stopTimer();
     setResizing (false);
+
+    auto terminal { getTerminalState() };
+
+    terminal.setProperty (Id::width, getWidth(), nullptr);
+    terminal.setProperty (Id::height, getHeight(), nullptr);
 }
 
 void EVEView::setResizing (bool newIsResizing)

@@ -30,6 +30,21 @@ public:
      */
     static void addShellScripts (const juce::File& directory);
 
+#if JUCE_WINDOWS
+    /**
+     * @brief Unpacks the cygwin PTY helper archive into a folder, unless the folder already holds the helper.
+     *
+     * The build defines the hash of the helper files. The call keeps the hash in a stamp file in the folder.
+     * When the stamp matches the hash and the helper exists, the call skips the unpack.
+     * The call writes the stamp after an unpack, when the helper exists.
+     * When more than one archive resource exists, the last one gives the result.
+     *
+     * @param directory  Folder that receives the unpacked files.
+     * @return           Helper executable named by the first entry of the archive. An empty File when no archive resource exists or the unpack fails.
+     */
+    static juce::File getOrCreateCygwinPty (const juce::File& directory);
+#endif
+
     /**
      * @brief Returns the environment variables that the shell receives.
      *
@@ -84,4 +99,16 @@ private:
      * @return `true` when the `shellIntegration` setting is true. The default is true.
      */
     static bool isShellIntegrated();
+
+#if JUCE_WINDOWS
+    /**
+     * @brief Unpacks one archive resource into a folder, or reuses the helper that the folder holds.
+     *
+     * @param resourceName  BinaryData name of the archive.
+     * @param directory     Folder that receives the unpacked files.
+     * @param isOffloaded   `true` when the stamp matches the build hash. With the helper present, the call skips the unpack.
+     * @return              Helper executable named by the first entry of the archive. An empty File when the unpack fails.
+     */
+    static juce::File getOrCreateCygwinPty (const char* resourceName, const juce::File& directory, bool isOffloaded);
+#endif
 };
