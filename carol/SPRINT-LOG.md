@@ -36,6 +36,60 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Cygwin PTY close-out — one copy per boundary, the child environment replaces inherited variables, the tick never reads a TTY that is not open ✅
+
+**Date:** 2026-11-18
+**Duration:** part of one session. The start and end times are not recorded.
+**Scope (ARCHITECT):** the open items of the sprint "Cygwin PTY" below: *"resolve now"*; the crash stack with *"pre-audit no crash."*; the run results *"debug no crash. seq, ^C, resize works"*, *"cmd, pwsh works"* and *"works."* (job control); and *"write me shell script @test\"*.
+
+### Agents Participated
+- COUNSELOR — the reads of the owner APIs; the three fix specs with their exact code; the read of each Engineer change against the brief; the transcript read that located the audit-fix brief; this log.
+- Engineer — the three fixes, the two cast builds, and `test/jobcontrol.sh`.
+- Pathfinder — git evidence; the doxygen follow-up; a transcript search that I stopped at the 15-minute watchdog because its scope was too wide.
+
+### Files Modified
+- `jam/jam_terminal/processor/jam_TerminalFIFO.h:180-208` — `writeFromDevice` is public again, text and body unchanged. A device read lands in the free space of the ring.
+- `jam/jam_terminal/display/jam_StdioServer.h:61-79` — new public `writeFromDevice`: it gives the free space of the output ring to a device callback, then flushes to the standard output.
+- `eve/cygwinPTY/Source/Session.{h,cpp}` — the `buffer` member is gone. `run()` reads the master through `stdio.writeFromDevice` (`Session.cpp:187-198`). The master byte no longer crosses a staging buffer.
+- `jam/jam_terminal/tty/native/jam_TerminalConsole_windows.cpp:130-171` — `buildEnvironmentBlock` builds the overrides (`TERM`, `TERM_PROGRAM`, the caller's variables) in a `juce::StringPairArray`, which ignores the case of keys, and drops each inherited variable with the same name. This is the contract at `jam_TerminalTTY.h:88-89`.
+- `eve/Source/EVETerminalProcessor.cpp:551-564` — `process()` runs the chain only while `tty->isOpen()`.
+- `eve/test/jobcontrol.sh` (new, 117 lines) — checks the process group of a background job, `SIGSTOP` and `SIGCONT`, the `fg` handoff, and the suspend of a background read. It prints the `^Z`, `bg`, `fg`, `^C` steps for the keyboard.
+- Doxygen: `jam_StdioServer.h`, `jam_TerminalFIFO.h`, `jam_TerminalConsole_windows.h`, `jam_TerminalCygwinTTY_windows.h`, `Session.h`, `EVETerminalProcessor.h`.
+
+### Alignment Check
+- [x] BLESSED principles followed — MANIFESTO E, "A copy per hop" is forbidden: the master read is one OS-boundary copy into the ring, and the ring write to the pipe is the second boundary.
+- [x] NAMES.md adhered — `writeFromDevice` joins the family of `TerminalFIFO::writeFromDevice` and `writeFromTerminalTTY`.
+- [x] MANIFESTO.md principles applied.
+- [ ] The project doxygen regeneration did not run. `ninja doxygen` in `Builds/Debug` fails with `unknown target 'doxygen'`. JAM `<leader>bd` did not run. Scratch runs with the project Doxyfile template report 0 warnings for the edited headers.
+
+### Problems Solved
+- **Extra copy in the helper.** `Session::run` read the master into `buffer`, then `StdioServer::write` copied it into the ring. The read goes straight into the ring now.
+- **Inherited variable won over the integration variable.** The Windows block appended the new variable after the parent block, so the parent value stayed first. The new variable replaces it.
+- **`close` against the owner contract.** `jam_TerminalTTY.h:102` says `close` terminates the shell. `TerminalCygwinTTY::close` closes the input pipe. The helper reads end of stream, sends SIGHUP to the shell (`Session.cpp:113-116`, `:143-146`), and exits when the shell output ends. The block states this chain. No code changed.
+- **Debug launch crash.** `process` ran before `openTTY` and called `TerminalConsole::read` on a console that `open` never wired. The guard makes the tick safe whenever the TTY is not open. ARCHITECT: *"debug no crash."*
+- **Run results.** ARCHITECT: *"seq, ^C, resize works"*, *"cmd, pwsh works"*, and *"works."* for the job-control script.
+- **Mistakes owned.** My first Engineer call carried a model that the definition does not name; the hook denied it, and I sent the call again with `haiku`. My first transcript search for the audit-phase change had too wide a scope and ran past the watchdog; I stopped it and read the audit-fix brief directly.
+
+### State for Continuation
+- Not proven: why the crash showed only after the audit. The audit-fix brief (transcript line 7906) touched `jam_TerminalCygwinTTY_windows.cpp`, `Main.cpp`, `Runtime.{h,cpp}`, `Session.{h,cpp}`, `EVETerminalProcessor.cpp` line 84, and `default-eve.md` rows 219 and 221. None of these is on the crash path (`jam_TerminalTTY_windows.cpp:100`, `jam_TerminalConsole_windows.cpp:628`). `prepare` opens the TTY only when `winsize.isValid()` (`EVETerminalProcessor.cpp:410`).
+- Behaviour of the copy loop: `Session::run` ends when a read returns 0 or less. A full output ring also returns 0 (`jam_TerminalFIFO.h:203-205`). That happens only after a failed write to the standard output. `writeFromDevice` does not clamp the callback result to `maxBytes` (`jam_TerminalFIFO.h:205`); `runtime.read` returns at most `maxBytes`.
+- Not tested: the fallback to powershell when the runtime file is absent (`PLAN-cygwin-pty.md` Step 7.3).
+- The EVE build packs `end/Source/plugins/EVE v0.0.1 Windows.zip`, a path outside the EVE tree. This is the EVE to END pipeline.
+- The observations of the earlier entry stay open and unchanged: `writeLine` loses a line on a failed payload write, `writeScrollLines` writes `CSI 0 L` for a zero distance, `writeClearScreen` has no call site found.
+- `CLAUDE.md` of EVE names `ninja doxygen`. The target does not exist.
+- Nothing from this sprint is committed.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261117T223541` — seq on the cygwin pty paged and choked after a fast start. ARCHITECT reported *"seq works"*; the paging was not re-observed or measured after the copy fix, so the entry stays.
+- `DEBT-20261117T223545` — the active prompt printed before seq finished. Not re-observed; the entry stays.
+- `DEBT-20261115T221459` — END: load and close of each EVE instance, and focus and keyboard on Windows (unchanged).
+- `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
+
+---
+
 ## Sprint: Cygwin PTY — zsh on Windows runs over an msys2 pty through eve-cygwinPTY, ConDrv stays for pwsh and cmd ✅
 
 **Date:** 2026-11-17 to 2026-11-18

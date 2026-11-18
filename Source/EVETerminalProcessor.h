@@ -151,7 +151,7 @@ private:
      * @brief Runs on the tick of the clock.
      *
      * It reads `bypass`. When `bypass` is 0, it writes the input lane to the TTY, then the terminal processor decodes the TTY output
-     * for as long as its call returns `true`.
+     * for as long as its call returns `true`. The call does nothing while the TTY is not open, because `start()` and `addInput()` can request a process before `openTTY()` has run.
      *
      * It reads the `background` parameter of the `terminal` tree through `terminalTag`, and it passes the value to the terminal processor.
      */

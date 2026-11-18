@@ -552,11 +552,14 @@ void EVETerminalProcessor::process() noexcept
 {
     if (juce::exactlyEqual (bypass.load(), 0.0f))
     {
-        input.writePendingData (*tty);
+        if (tty->isOpen())
+        {
+            input.writePendingData (*tty);
 
-        const auto background { state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::background)->getValue() };
+            const auto background { state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::background)->getValue() };
 
-        while (terminalProcessor.process (*tty, terminalBuffer, swap, *jam::Colours::getInstance(), static_cast<juce::uint32> (background), events)) {}
+            while (terminalProcessor.process (*tty, terminalBuffer, swap, *jam::Colours::getInstance(), static_cast<juce::uint32> (background), events)) {}
+        }
     }
 }
 

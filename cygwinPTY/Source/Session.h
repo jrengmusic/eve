@@ -36,7 +36,9 @@ private:
      * @brief Opens the shell and the relays, then copies the master output to the standard output.
      *
      * The call stops the message loop when it returns. When the shell does not open, the call stops the loop at once.
-     * When the relays do not open, the call hangs up the shell, and still copies the output until the output ends.
+     * When the relays do not open, the call hangs up the shell, and still copies the master output.
+     * Each master read goes through the stdio server, which publishes the bytes and flushes them to the standard output.
+     * The copy loop ends when a read returns 0 or a negative value. A full output ring also returns 0.
      */
     void run();
 
@@ -93,7 +95,11 @@ private:
      */
     static Winsize getWinsize (std::int64_t packed);
 
-    /** @brief Capacity in bytes of the master read buffer, the size ring, and the stdio and size readers. */
+    /**
+     * @brief Capacity in bytes of the size ring and of both rings of the stdio server.
+     *
+     * The master read fills the output ring of the stdio server. The stdio reader and the size reader give the same value to their readiness clocks.
+     */
     static constexpr int bufferSize { 65536 };
 
     /** @brief Longest period between two readiness ticks of the stdio and size readers, in milliseconds. */
@@ -117,8 +123,6 @@ private:
     jam::StdioServer stdio;
     /** @brief Readiness source of the size pipe. */
     jam::AsyncOutputStream sizeReader;
-    /** @brief Read buffer of the master output. run() reads into it. */
-    std::array<char, bufferSize> buffer {};
     /** @brief Handle of the reader thread that the constructor starts. The destructor joins it. */
     void* masterReader { nullptr };
     /** @brief Handle of the shell process, opened with SYNCHRONIZE access. */

@@ -184,13 +184,18 @@ void Session::run()
         if (not openRelays())
             applyHangup();
 
-        auto numRead { runtime.read (master, buffer.data(), buffer.size()) };
-
-        for (; numRead > 0; numRead = runtime.read (master, buffer.data(), buffer.size()))
+        const auto readMaster = [this]
         {
-            stdio.write (buffer.data(), static_cast<size_t> (numRead));
-            stdio.flush();
-        }
+            return stdio.writeFromDevice ([this] (char* data, int maxBytes)
+            {
+                return static_cast<int> (runtime.read (master, data, static_cast<size_t> (maxBytes)));
+            });
+        };
+
+        auto numRead { readMaster() };
+
+        while (numRead > 0)
+            numRead = readMaster();
     }
 
     juce::MessageManager::getInstance()->stopDispatchLoop();
