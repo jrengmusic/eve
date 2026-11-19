@@ -88,3 +88,74 @@ seq 1 1000000  0.21s user 0.53s system 99% cpu 0.746 total
 seq 1 10000000  2.20s user 5.22s system 99% cpu 7.422 total
 seq 1 100000000  19.57s user 51.89s system 99% cpu 1:11.49 total
 ```
+
+# Windows
+
+## Method
+
+- Machine: ROG Ally Z1 Extreme.
+- Command: `seq 1 N`, timed by the zsh `time` builtin inside each terminal. The columns are the same as on macOS.
+- EVE: Release build, zsh over the eve-cygwinPTY helper, one swap file per instance, 2026-11-19 (`PLAN-swap-one-file.md`). EVE runs N = 1 000 000, 10 000 000 and 100 000 000.
+- Other terminals: N = 1 000 000 only. ARCHITECT: "i dont think 10x and 100x worth to test".
+- Runs: one run per terminal and N.
+
+## Total time
+
++--------------------------+------------+------------------+-----------+---------+----------+----------+----------+----------+
+| terminal                 | date       | source           | 1M total  | 1M cpu  | 10M      | 10M cpu  | 100M     | 100M cpu |
+|                          |            |                  |           |         | total    |          | total    |          |
++==========================+============+==================+===========+=========+==========+==========+==========+==========+
+| EVE                      | 2026-11-19 | swap-one-file    | 3.827 s   | 98%     | 37.582 s | 99%      | 6:15.85  | 99%      |
++--------------------------+------------+------------------+-----------+---------+----------+----------+----------+----------+
+| Windows Terminal         | 2026-11-19 | swap-one-file    | 1:07.03   | 49%     |          |          |          |          |
++--------------------------+------------+------------------+-----------+---------+----------+----------+----------+----------+
+| Rio                      | 2026-11-19 | swap-one-file    | 1:15.55   | 50%     |          |          |          |          |
++--------------------------+------------+------------------+-----------+---------+----------+----------+----------+----------+
+| Alacritty                | 2026-11-19 | swap-one-file    | 1:24.81   | 46%     |          |          |          |          |
++--------------------------+------------+------------------+-----------+---------+----------+----------+----------+----------+
+
+The rows are in order of the 1M total, fastest first.
+
+## User and system time at 1M
+
++--------------------------+---------+----------+----------+
+| terminal                 | user    | system   | total    |
++==========================+=========+==========+==========+
+| EVE                      | 0.84 s  | 2.94 s   | 3.827 s  |
++--------------------------+---------+----------+----------+
+| Windows Terminal         | 3.81 s  | 29.45 s  | 1:07.03  |
++--------------------------+---------+----------+----------+
+| Rio                      | 4.34 s  | 33.84 s  | 1:15.55  |
++--------------------------+---------+----------+----------+
+| Alacritty                | 4.37 s  | 35.28 s  | 1:24.81  |
++--------------------------+---------+----------+----------+
+
+## Raw measurements
+
+The lines below are verbatim as ARCHITECT reported them.
+
+### EVE, 2026-11-19
+
+```
+seq 1 1000000  0.84s user 2.94s system 98% cpu 3.827 total
+seq 1 10000000  6.88s user 30.48s system 99% cpu 37.582 total
+seq 1 100000000  69.11s user 304.41s system 99% cpu 6:15.85 total
+```
+
+### Alacritty, 2026-11-19
+
+```
+seq 1 1000000  4.37s user 35.28s system 46% cpu 1:24.81 total
+```
+
+### Windows Terminal, 2026-11-19
+
+```
+seq 1 1000000  3.81s user 29.45s system 49% cpu 1:07.03 total
+```
+
+### Rio, 2026-11-19
+
+```
+seq 1 1000000  4.34s user 33.84s system 50% cpu 1:15.55 total
+```

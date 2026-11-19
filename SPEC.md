@@ -129,6 +129,12 @@ among ours.
    only while it runs. ARCHITECT: *"make it consistent then"*; *"prepareToPlay
    upstream still juce contract"*; the restart rule approved with `/go`
    (2026-10-29, Amendment A of the terminal clock plan; the plan is deleted, END `carol/SPRINT-LOG.md:186`).
+   **[AMENDED 2026-11-18]** `prepare()` opens the TTY first, with the clock
+   stopped, when the window size is valid. It then opens the device with the
+   capacity of that TTY, and starts the clock. The chain prepares at the
+   clock's start, as before. The TTY opens before the device, because the
+   device follows the TTY. ARCHITECT: *"device follow tty, should not poke
+   layers."*; `/go` on this order.
 10. **One serial clock context.** PTY readiness and the clock run on one
     serial context. A readiness tick is a block of the bytes the readiness
     event reports; a requested tick is a zero-sample block. The spec has three
@@ -140,6 +146,71 @@ among ours.
     ring only. ARCHITECT: *"why not using AudioProcessor spec as the SSOT? the
     number could be setup differently according to OS"*; *"spec has buffer
     size, block size, sample rate"*.
+    **[AMENDED 2026-11-18]** The device's buffer size is the capacity of the
+    PTY that the shell writes to. Each TTY backend states it
+    (`TerminalTTY::getDefaultBufferSize`), and the device opens with the value
+    of the TTY that is open, a fallback shell included. Before a valid window
+    size opens a TTY, the device opens with the value of the placeholder TTY
+    that the processor holds. The next window size change prepares again with
+    the TTY that then opens. `TerminalTTY::open` takes no buffer size: each
+    backend sizes its own seams. EVE computes no capacity:
+    - macOS (`TerminalUnixTTY`): 1024, the kernel output queue.
+    - Windows native, ConDrv (`TerminalWindowsTTY`, pwsh and cmd): 64 KiB.
+    - Windows cygwin lane (`TerminalCygwinTTY`, a shell with an msys2 or
+      Cygwin runtime in its folder): the msys2 pty pipe, 128 KiB
+      (`fhandler.h:2404`).
+    The cygwin helper gets the same value on its command line and sizes its
+    rings with it. ARCHITECT: *"understand the contract, windows native os
+    64kb, always make it aligned. cygwin is 128kb? always following the exact
+    system constraints"*; *"device follow tty, should not poke layers."* ARCHITECT: *"the idea is we follow what the system
+    constraints so no other seam ever wait. mac value because that was mac
+    system constraints"*; *"we dont set any hardcoded `value`. the value is
+    what seam beyond our control capped, then we make our clock dynamically
+    follow its `rhythm`."*; *"1024 for mac for example, not arbitrary magic
+    value, it's mac os system tty, that we use for our event driven clock to
+    SYNC. the isomorphic abstraction i believe HOLDS here. bytes are bytes no?
+    we just need to integrate"*; scope of the 128 KiB: *"Cygwin lane only"*.
+    **[AMENDED 2026-11-18]** The cygwin helper reads the pty master only
+    through the runtime, so the runtime keeps the echo, the held input and
+    the end of the stream. The helper waits on the runtime's `poll`, then
+    reads the master until it is empty, and writes the drain to EVE in one
+    write. The runtime's read unit (256 bytes, `tty.h:14`) and the delay of
+    its select thread (`select.cc:820-822`) are the seam beyond EVE's
+    control. ARCHITECT: *"FULL THROTTLE genuinely lossless full drain always,
+    lock free at hot thread, any thread at tty beyond ours becomes seamless
+    integration, we never choke them, we also never let them starve. no
+    yield, no wait"*; *"we dont fight window, we dont fight msys2-cygwin, we
+    dont fight juce, we empower our architecture with JAM to its fullest
+    extent. probably the bulding blocks already exists too."*; *"READ,
+    RESEARCH if you need to. dont leave any gaps for inference, no room for
+    assumptions. then synthsize BLESSED approach to eliminate bottleck, hop,
+    roundtrip, lost time, etc"*; `/go` on this plan.
+    **[AMENDED 2026-11-18]** This block supersedes the sentence "The cygwin
+    helper reads the pty master only through the runtime, so the runtime
+    keeps the echo, the held input and the end of the stream." Each drain
+    pass makes one runtime read first. The runtime keeps the echo, the held
+    input and the end of the stream (`pty.cc:625`, `:636`, `:642-646`). The
+    pass then reads the rest of the pty pipe in one read. The handle comes
+    from the runtime's `_get_osfhandle` (`cygwin.din:144`,
+    `syscalls.cc:3256-3258`). The read is `jam::TerminalFIFO::read`
+    (`jam_TerminalFIFO_windows.cpp:50-72`). The seam beyond EVE's control is
+    the shell program's own write. It writes 256 bytes per piece, and each
+    piece has a pipe query, a write and the output mutex (`pty.cc:3418`,
+    `:3448-3450`, `:1236`). Discard mode: under `FLUSHO`, the runtime read of
+    each pass discards until the pipe is empty (`pty.cc:652-656`,
+    `:707-708`). When `VDISCARD` (`termios.cc:507`) arrives between the
+    runtime read and the bulk read of one pass, that bulk read gives its
+    bytes to EVE. Echo backlog: the runtime gives at most 256 bytes of echo
+    per call, echo first (`pty.cc:635-637`, `:686-693`). The pass reads the
+    pty pipe after each runtime read (`cygwinPTY/Source/Session.cpp:212-213`).
+    With more than 256 bytes of echo waiting, echo and pty output interleave
+    per 256 bytes of echo. ARCHITECT: *"we dont fight window, we dont fight
+    msys2-cygwin, we dont fight juce, we empower our architecture with JAM to
+    its fullest extent. probably the bulding blocks already exists too."*;
+    *"profile, pinpoint where the time goes, which seam still waits, why our
+    clock still not synced to the rhythm, then synthesize the solution"*;
+    *"measure. facts only. never leave any gaps for inference and
+    assumptions"*; `/go` on this plan.
 11. **One envelope, one path.** ARCHITECT: *"this is our open seam to transport,
     communicate, open API via shell scripting hence, any CLI … can use the exact
     consistent ONE path protocol"*. The envelope is
@@ -328,6 +399,139 @@ layout event only).
      discipline always lock free on terminal (audio thread)"*.
    - The swap keeps the last `HISTORY_CAPACITY` lines. It deletes the index
      and segment files of older lines (`jam_TerminalSwap.cpp:191-204`).
+   - `[AMENDED 2026-11-19]` This block supersedes the item above. ARCHITECT:
+     *"history cap stands, 10k, means 10k line. if incoming data still
+     appending, drop oldest. first in first out. i dont understand why we need
+     to create new file each time"*; *"let's try with only one file per
+     instance then. @carol/MANIFESTO.md 0 rules applied, SSOT, complete AST
+     built once cached, memoized, state update is not mutation"*; on the image
+     record, *"Images too"*; `/go` on `PLAN-swap-one-file.md`.
+     - One swap has one memory-mapped file (`jam::TerminalSwapFile`). The file
+       grows only at its tail, in extents. Each extent is mapped once and stays
+       mapped until the swap ends (`TerminalSwapFile::addExtent`).
+     - The history lines are records of a ring over extents
+       (`jam::TerminalRecordRing`). The swap stores two lines for each line
+       that it keeps (`storedLinesPerKeptLine`): readers see `capacity` lines,
+       and a held read can still cover one more capacity. The index is a ring
+       of `2 × capacity` entries (extent, offset). The ring holds at least
+       `2 × capacity` records of the row bound,
+       `TerminalBuffer::getNumRowBytes()` (`TerminalSwap::addLineExtent`,
+       `getNumStoredLines`). The writer drops the oldest line first
+       (`TerminalSwap::writeLine`). Measured with an index of `capacity`
+       entries: the held line sat a median of 9,744 lines behind the end line,
+       and the writer moved one 256-line block per view job. ARCHITECT, on
+       the stages beyond EVE: *"we never choke them, we also never let them
+       starve. no yield, no wait"*.
+     - A resize that raises the row bound adds one extent. The extent holds at
+       least the records that the ring already has, so the number of extents
+       grows with the logarithm of the bound (`TerminalSwap::addLineExtent`).
+       No stored line moves. The row ring keeps its ready history rows through
+       a resize (`TerminalBuffer::prepare`). Thus history survives SIGWINCH.
+     - A capacity change makes a new index and a new line ring, and empties the
+       history (`TerminalSwap::setCapacity`).
+     - Each live slot records the extent that holds its frame
+       (`TerminalSwap::slotExtents`). `prepare` adds a live extent only when
+       the slot size grows, of at least twice the current extent. It drops no
+       ready slot, so no slot changes while the live job reads it
+       (`TerminalSwap::prepare`, `applyToLiveData`).
+     - The image bytes go into image extents. An extent is reused when every
+       image in it is released or owned by a line before the first line, and
+       no image in it is held (`TerminalImageRecord::getOrCreateImageExtent`,
+       `isExtentReusable`, `isReusable`). The first line of this rule is the
+       lower of the first line and `heldLine`. The image index is a ring of
+       entries that doubles when it is full
+       (`TerminalImageRecord::addIndexExtent`).
+     - The TextEditor publishes the first image of its image boxes as the
+       terminal Model row `heldImage` (`parameters.md`), through a
+       `juce::Value` on the message thread (`TextEditor::setImageBounds`,
+       `getHeldImage`). The writer reads the raw atomic
+       (`EVETerminalProcessor::writePendingData`). It reuses no index entry and
+       no extent of that image or of a later image. ARCHITECT: *"AST update is
+       parser job. Component always only materialisation. if the the AST
+       itself hold layout, reflow, and materialisation need to to write back
+       to stored history then it's always TextEditor job. Preview are dumb,
+       render only"*; *"no strays variables allowed. if it's state machine
+       it's belong to Model parameter"*.
+     - The history job of the view publishes the first line that it reads as
+       the terminal Model row `heldLine` (`parameters.md`), through a
+       `juce::Value` on the message thread
+       (`TextEditor::HistoryJob`). The writer reads the raw atomic
+       (`EVETerminalProcessor::writePendingData`). It reuses no byte of that
+       line or of a later line. The rows that do not fit stay in the row ring
+       (`TerminalSwap::getNumFreeLines`, `TerminalBuffer::read (int)`).
+       ARCHITECT: *"can be as mode parameter no? message thread still use
+       Value, other thread can use raw atomic. event driven always. no manual
+       state management. it's state update"*; *"Model parameter"*.
+     - `[AMENDED 2026-11-19]` This item supersedes the capacity item, the
+       image item and the `heldLine` rows item above. ARCHITECT: *"fix this
+       sprint. no open risk should be left before we wrap."*; approval of
+       `PLAN-swap-risks.md`.
+       - Hold order. The view stores the hold (`heldLine`, `heldImage`). The
+         job then loads the drop boundary (`firstLine`, `firstImage`) before
+         each read. The writer stores the new boundary first, then loads the
+         hold, before it overwrites a byte. Every store and load of this pair
+         is `seq_cst` (`Parameter::store`, `TerminalSwap::setStoredLine`,
+         `writeNextLine`, `applyToLineData`).
+       - Lines. The writer takes one row at a time (`TerminalBuffer::read (1)`).
+         When the hold lies below the new `storedLine`, the row stays in the
+         row ring (`TerminalSwap::writeNextLine`).
+       - Images. The image bytes are records of a second
+         `TerminalRecordRing`. `firstImage` is the one drop boundary for the
+         bytes and the index. Before the record overwrites bytes, it drops
+         every image up to the last image whose bytes start in the way, when
+         all of them are reusable. On a hold conflict, it restores the
+         boundary and places the image at the start of a new extent
+         (`TerminalImageRecord::setImageStart`, `addImageExtent`,
+         `TerminalRecordRing::setNextExtentStart`). A hold below `firstImage`
+         protects nothing.
+       - Extents. A capacity change keeps the line ring. It keeps the index
+         extent when that extent holds `2 × capacity` entries, else it adds one
+         of at least twice the entries (`TerminalSwap::setCapacity`). Every
+         extent source at least doubles its bytes, so the count of extents is
+         bounded.
+       - Thread. `EVETerminalProcessor::prepare()` and `clearHistory()` run on
+         the message thread (`JUCE_ASSERT_MESSAGE_THREAD`). VST2 can call
+         `prepareToPlay` from the process callback when the host never sent
+         `effMainsChanged` (`juce_audio_plugin_client_VST2.cpp:392-398`). That
+         host fault fails the assert.
+     - `[AMENDED 2026-11-19]` Told workers. This item supersedes the names and
+       the boundary storage of the item above. ARCHITECT: *"if
+       Terminal<Processor> is analogous to DSP processor (check filter-strip
+       with KANJUT), then it should not hold any atomic at all. it should not
+       have getter. it should be TOLD by Model (parameter)"*; *"orchestrator
+       TELL never ask, dumb workers downstream always being TOLD"*; *"Lane API:
+       reads stay"*; approval of `PLAN-terminal-workers-told.md`.
+       - Boundaries. `firstLine`, `endLine`, `closedLine`, `lineIndex`,
+         `firstImage`, `endImage` and `imageIndex` are rows of the terminal
+         Model. The swap and the image record keep plain writer values, and
+         report each change through `events`. EVE stores each report with
+         `storeValue` (`seq_cst`). The swap and the record hold no atomic and
+         no decision getter.
+       - Readers. The message thread reads the rows from the `terminal` tree.
+         A job thread loads the raw atomic of each row with `seq_cst` after
+         its hold store. The in-place reads `setLineData` and `setImageData`
+         take the row atomics. `setLiveData` takes the `liveSlots` lane.
+       - Grid starts. `firstLine` reaches the view only as the Model row.
+         `applyGridEvents` drains the grid lane, then drops the grid starts
+         below the row.
+       - Lanes. EVE owns every cross-thread lane: `input`, `commands`,
+         `gridEvents`, `images`, `liveSlots`. Each worker gets its lane as an
+         argument. Free space and ready count are lane API.
+       - Screen. The decoder holds the active screen and tells the buffer
+         with `setScreen`.
+       - TTY session. `tty` exists only while the session is open. `prepare()`
+         opens the clock only for a valid winsize, and opens the TTY only when
+         `tty` is empty. `releaseResources()` destroys the session.
+       - Windows console. The console holds the cursor, the winsize, the pen
+         and the two console modes. The decoder tells the cursor and the pen
+         at the end of each `process()` pass. The winsize goes through
+         `ttyResize`, an `AsyncUpdater::Work` on the device context that reads
+         the `winsize` row. All tells run on the context of the console
+         requests.
+       - Names. ARCHITECT: *"set is not only value, it's also data"*;
+         *"apply is operational … the body of `apply` are `set` operation"*.
+         `apply` stays on lane drains and operations (`applyPendingData`,
+         `applyBytes`, `applyWinsize`).
    - The TextEditor is the receiver. It builds every history block of the swap
      (`TerminalSwap::linesPerBlock` lines each), from the tail block to the head
      block, and it builds a resident block again when its line count, its open end
@@ -729,6 +933,15 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
   both stores into the documents of the TextEditor
   (`jam_TerminalHistory.cpp:92-115`, `:305-319`). `prepare` starts a
   new live file and drops a ready slot of the old one (`:25-37`).
+  `[AMENDED 2026-11-19]` This item supersedes the record item above. The swap
+  writes each history row once, as a record of the line ring in the one swap
+  file, with one index entry (`TerminalSwap::writeLine`). The live frame goes
+  to the two slots of the live extent through a FIFO
+  (`TerminalSwap::setLiveLines`). `jam::TerminalHistory` reads each line in
+  place through `TerminalSwap::applyToLineData`. `prepare` keeps the live
+  extent when the slot size does not grow, and drops a ready slot
+  (`jam_TerminalSwap.cpp:8-23`). Rulings: Feature 2, item 3, block
+  `[AMENDED 2026-11-19]`.
 - **Pull:** on each vblank of its display (`juce::VBlankAttachment`), the
   TextEditor calls the view getter. The getter flushes the terminal Model and
   gives the swap. The TextEditor builds every history block of the swap

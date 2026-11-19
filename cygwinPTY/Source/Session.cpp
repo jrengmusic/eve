@@ -1,16 +1,8 @@
 #include "Session.h"
 
-static constexpr int setControllingTerminal { 0x540E };
-static constexpr int setWindowSize { ('T' << 8) | 2 };
-static constexpr int noWait { 2 };
-static constexpr int hangupSignal { 1 };
-static constexpr std::array<int, 2> backgroundTerminalSignals { 21, 22 };
-static constexpr std::uintptr_t ignoreAction { 1 };
-static constexpr int getWindowsProcessId { 18 };
-static constexpr std::array<DWORD, 3> standardHandleIds { STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE };
-
-Session::Session (const Runtime& sessionRuntime, HANDLE sizeHandle, std::int64_t packedWinsize, const juce::StringArray& shellArguments)
-    : runtime { sessionRuntime },
+Session::Session (const Runtime& sessionRuntime, HANDLE sizeHandle, std::int64_t packedWinsize, int newBufferSize, const juce::StringArray& shellArguments)
+    : bufferSize { newBufferSize },
+      runtime { sessionRuntime },
       sizePipe { sizeHandle, &CloseHandle },
       arguments { shellArguments },
       startSize { getWinsize (packedWinsize) }
@@ -34,7 +26,7 @@ void Session::handleAsyncUpdate()
     stdio.applyPendingData ([this] (const char* data, int size)
     {
         const auto numWritten { runtime.write (master, data, static_cast<size_t> (size)) };
-        return static_cast<int> (juce::jmax (0L, numWritten));
+        return static_cast<int> (juce::jmax<juce::int64> (0, numWritten));
     });
 
     applySizes();
@@ -42,6 +34,11 @@ void Session::handleAsyncUpdate()
 
 bool Session::openShell()
 {
+    static constexpr int setControllingTerminal { 0x540E };
+    static constexpr std::array<int, 2> backgroundTerminalSignals { 21, 22 };
+    static constexpr std::uintptr_t ignoreAction { 1 };
+    static constexpr int getWindowsProcessId { 18 };
+
     int slave { -1 };
     const auto ptyResult { runtime.openpty (&master, &slave, nullptr, nullptr, &startSize) };
 
@@ -73,6 +70,9 @@ bool Session::openShell()
 
 int Session::spawnShell (int slave) const
 {
+    static constexpr int noWait { 2 };
+    static constexpr std::array<DWORD, 3> standardHandleIds { STD_INPUT_HANDLE, STD_OUTPUT_HANDLE, STD_ERROR_HANDLE };
+
     std::vector<const char*> shellArguments;
     std::transform (arguments.begin(), arguments.end(), std::back_inserter (shellArguments), std::mem_fn (&juce::String::toRawUTF8));
     shellArguments.push_back (nullptr);
@@ -142,6 +142,8 @@ bool Session::openRelays()
 
 void Session::applyHangup()
 {
+    static constexpr int hangupSignal { 1 };
+
     runtime.kill (shell, hangupSignal);
 }
 
@@ -161,6 +163,8 @@ Winsize Session::getWinsize (std::int64_t packed)
 
 void Session::applySizes()
 {
+    static constexpr int setWindowSize { ('T' << 8) | 2 };
+
     sizes.applyPendingData ([this] (const char* data, int size)
     {
         int consumed { 0 };
@@ -179,23 +183,49 @@ void Session::applySizes()
 
 void Session::run()
 {
+    static constexpr int setNonBlocking { static_cast<int> (0x8004667eu) };
+    static constexpr short dataToRead { 1 };
+    static constexpr int noTimeout { -1 };
+    static constexpr int wouldBlock { 11 };
+    static constexpr int interruptedCall { 4 };
+    static constexpr unsigned int numPolled { 1u };
+
     if (openShell())
     {
+        int isNonBlocking { 1 };
+        runtime.ioctl (master, setNonBlocking, &isNonBlocking);
+        const auto masterPipe { reinterpret_cast<HANDLE> (runtime.getOsfhandle (master)) };
+
         if (not openRelays())
             applyHangup();
 
-        const auto readMaster = [this]
+        const auto readMaster = [this, masterPipe] (char* data, int maxBytes)
         {
-            return stdio.writeFromDevice ([this] (char* data, int maxBytes)
+            int numRead { 0 };
+            juce::int64 result { 0 };
+
+            do
             {
-                return static_cast<int> (runtime.read (master, data, static_cast<size_t> (maxBytes)));
-            });
+                result = runtime.read (master, data + numRead, static_cast<size_t> (maxBytes - numRead));
+                numRead += static_cast<int> (juce::jmax<juce::int64> (0, result));
+
+                if (result > 0 and numRead < maxBytes)
+                    numRead += juce::jmax (0, jam::TerminalFIFO::read (masterPipe, data + numRead, maxBytes - numRead));
+            }
+            while (result > 0 and numRead < maxBytes);
+
+            const auto isDrained { result < 0 and *runtime.errorNumber() == wouldBlock };
+            return numRead > 0 ? numRead : (isDrained ? 0 : -1);
         };
 
-        auto numRead { readMaster() };
+        Pollfd readiness { master, dataToRead, 0 };
 
-        while (numRead > 0)
-            numRead = readMaster();
+        for (int numRead { 0 }; numRead >= 0;)
+        {
+            const auto numReady { runtime.poll (&readiness, numPolled, noTimeout) };
+            const auto isInterrupted { numReady < 0 and *runtime.errorNumber() == interruptedCall };
+            numRead = numReady > 0 ? stdio.writeFromDevice (readMaster) : (isInterrupted ? 0 : -1);
+        }
     }
 
     juce::MessageManager::getInstance()->stopDispatchLoop();

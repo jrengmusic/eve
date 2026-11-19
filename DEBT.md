@@ -16,13 +16,6 @@
 
 ---
 
-## DEBT-20261117T223541
-
-**Observation:** In EVE on Windows, zsh runs over the cygwinPTY backend (eve-cygwinPTY.exe). ARCHITECT's seq test: "seq test starts fast, then starts to choked. from printing line by line to paging".
-**Divergence:** The output starts fast, then it slows down and shows in pages. It does not print line by line to the end. ARCHITECT: "i saw this pattern with mac, `paging` and choked. meaning our clock rhythm here not synced with cygwin pty."
-**Expectation:** seq prints line by line at the same fast rate from the first line to the last line. ARCHITECT: "possibly the identical solution also must be tuned on windows lane, because on mac with dynamically fully even driven clock synced to whatever tty/pty speed beyond of our control we managed to get FASTEST speed compared to other terminal". The Windows lane gets the same event-driven clock as macOS.
-
----
 
 ## DEBT-20261115T221459
 

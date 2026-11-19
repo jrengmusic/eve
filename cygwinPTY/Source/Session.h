@@ -17,9 +17,10 @@ public:
      * @param sessionRuntime  Loaded runtime. The session refers to it, so the runtime must outlive the session.
      * @param sizeHandle      Size pipe from the host. The session takes ownership and closes it.
      * @param packedWinsize   Start size, packed the way jam::TerminalWinsize::pack gives it.
+     * @param newBufferSize   Capacity in bytes of the size ring and of the stdio rings. The host passes it on the command line.
      * @param shellArguments  Shell program, followed by its arguments.
      */
-    Session (const Runtime& sessionRuntime, HANDLE sizeHandle, std::int64_t packedWinsize, const juce::StringArray& shellArguments);
+    Session (const Runtime& sessionRuntime, HANDLE sizeHandle, std::int64_t packedWinsize, int newBufferSize, const juce::StringArray& shellArguments);
 
     /** @brief Waits for the reader thread to end, then closes the master descriptor. */
     ~Session() override;
@@ -35,10 +36,18 @@ private:
     /**
      * @brief Opens the shell and the relays, then copies the master output to the standard output.
      *
-     * The call stops the message loop when it returns. When the shell does not open, the call stops the loop at once.
-     * When the relays do not open, the call hangs up the shell, and still copies the master output.
-     * Each master read goes through the stdio server, which publishes the bytes and flushes them to the standard output.
-     * The copy loop ends when a read returns 0 or a negative value. A full output ring also returns 0.
+     * The call stops the message loop when it returns.
+     * When the shell does not open, the call stops the message loop at once.
+     * The call sets the master non-blocking before it opens the relays.
+     * When the relays do not open, the call hangs up the shell and still copies the master output.
+     * The copy loop waits for the master to become readable, with no timeout.
+     * Each wake makes one writeFromDevice call on the stdio server. The server flushes once per call.
+     * The read callback makes one runtime read per pass. When the runtime read returns bytes and the ring has space, the callback reads the pipe once with jam::TerminalFIFO::read. It repeats until a runtime read returns 0 or less, or the ring is full.
+     * The callback returns the bytes read. With no bytes read, it returns 0 when the master would block, and -1 otherwise.
+     * An interrupted poll (EINTR) polls again.
+     * The loop ends when writeFromDevice returns -1. That -1 results from end of the master, a read error, or a flush that leaves no free space.
+     * Any other poll failure also ends the loop.
+     * The call gets the Windows handle of the master pipe from the runtime before the loop. The runtime read comes first in each pass, so the runtime keeps echo, held input and slave end. With more than 256 bytes of echo waiting, echo and pipe output interleave once per 256 bytes of echo. Under discard mode, a discard between the runtime read and the pipe read does not discard the pipe bytes.
      */
     void run();
 
@@ -98,9 +107,10 @@ private:
     /**
      * @brief Capacity in bytes of the size ring and of both rings of the stdio server.
      *
+     * The host passes the value on the command line, and the constructor stores it.
      * The master read fills the output ring of the stdio server. The stdio reader and the size reader give the same value to their readiness clocks.
      */
-    static constexpr int bufferSize { 65536 };
+    const int bufferSize;
 
     /** @brief Longest period between two readiness ticks of the stdio and size readers, in milliseconds. */
     static constexpr double maximumPeriodMilliseconds { 1.0 };
