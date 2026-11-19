@@ -24,6 +24,9 @@ public:
      */
     explicit TerminalMemoryTTY (std::unique_ptr<jam::TerminalTTY> platformTTY, int recordCapacity);
 
+    /** @brief Closes the platform TTY, then cancels the pending update that records its bytes. */
+    ~TerminalMemoryTTY() override;
+
     /**
      * @brief Opens the platform TTY, records its output, then starts the replay.
      *
@@ -33,7 +36,6 @@ public:
      * `onBytesReady` must be set (jassert). When the record is complete, the call changes nothing and returns `true`.
      *
      * @param context           Not used. The platform TTY runs its readiness source on the context of this object.
-     * @param bufferSize        Device buffer size. The call passes it to the platform TTY.
      * @param maximumPeriodMilliseconds  Longest wait between two readiness ticks, in milliseconds. The call passes it to the platform TTY.
      * @param dims              Initial terminal dimensions.
      * @param shell             Shell program name or absolute path.
@@ -42,14 +44,21 @@ public:
      * @param environment       Variables that the shell receives in addition to the environment of the parent.
      * @return                  `true` when the record is complete. `false` when the platform TTY fails to open or the record times out.
      */
-    bool open (const jam::AsyncUpdater* context, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
+    bool open (const jam::AsyncUpdater* context, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
                const juce::String& args, const juce::String& workingDirectory,
                const juce::StringPairArray& environment) override;
 
     /** @brief Closes the platform TTY. */
     void close() override;
 
-    bool isOpen() const noexcept override;
+    /**
+     * @brief Returns the buffer size of the platform TTY.
+     *
+     * The owner opens its device with this value. The record does not use it: the record ring has the capacity that the constructor sets.
+     *
+     * @return  Capacity in bytes, from the platform TTY.
+     */
+    int getDefaultBufferSize() const noexcept override;
 
     /**
      * @brief Copies the next bytes of the record into @p buf.
@@ -72,7 +81,16 @@ public:
     /** @brief Ignores the window size. */
     void setWinsize (jam::TerminalWinsize ws) override;
 
+    /** @brief Forwards the cursor position of the decoder to the platform TTY. */
+    void setCursor (jam::Cell::Point newCursor) override;
+
+    /** @brief Forwards the pen attributes of the decoder to the platform TTY. */
+    void setPen (int64_t newPen) override;
+
 private:
+    /** @brief Returns `true` when the record is complete, that is when the platform TTY has reported the end of its output. */
+    bool isOpen() const noexcept;
+
     /** @brief Reads all bytes that the platform TTY has into the record. Signals `recorded` when the platform TTY reports the end. */
     void handleAsyncUpdate() override;
 

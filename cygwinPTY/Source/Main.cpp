@@ -24,7 +24,8 @@ extern "C" DWORD cygwinPTYCRTStartup (LPVOID environmentBlock)
 
 int main (int argc, char* argv[])
 {
-    jassert (argc > 4);
+    static constexpr int firstShellArgument { 5 };
+    jassert (argc > firstShellArgument);
     auto runtime { std::make_unique<const Runtime> (juce::File (argv[1])) };
 
     if (runtime->isLoaded())
@@ -32,7 +33,7 @@ int main (int argc, char* argv[])
         std::function<void()> messageLoop { [&runtime, argv]
         {
             juce::ScopedJuceInitialiser_GUI juceInitialiser;
-            Session session { *runtime, reinterpret_cast<HANDLE> (static_cast<uintptr_t> (juce::String (argv[2]).getLargeIntValue())), juce::String (argv[3]).getLargeIntValue(), juce::StringArray (argv + 4) };
+            Session session { *runtime, reinterpret_cast<HANDLE> (static_cast<uintptr_t> (juce::String (argv[2]).getLargeIntValue())), juce::String (argv[3]).getLargeIntValue(), juce::String (argv[4]).getIntValue(), juce::StringArray (argv + firstShellArgument) };
             juce::MessageManager::getInstance()->runDispatchLoop();
         } };
         void* messageThread { nullptr };

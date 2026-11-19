@@ -6,7 +6,13 @@ TerminalMemoryTTY::TerminalMemoryTTY (std::unique_ptr<jam::TerminalTTY> platform
     fixture.prepare (recordCapacity);
 }
 
-bool TerminalMemoryTTY::open (const jam::AsyncUpdater*, int bufferSize, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
+TerminalMemoryTTY::~TerminalMemoryTTY()
+{
+    close();
+    cancelPendingUpdate();
+}
+
+bool TerminalMemoryTTY::open (const jam::AsyncUpdater*, double maximumPeriodMilliseconds, jam::Cell::Rectangle dims, const juce::String& shell,
                               const juce::String& args, const juce::String& workingDirectory,
                               const juce::StringPairArray& environment)
 {
@@ -16,7 +22,7 @@ bool TerminalMemoryTTY::open (const jam::AsyncUpdater*, int bufferSize, double m
 
     tty->onBytesReady = [this] (int) { triggerAsyncUpdate(); };
 
-    const auto isOpen { tty->open (getContext(), bufferSize, maximumPeriodMilliseconds, dims, shell, args, workingDirectory, environment) };
+    const auto isOpen { tty->open (getContext(), maximumPeriodMilliseconds, dims, shell, args, workingDirectory, environment) };
     jassert (isOpen);
 
     const auto isRecorded { isOpen and recorded.wait (recordTimeoutMs) };
@@ -39,6 +45,11 @@ bool TerminalMemoryTTY::open (const jam::AsyncUpdater*, int bufferSize, double m
 bool TerminalMemoryTTY::isOpen() const noexcept
 {
     return recorded.wait (0);
+}
+
+int TerminalMemoryTTY::getDefaultBufferSize() const noexcept
+{
+    return tty->getDefaultBufferSize();
 }
 
 void TerminalMemoryTTY::close()
@@ -69,6 +80,16 @@ int TerminalMemoryTTY::write (const char*, int len)
 
 void TerminalMemoryTTY::setWinsize (jam::TerminalWinsize)
 {
+}
+
+void TerminalMemoryTTY::setCursor (jam::Cell::Point newCursor)
+{
+    tty->setCursor (newCursor);
+}
+
+void TerminalMemoryTTY::setPen (int64_t newPen)
+{
+    tty->setPen (newPen);
 }
 
 void TerminalMemoryTTY::handleAsyncUpdate()

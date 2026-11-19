@@ -147,10 +147,8 @@ void EVEView::registerTerminalEvents()
         getTerminalProcessor().applyCommands ([this] (const juce::Identifier& name) { invokeCommand (name); });
     });
 
-    terminalEvents.add (Id::numGridEvents, [this] (const juce::Identifier&, const juce::ValueTree&)
-    {
-        getTerminalProcessor().applyGridEvents();
-    });
+    for (const auto& id : { Id::numGridEvents, Id::firstLine })
+        terminalEvents.add (id, [this] (const juce::Identifier&, const juce::ValueTree&) { getTerminalProcessor().applyGridEvents(); });
 
     terminalEvents.add (Id::clipboard, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {

@@ -88,12 +88,7 @@ std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY (const juce::S
     else
     {
         auto windowsTTY { std::make_unique<jam::TerminalWindowsTTY>() };
-        windowsTTY->getCursor = [this] { return jam::Cell::Point::unpack (state.getParameter<jam::Parameter<int>> (terminalTag, Id::cursor)->getValue()); };
-        windowsTTY->getWinsize = [this] { return getWinsize(); };
-        windowsTTY->getPen = [this] { return state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::pen)->getValue(); };
-        windowsTTY->getInputMode = [this] { return state.getParameter<jam::Parameter<int>> (terminalTag, Id::inputMode)->getValue(); };
         windowsTTY->setInputMode = [this] (int mode) { state.storeValue (terminalTag, Id::inputMode, mode); };
-        windowsTTY->getOutputMode = [this] { return state.getParameter<jam::Parameter<int>> (terminalTag, Id::outputMode)->getValue(); };
         windowsTTY->setOutputMode = [this] (int mode) { state.storeValue (terminalTag, Id::outputMode, mode); };
         platformTTY = std::move (windowsTTY);
     }
@@ -164,8 +159,13 @@ void EVETerminalProcessor::registerImageEvents()
 {
     events.add<int64_t> (Id::clipboard, [this] (const juce::Identifier&, int64_t image) { state.storeValue (terminalTag, Id::pendingClipboard, image); });
 
-    for (const auto& id : { Id::previewBox, Id::outputBlock, Id::scrollingRegion, Id::pen, Id::savedPenNormal, Id::savedPenAlternate, Id::keyboardModesNormal, Id::keyboardModesAlternate, Id::syncStart })
-        events.add<int64_t> (id, [this] (const juce::Identifier& key, int64_t value) { state.storeValue (terminalTag, key, value); });
+    for (const auto& id : { Id::previewBox, Id::outputBlock, Id::scrollingRegion, Id::pen, Id::savedPenNormal, Id::savedPenAlternate, Id::keyboardModesNormal, Id::keyboardModesAlternate, Id::syncStart, Id::firstLine, Id::endLine, Id::closedLine, Id::lineIndex, Id::firstImage, Id::endImage, Id::imageIndex })
+    {
+        jassert (state.getParameter<jam::Parameter<int64_t>> (terminalTag, id) != nullptr);
+        auto& parameter { *state.getParameter<jam::Parameter<int64_t>> (terminalTag, id) };
+
+        events.add<int64_t> (id, [&parameter] (const juce::Identifier&, int64_t value) { parameter.store (value); });
+    }
 }
 
 void EVETerminalProcessor::applyCommands (const std::function<void (const juce::Identifier&)>& callback)
@@ -204,15 +204,6 @@ void EVETerminalProcessor::applyGridEvents()
         {
             lists.removeChild (lists.getChildWithProperty (Id::value, line), nullptr);
             lists.setProperty (Id::activeGridStart, lists.getChild (lists.getNumChildren() - 1).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
-        },
-
-        [] (juce::ValueTree& lists, juce::int64 firstLine)
-        {
-            while (lists.getNumChildren() > 0 and static_cast<juce::int64> (lists.getChild (0).getProperty (Id::value)) < firstLine)
-                lists.removeChild (0, nullptr);
-
-            if (static_cast<juce::int64> (lists.getProperty (Id::activeGridStart, jam::TerminalBuffer::noGridStart)) < firstLine)
-                lists.setProperty (Id::activeGridStart, lists.getChild (0).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
         }
     }};
 
@@ -230,11 +221,19 @@ void EVETerminalProcessor::applyGridEvents()
 
         return size;
     });
+
+    const auto firstLine { static_cast<juce::int64> (state.state.getProperty (Id::firstLine)) };
+
+    while (lists.getNumChildren() > 0 and static_cast<juce::int64> (lists.getChild (0).getProperty (Id::value)) < firstLine)
+        lists.removeChild (0, nullptr);
+
+    if (static_cast<juce::int64> (lists.getProperty (Id::activeGridStart, jam::TerminalBuffer::noGridStart)) < firstLine)
+        lists.setProperty (Id::activeGridStart, lists.getChild (0).getProperty (Id::value, jam::TerminalBuffer::noGridStart), nullptr);
 }
 
 void EVETerminalProcessor::registerUserInterfaceGetters()
 {
-    userInterfaceGetters[Id::textEditor].add<jam::TerminalSwap*&> (jam::Format::toType (Id::winsize), [this] (const juce::Identifier&, jam::TerminalSwap*& output)
+    userInterfaceGetters[Id::textEditor].add<jam::TerminalSwap*&, juce::AbstractFifo*&, const jam::Model*&> (jam::Format::toType (Id::winsize), [this] (const juce::Identifier&, jam::TerminalSwap*& output, juce::AbstractFifo*& liveSlotsOutput, const jam::Model*& stateOutput)
                                                                                                     {
                                                                                                         state.flush();
 
@@ -247,11 +246,13 @@ void EVETerminalProcessor::registerUserInterfaceGetters()
 #endif
 
                                                                                                         output = &swap;
+                                                                                                        liveSlotsOutput = &liveSlots;
+                                                                                                        stateOutput = &state;
 
                                                                                                         applyPendingInput();
                                                                                                     });
 
-    userInterfaceGetters[Id::previewComponent].add<jam::TerminalSwap*&> (jam::Format::toType (Id::images), [this] (const juce::Identifier&, jam::TerminalSwap*& output) { output = &swap; });
+    userInterfaceGetters[Id::previewComponent].add<jam::TerminalSwap*&, const jam::Model*&> (jam::Format::toType (Id::images), [this] (const juce::Identifier&, jam::TerminalSwap*& output, const jam::Model*& stateOutput) { output = &swap; stateOutput = &state; });
 }
 
 void EVETerminalProcessor::registerChainEvents()
@@ -321,10 +322,9 @@ std::string EVETerminalProcessor::getQuotedPaths (const juce::StringArray& paths
 
 bool EVETerminalProcessor::writePendingData()
 {
-    auto& images { terminalProcessor.getImages() };
     const auto hasImages { images.getNumReady() > 0 };
 
-    return swap.writeFromTerminalBuffer (terminalBuffer, images, events) > 0 or hasImages;
+    return swap.writeFromTerminalBuffer (terminalBuffer, images, events, *state.getRawParameterValue<int64_t> (terminalTag, Id::heldLine), *state.getRawParameterValue<int64_t> (terminalTag, Id::heldImage)) > 0 or hasImages;
 }
 
 void EVETerminalProcessor::handleAsyncUpdate()
@@ -339,10 +339,16 @@ void EVETerminalProcessor::handleAsyncUpdate()
 
 void EVETerminalProcessor::copyToClipboard (juce::int64 image)
 {
-    swap.applyToImageData (image, [] (const void* data, size_t size, jam::TerminalImageEncoding)
+    const auto heldImage { state.getRawParameterValue<int64_t> (terminalTag, Id::heldImage)->load (std::memory_order_seq_cst) };
+
+    state.storeValue (terminalTag, Id::heldImage, static_cast<int64_t> (heldImage >= 0 ? juce::jmin (heldImage, image) : image));
+
+    swap.setImageData (image, *state.getRawParameterValue<int64_t> (terminalTag, Id::firstImage), *state.getRawParameterValue<int64_t> (terminalTag, Id::endImage), *state.getRawParameterValue<int64_t> (terminalTag, Id::imageIndex), [] (const void* data, size_t size, jam::TerminalImageEncoding)
     {
         juce::SystemClipboard::copyTextToClipboard (juce::String::fromUTF8 (static_cast<const char*> (data), static_cast<int> (size)));
     });
+
+    state.storeValue (terminalTag, Id::heldImage, static_cast<int64_t> (heldImage));
 }
 
 int EVETerminalProcessor::getHistoryCapacity() const
@@ -357,24 +363,40 @@ jam::TerminalWinsize EVETerminalProcessor::getWinsize() const
 
 void EVETerminalProcessor::prepare()
 {
+    JUCE_ASSERT_MESSAGE_THREAD
+
     static constexpr double virtualSampleRate { 48000.0 };
-#if JUCE_WINDOWS
-    static constexpr int virtualBufferSize { virtualBlockSize };
-#else
-    static constexpr int virtualBufferSize { 1024 };
-#endif
 
     device.stop();
+
+    if (const auto winsize { getWinsize() }; winsize.isValid())
     {
+        if (tty == nullptr)
+        {
+            const auto vblankMilliseconds { juce::RelativeTime::seconds (1.0 / jam::CpuGraphicsEngine::getRefreshRateHz()).inSeconds() * 1000.0 };
+            openTTY (vblankMilliseconds, winsize);
+
+            if (tty != nullptr)
+            {
+                ttyResize.onWork = [this] { tty->setWinsize (getWinsize()); };
+                ttyResize.open (device.getContext());
+            }
+        }
+
+        if (tty != nullptr)
+        {
+            {
 #if JAM_USING_PROFILER
-        const jam::Profiler::Zone zone { Id::deviceOpen };
+                const jam::Profiler::Zone zone { Id::deviceOpen };
 #endif
-        device.open ({}, {}, virtualSampleRate, virtualBufferSize);
+                device.open ({}, {}, virtualSampleRate, tty->getDefaultBufferSize());
+            }
+#if JAM_USING_PROFILER
+            const jam::Profiler::Zone zone { Id::deviceStart };
+#endif
+            start();
+        }
     }
-#if JAM_USING_PROFILER
-    const jam::Profiler::Zone zone { Id::deviceStart };
-#endif
-    start();
 }
 
 void EVETerminalProcessor::start()
@@ -386,8 +408,10 @@ void EVETerminalProcessor::start()
 void EVETerminalProcessor::releaseResources()
 {
     device.stop();
+    cancelPendingUpdate();
     device.close();
-    tty->close();
+    ttyResize.close();
+    tty.reset();
 }
 
 void EVETerminalProcessor::audioDeviceIOCallbackWithContext (const float* const*, int, float* const*, int, int, const juce::AudioIODeviceCallbackContext&)
@@ -413,8 +437,10 @@ void EVETerminalProcessor::audioDeviceAboutToStart (juce::AudioIODevice*)
 
 void EVETerminalProcessor::audioDeviceStopped() {}
 
-void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMilliseconds, jam::TerminalWinsize winsize)
+void EVETerminalProcessor::openTTY (double maximumPeriodMilliseconds, jam::TerminalWinsize winsize)
 {
+    const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
+
 #if JAM_USING_PROFILER
     const jam::Profiler::Zone zone { Id::ttyOpen };
 
@@ -422,12 +448,11 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
     {
         const auto profilerTable { getProfilerTable() };
         const auto program { profilerTable[jam::Format::toType (Id::shell)].toString() };
-        const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
 
         ShellIntegration::addShellScripts (directory);
         tty = createTTY (program, directory);
 
-        const auto isOpen { tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), program, profilerTable[jam::Format::toType (Id::args)].toString(), getManifestFile().getParentDirectory().getFullPathName()) };
+        const auto isOpen { tty->open (device.getContext(), maximumPeriodMilliseconds, winsize.toCellRect(), program, profilerTable[jam::Format::toType (Id::args)].toString(), getManifestFile().getParentDirectory().getFullPathName()) };
 
         const auto startUrl { juce::URL { getManifestFile().getParentDirectory() }.toString (false) };
 
@@ -435,49 +460,51 @@ void EVETerminalProcessor::openTTY (int bufferSize, double maximumPeriodMillisec
         state.storeValue (terminalTag, Id::shell, program.toRawUTF8(), static_cast<int> (program.getNumBytesAsUTF8()));
 
         if (not isOpen)
+        {
             state.storeValue (terminalTag, Id::shellExited, 1);
+            tty.reset();
+        }
     }
     else
 #endif
     {
-        if (not tty->isOpen())
+        const auto shellTokens (juce::StringArray::fromTokens (getShell(), true));
+        const auto program { shellTokens[0].unquoted() };
+        const auto arguments { shellTokens.joinIntoString (juce::String::charToString (Chars::space), 1) };
+
+        ShellIntegration::addShellScripts (directory);
+
+        const juce::URL cwd { state.state.getProperty (Id::cwd).toString() };
+        const auto startDirectory { cwd.isLocalFile() ? cwd.getLocalFile() : ShellIntegration::getStartDirectory() };
+        const auto startUrl { juce::URL { startDirectory }.toString (false) };
+
+        state.storeValue (terminalTag, Id::cwd, startUrl.toRawUTF8(), static_cast<int> (startUrl.getNumBytesAsUTF8()));
+
+        const auto openShell = [this, maximumPeriodMilliseconds, winsize, &directory, &startDirectory] (const juce::String& shell, const juce::String& shellArguments) -> bool
         {
-            const auto shellTokens (juce::StringArray::fromTokens (getShell(), true));
-            const auto program { shellTokens[0].unquoted() };
-            const auto arguments { shellTokens.joinIntoString (juce::String::charToString (Chars::space), 1) };
-            const auto directory { jam::ParameterManager::getInstance()->getUserSettings().getParentDirectory().getParentDirectory().getChildFile (files::shellIntegrationDirectory) };
+            tty = createTTY (shell, directory);
 
-            ShellIntegration::addShellScripts (directory);
+            return tty->open (device.getContext(), maximumPeriodMilliseconds, winsize.toCellRect(), shell, (shellArguments + juce::String::charToString (Chars::space) + ShellIntegration::getShellArguments (shell, directory)).trim(), startDirectory.getFullPathName(), ShellIntegration::getShellEnvironment (shell, directory));
+        };
 
-            const juce::URL cwd { state.state.getProperty (Id::cwd).toString() };
-            const auto startDirectory { cwd.isLocalFile() ? cwd.getLocalFile() : ShellIntegration::getStartDirectory() };
-            const auto startUrl { juce::URL { startDirectory }.toString (false) };
-
-            state.storeValue (terminalTag, Id::cwd, startUrl.toRawUTF8(), static_cast<int> (startUrl.getNumBytesAsUTF8()));
-
-            const auto openShell = [this, bufferSize, maximumPeriodMilliseconds, winsize, &directory, &startDirectory] (const juce::String& shell, const juce::String& shellArguments) -> bool
-            {
-                tty = createTTY (shell, directory);
-
-                return tty->open (device.getContext(), bufferSize, maximumPeriodMilliseconds, winsize.toCellRect(), shell, (shellArguments + juce::String::charToString (Chars::space) + ShellIntegration::getShellArguments (shell, directory)).trim(), startDirectory.getFullPathName(), ShellIntegration::getShellEnvironment (shell, directory));
-            };
-
-            const auto isOpen { openShell (program, arguments) };
+        const auto isOpen { openShell (program, arguments) };
 #if JUCE_WINDOWS
-            const std::array<juce::String, 2> fallbackShells { Id::powershellProgram, Id::commandPromptProgram };
+        const std::array<juce::String, 2> fallbackShells { Id::powershellProgram, Id::commandPromptProgram };
 #else
-            const std::array<juce::String, 0> fallbackShells {};
+        const std::array<juce::String, 0> fallbackShells {};
 #endif
-            const auto fallbackShell { isOpen ? fallbackShells.end() : std::find_if (fallbackShells.begin(), fallbackShells.end(), [&openShell] (const juce::String& shellName) { return openShell (shellName, {}); }) };
-            const auto isFallbackOpen { fallbackShell != fallbackShells.end() };
-            const auto runningShell { isFallbackOpen ? *fallbackShell : program };
-            const auto missingShell { isFallbackOpen ? program : juce::String {} };
+        const auto fallbackShell { isOpen ? fallbackShells.end() : std::find_if (fallbackShells.begin(), fallbackShells.end(), [&openShell] (const juce::String& shellName) { return openShell (shellName, {}); }) };
+        const auto isFallbackOpen { fallbackShell != fallbackShells.end() };
+        const auto runningShell { isFallbackOpen ? *fallbackShell : program };
+        const auto missingShell { isFallbackOpen ? program : juce::String {} };
 
-            state.storeValue (terminalTag, Id::shell, runningShell.toRawUTF8(), static_cast<int> (runningShell.getNumBytesAsUTF8()));
-            state.storeValue (terminalTag, Id::shellNotFound, missingShell.toRawUTF8(), static_cast<int> (missingShell.getNumBytesAsUTF8()));
+        state.storeValue (terminalTag, Id::shell, runningShell.toRawUTF8(), static_cast<int> (runningShell.getNumBytesAsUTF8()));
+        state.storeValue (terminalTag, Id::shellNotFound, missingShell.toRawUTF8(), static_cast<int> (missingShell.getNumBytesAsUTF8()));
 
-            if (not isOpen and not isFallbackOpen)
-                state.storeValue (terminalTag, Id::shellExited, 1);
+        if (not isOpen and not isFallbackOpen)
+        {
+            state.storeValue (terminalTag, Id::shellExited, 1);
+            tty.reset();
         }
     }
 }
@@ -530,21 +557,19 @@ void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCap
 #if JAM_USING_PROFILER
             const jam::Profiler::Zone swapZone { Id::swapPrepare };
 #endif
-            swap.prepare (terminalBuffer.getNumBytes());
+            swap.prepare (terminalBuffer.getNumBytes(), terminalBuffer.getNumRowBytes());
         }
         {
 #if JAM_USING_PROFILER
             const jam::Profiler::Zone resetZone { Id::processorReset };
 #endif
-            terminalProcessor.reset (terminalBuffer, winsize, events);
+            terminalProcessor.reset (terminalBuffer, images, winsize, events);
         }
-        swap.setCapacity (historyCapacity);
+        swap.setCapacity (historyCapacity, events);
         handleUpdateNow();
     }
 
-    const auto vblankMilliseconds { juce::RelativeTime::seconds (1.0 / jam::CpuGraphicsEngine::getRefreshRateHz()).inSeconds() * 1000.0 };
-    openTTY (device.getCurrentBufferSizeSamples(), vblankMilliseconds, winsize);
-    tty->setWinsize (winsize);
+    ttyResize.submit();
     flush();
 }
 
@@ -552,19 +577,18 @@ void EVETerminalProcessor::process() noexcept
 {
     if (juce::exactlyEqual (bypass.load(), 0.0f))
     {
-        if (tty->isOpen())
-        {
-            input.writePendingData (*tty);
+        input.writePendingData (*tty);
 
-            const auto background { state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::background)->getValue() };
+        const auto background { state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::background)->getValue() };
 
-            while (terminalProcessor.process (*tty, terminalBuffer, swap, *jam::Colours::getInstance(), static_cast<juce::uint32> (background), events)) {}
-        }
+        while (terminalProcessor.process (*tty, terminalBuffer, swap, images, liveSlots, *jam::Colours::getInstance(), static_cast<juce::uint32> (background), events)) {}
     }
 }
 
 void EVETerminalProcessor::clearHistory()
 {
+    JUCE_ASSERT_MESSAGE_THREAD
+
     device.stop();
     handleUpdateNow();
     terminalProcessor.clear (terminalBuffer);

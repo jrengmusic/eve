@@ -15,6 +15,18 @@ struct Winsize
 };
 
 /**
+ * @brief Descriptor and event masks of one poll call.
+ *
+ * The layout mirrors the runtime record struct pollfd. The session fills it for the master descriptor and passes it to poll.
+ */
+struct Pollfd
+{
+    int descriptor;             ///< Descriptor to wait on.
+    short requestedEvents;      ///< Events to wait for.
+    short returnedEvents;       ///< Events that the runtime reports.
+};
+
+/**
  * @brief Loads a Cygwin or MSYS2 runtime DLL and binds the POSIX functions that the helper calls.
  *
  * Each function pointer stays null when the library does not open or does not export the function.
@@ -46,8 +58,8 @@ public:
      */
     int (*openpty) (int*, int*, char*, const void*, const Winsize*) { nullptr };   ///< Binds `openpty`, which opens a pseudo terminal pair with a start size.
     int (*ioctl) (int, int, ...) { nullptr };   ///< Binds `ioctl`, which sets the controlling terminal and the window size of a pseudo terminal.
-    long (*read) (int, void*, size_t) { nullptr };   ///< Binds `read`, which reads from a file descriptor.
-    long (*write) (int, const void*, size_t) { nullptr };   ///< Binds `write`, which writes to a file descriptor.
+    juce::int64 (*read) (int, void*, size_t) { nullptr };   ///< Binds `read`, which reads from a file descriptor.
+    juce::int64 (*write) (int, const void*, size_t) { nullptr };   ///< Binds `write`, which writes to a file descriptor.
     int (*close) (int) { nullptr };   ///< Binds `close`, which closes a file descriptor.
     int (*dup) (int) { nullptr };   ///< Binds `dup`, which duplicates a file descriptor.
     int (*dup2) (int, int) { nullptr };   ///< Binds `dup2`, which duplicates a file descriptor onto a given number.
@@ -60,6 +72,9 @@ public:
     uintptr_t (*cygwinInternal) (int, ...) { nullptr };   ///< Binds `cygwin_internal`, the Cygwin query call. The session uses it to get the Windows process id of a process.
     int (*pthreadCreate) (void**, const void*, void* (*) (void*), void*) { nullptr };   ///< Binds `pthread_create`, which starts a thread.
     int (*pthreadJoin) (void*, void**) { nullptr };   ///< Binds `pthread_join`, which waits for a thread to end.
+    int (*poll) (Pollfd*, unsigned int, int) { nullptr };   ///< Binds `poll`, which waits until a descriptor is ready.
+    int* (*errorNumber) () { nullptr };   ///< Binds `__errno`, which gives the address of the error number of the calling thread. The member is named errorNumber, because the MSVC CRT defines errno as a macro.
+    uintptr_t (*getOsfhandle) (int) { nullptr };   ///< Binds `_get_osfhandle`, which gives the Windows handle of a descriptor. The session uses it to get the pipe that the master reads.
 
 private:
     /** @brief The loaded runtime DLL. It stays open while the object lives. */
