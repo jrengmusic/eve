@@ -188,7 +188,7 @@ void EVETerminalProcessor::applyCommands (const std::function<void (const juce::
     });
 }
 
-void EVETerminalProcessor::applyGridEvents()
+void EVETerminalProcessor::setGridEvents()
 {
     static const juce::Identifier listsType { jam::Format::toType (Id::gridStarts) };
 
@@ -249,7 +249,7 @@ void EVETerminalProcessor::registerUserInterfaceGetters()
                                                                                                         liveSlotsOutput = &liveSlots;
                                                                                                         stateOutput = &state;
 
-                                                                                                        applyPendingInput();
+                                                                                                        setPendingInput();
                                                                                                     });
 
     userInterfaceGetters[Id::previewComponent].add<jam::TerminalSwap*&, const jam::Model*&> (jam::Format::toType (Id::images), [this] (const juce::Identifier&, jam::TerminalSwap*& output, const jam::Model*& stateOutput) { output = &swap; stateOutput = &state; });
@@ -271,10 +271,10 @@ void EVETerminalProcessor::addInput (const char* bytes, int size)
     }
 
     pendingInput.append (bytes + numBytes, static_cast<size_t> (size - numBytes));
-    applyPendingInput();
+    setPendingInput();
 }
 
-void EVETerminalProcessor::applyPendingInput()
+void EVETerminalProcessor::setPendingInput()
 {
     const auto numBytes { juce::jmin (input.getFreeSpace(), static_cast<int> (pendingInput.size() - pendingInputOffset)) };
 
@@ -294,7 +294,7 @@ void EVETerminalProcessor::applyPendingInput()
     device.requestProcess();
 }
 
-void EVETerminalProcessor::applyOpenCommand (std::string_view command, std::string_view path)
+void EVETerminalProcessor::setOpenCommand (std::string_view command, std::string_view path)
 {
     std::string line { command };
 
@@ -369,7 +369,7 @@ void EVETerminalProcessor::prepare()
 
     device.stop();
 
-    if (const auto winsize { getWinsize() }; winsize.isValid())
+    if (const auto winsize { getWinsize() }; winsize.isValid() and state.state.getProperty (Id::cwd).toString().isNotEmpty())
     {
         if (tty == nullptr)
         {
@@ -517,7 +517,7 @@ juce::ValueTree EVETerminalProcessor::getProfilerTable() const
     if (processor.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
         manifestFile = getManifestFile();
     else
-        dynamic_cast<const jam::ENAXClientExtensions&> (processor).set (Id::manifestFile, [] (juce::File&) {}, manifestFile);
+        dynamic_cast<const jam::ENAXClientExtensions&> (processor).applyRule (Id::manifestFile, [] (juce::File&) {}, manifestFile);
 
     if (const auto document { jam::ConfigDocument::parse (manifestFile.loadFileAsString(), manifestFile.getFullPathName()) }; document != nullptr)
         return document->getValueTree (Id::manifest).getChildWithName (jam::Format::toType (Id::profiler));
@@ -538,7 +538,7 @@ juce::String EVETerminalProcessor::getShell() const
 void EVETerminalProcessor::prepare (jam::TerminalWinsize winsize, int historyCapacity)
 {
     handleUpdateNow();
-    terminalProcessor.applyWinsize (winsize, terminalBuffer);
+    terminalProcessor.setWinsize (winsize, terminalBuffer);
     handleUpdateNow();
 
     const auto blocksPerVblank { juce::jmax (1, static_cast<int> (std::ceil (device.getCurrentSampleRate() / virtualBlockSize / jam::CpuGraphicsEngine::getRefreshRateHz()))) };

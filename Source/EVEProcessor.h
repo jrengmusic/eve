@@ -12,11 +12,10 @@ class EVEProcessor
 public:
     EVEProcessor();
     /**
-     * @brief Writes the profiler samples in a profile standalone build. The members then release themselves in reverse order of declaration.
+     * @brief Removes the processor and the connection from the listeners of the model state.
      *
-     * In a profile standalone build, the destructor drains the profiler.
-     * It then writes the samples file that the manifest names. The manifest is the first command-line argument.
-     * In other builds, the destructor does nothing else.
+     * In a profile build, the call first opens the `processorDelete` zone. The zone ends when its member is destroyed,
+     * after this body. The members release in reverse order of declaration.
      */
     ~EVEProcessor() override;
 
@@ -94,9 +93,9 @@ private:
     /**
      * @brief Passes a changed model row to the host display or to the terminal chain.
      *
+     * The rows `winsize` and `cwd` call `terminalProcessor.prepare()`.
      * The rows `title`, `foregroundProcess`, `cwd`, `zoom`, `shellExited` and `markdownFile` call `updateHostDisplay()` with the
      * parameter info and the non-parameter state flagged as changed.
-     * The `winsize` row calls `terminalProcessor.prepare()`.
      * With `JAM_USING_PROFILER` set, the `numPrompts` row resets `launchPrompt`.
      * Any other row has no effect.
      *
@@ -120,7 +119,7 @@ private:
             BinaryData::fetcher,
             files::viewLayout,
             files::viewLayout,
-            [this] (const auto& fallback) { set (Id::engine, fallback); })
+            [this] (const auto& fallback) { applyRule (Id::engine, fallback); })
     };
 
     jam::ParameterManager parameterManager {
@@ -137,6 +136,17 @@ private:
     jam::SharedInstance<jam::StyleManager> styleManager;
 
     EVETerminalProcessor terminalProcessor { *this, model };
+
+    /**
+     * @brief Client connection to the server of END. It carries the model state of this plugin.
+     *
+     * The connection is declared after model, so it is destroyed before model. The constructor adds it as a listener of
+     * model.state. setStateInformation() restores through jam::AudioModel::setState(), whose APVTS replaceState() assigns
+     * a new root to model.state. That assignment redirects the root, and the connection, as a listener, adopts it.
+     * The constructor runs the server rule of the ENAX extensions, which connects the connection. That rule is registered
+     * only under END.
+     */
+    jam::ValueTreeConnection connection { model.state };
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVEProcessor)

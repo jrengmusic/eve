@@ -1,5 +1,6 @@
 #include "EVEView.h"
 #include "EVEProcessor.h"
+#include "ShellIntegration.h"
 
 EVEProcessor::EVEProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -24,13 +25,25 @@ EVEProcessor::EVEProcessor()
         styleManager.create (layout.fonts, settings);
     }
 
-    const auto [width, height] { jam::ViewManager::getUISize<jam::MarkdownDocument> (juce::Identifier { files::viewLayout }) };
     auto terminal { model.state.getChildWithName (jam::Format::toType (Id::terminal)) };
 
     jassert (terminal.isValid());
-    terminal.setProperty (Id::width, width, nullptr);
-    terminal.setProperty (Id::height, height, nullptr);
 
+    applyRule (Id::size, [] (juce::ValueTree& tree)
+    {
+        const auto [width, height] { jam::ViewManager::getUISize<jam::MarkdownDocument> (juce::Identifier { files::viewLayout }) };
+
+        tree.setProperty (Id::width, width, nullptr);
+        tree.setProperty (Id::height, height, nullptr);
+    }, terminal);
+
+    model.state.setProperty (Id::id, jam::UUID {}.value, nullptr);
+
+    terminal.setProperty (Id::cwd, juce::URL { ShellIntegration::getStartDirectory() }.toString (false), nullptr);
+
+    applyRule (Id::server, [] (jam::ValueTreeConnection&) {}, connection);
+
+    model.state.addListener (&connection);
     model.state.addListener (this);
 #if JAM_USING_PROFILER
     processorLayout.reset();
@@ -43,6 +56,7 @@ EVEProcessor::~EVEProcessor()
     processorDelete.emplace (Id::processorDelete);
 #endif
     model.state.removeListener (this);
+    model.state.removeListener (&connection);
 }
 
 const juce::String EVEProcessor::getName() const { return JucePlugin_Name; }
@@ -204,7 +218,7 @@ void EVEProcessor::valueTreePropertyChanged (juce::ValueTree&, const juce::Ident
         launchPrompt.reset();
 #endif
 
-    if (property == Id::winsize)
+    if (property == Id::winsize or property == Id::cwd)
         terminalProcessor.prepare();
 
     static const std::array hostRows { Id::title, Id::foregroundProcess, Id::cwd, Id::zoom, Id::shellExited, Id::markdownFile };

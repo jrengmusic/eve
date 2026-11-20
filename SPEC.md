@@ -319,13 +319,29 @@ the `bypass` host parameter. ARCHITECT: *"there's no \"report\" it's all termina
 Model parameter. its state changes, terminal command is the sole author. Listener react,
 always UNIDIRECTIONAL, always SSOT, no copy, no shadow state"*.
 
-- **EVE to the host.** A change of `title`, `foregroundProcess`, `cwd`, `zoom` or
-  `shellExited` calls `updateHostDisplay` with two flags: `parameterInfoChanged` for VST2
+- **EVE to the host.** A change of `title`, `foregroundProcess`, `cwd`, `zoom`,
+  `shellExited` or `markdownFile` calls `updateHostDisplay` with two flags: `parameterInfoChanged` for VST2
   and AU, `nonParameterStateChanged` for VST3 (`EVEProcessor::valueTreePropertyChanged`).
   The host then reads the state.
-- **The host to EVE.** A tree of type `pluginState` in `setStateInformation` sets each of
-  its properties on the Model, with no clock restart (`EVETerminalProcessor::setRows`).
-  Any other tree restores the state through the restart path.
+- **The host to EVE.** `setStateInformation` takes a complete state. The `terminal` child
+  updates the live terminal rows (`EVETerminalProcessor::setState`). Under END, EVE's tree is
+  attached to END's tree. EVE writes an `id` row on its model root (one `jam::UUID`). The
+  ENAX rule `server` connects EVE's member `connection` (`jam::ValueTreeConnection`, one
+  `juce::ValueTreeSynchroniser`) on the model tree. The connection listens to `model.state`,
+  so it follows the root that `setStateInformation` installs (`valueTreeRedirected`). END
+  writes `cwd`, `focus`, `width`, `height`, `mode` and an empty `markdownFile` on the
+  attached tree, and EVE reacts to the rows. ARCHITECT: *"enax extension or IPC, CHOOSE ONE
+  FOR ALL"*. ARCHITECT: *"ONE LANE, ONE PATH, ONE
+  SERIALISATION, SSOT"*; *"when END load EVE, EVE's tree attached to END, now it's END's tree.
+  END can listen and do whatever, EVE always synced. that's the contract"*; *"EVE only always
+  being told, that's why EVE expose its TextEditor state as a Model parameter"*.
+- **Shell start.** EVE opens its shell when the winsize is valid and `cwd` is not empty
+  (`EVETerminalProcessor::prepare`). In the constructor, EVE writes its own start directory
+  (`ShellIntegration::getStartDirectory`), and the EVE config is the only config. Under END,
+  END writes the start directory of a new pane on the lane, before the size. Under END, EVE
+  writes no editor size (the ENAX rule `size`), so the first valid winsize comes from END's
+  size. ARCHITECT: *"eve has its own config. nothing about that
+  changed whatever the host is"*.
 
 ## Components
 
@@ -773,7 +789,8 @@ dictate the layout, and what command tell them to be visible."*
      only while the component exists, so the `dismiss` row (`cmd+w`) matches only then.
   4. `dismiss` writes the empty row. The view destroys the component, and the
      TextEditor takes the focus. The terminal path does not change.
-  5. Under END, END takes `cmd+w` first and reads the row from `pluginState`. ARCHITECT:
+  5. Under END, END takes `cmd+w` first and reads the row from EVE's tree, which is
+     attached to END's tree (`Session::getTerminal`, `EditorView` `closeTerminalPane`). ARCHITECT:
      *"cmd+w should close whelmed first."*; *"EVE could have parameter if whelmed is
      opened, END always know its chilren state"*. A non-empty row: END writes the empty
      row. An empty row: END closes the pane. A shell exit closes the pane directly.
@@ -906,10 +923,12 @@ The content SSOT is the terminal wire bytes. `AnsiDocument` parses them into a
        the layout. The timer runs `resizeEnd`, which is the final stop. A live
        resize holds the gate with no timer, so `resized` adds nothing. ARCHITECT:
        *"Both (Recommended)"*.
-    6. The host is the sole author of the editor size. The processor gives the
-       default of the `width` and `height` rows at construction, from the `size` row
-       of the display config: *"default fallback carried by binary and user can
-       override, disk always win. but when hosted on END that values are ignored"*.
+    6. The host is the sole author of the editor size. Outside END, the processor
+       gives the default of the `width` and `height` rows at construction, from the
+       `size` row of the display config: *"default fallback carried by binary and user
+       can override, disk always win. but when hosted on END that values are
+       ignored"*. Under END, the ENAX rule `size` replaces that write, so the rows stay
+       empty until END writes them.
        A host sizes the editor through the JUCE editor contract (`setBounds`); it
        never writes the rows through `setStateInformation`. `EVEView::resizeEnd`, the
        final stop of a resize, writes the size the editor has into the rows, with no
@@ -1193,7 +1212,7 @@ An end-user can:
   that mirrors a Model value, a second dirty flag
 - ❌ A second prepare path beside the clock's start. The clock starts through
   `prepare()` only: from the host's `prepareToPlay`, from a `winsize` change,
-  and from `clearHistory`, which runs its body through the same setup change.
+  from a `cwd` change, and from `clearHistory`, which runs its body through the same setup change.
   `releaseResources` stops it and closes the device. ARCHITECT: *"winsize changed,
   prepare whatever"*; *"must be UNIDIRECTIONAL, one flow, one path"*
 - ❌ A second thread context between PTY readiness and the clock

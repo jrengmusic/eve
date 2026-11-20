@@ -49,13 +49,13 @@ public:
     ~EVETerminalProcessor() override;
 
     /**
-     * @brief Stops the clock, then opens the TTY and the clock for a valid window size.
+     * @brief Stops the clock, then opens the TTY and the clock when the window size is valid and the terminal cwd is not empty.
      *
      * The sample rate is 48000 Hz.
-     * A valid window size opens the TTY when `tty` is empty, with one vblank as its longest readiness period.
+     * The call opens the TTY when `tty` is empty, with one vblank as its longest readiness period.
      * When the call opens the TTY, it then opens the window size work on the device context.
      * The clock opens and starts only when `tty` holds a TTY. It takes the buffer size of that TTY, from `getDefaultBufferSize()`.
-     * Without a valid window size, the clock stays stopped.
+     * Without a valid window size, or with an empty `cwd` row in `state`, no TTY opens and the clock stays stopped.
      */
     void prepare();
 
@@ -106,7 +106,7 @@ public:
      * The view runs the call when the numGridEvents or the firstLine property changes. The tree of state changes only on the message thread, so the call runs there.
      * The call then drops the grid starts that lie before the `firstLine` row of `state`. When the active grid start lies before that row, it takes the value of the first remaining grid start.
      */
-    void applyGridEvents();
+    void setGridEvents();
 
     /**
      * @brief Copies the text of an image record to the system clipboard.
@@ -126,7 +126,7 @@ public:
      * @param command  Command text of the open command.
      * @param path     Decoded file path to open.
      */
-    void applyOpenCommand (std::string_view command, std::string_view path);
+    void setOpenCommand (std::string_view command, std::string_view path);
 
     /**
      * @brief Returns the paths quoted for the shell in the `shell` row of `state`, joined by one space.
@@ -144,7 +144,7 @@ public:
 #endif
 
     jam::ViewManager::Getters
-        userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter and a `previewComponent` getter. The `previewComponent` getter, keyed by `images`, gives the swap and the Model. The text editor getter, keyed by `winsize`, flushes the Model lane, triggers the async update when synchronized output is off, gives the swap, the live slots and the Model, and runs applyPendingInput().
+        userInterfaceGetters;///< Getters for the view. The constructor adds the text editor getter and a `previewComponent` getter. The `previewComponent` getter, keyed by `images`, gives the swap and the Model. The text editor getter, keyed by `winsize`, flushes the Model lane, triggers the async update when synchronized output is off, gives the swap, the live slots and the Model, and runs setPendingInput().
     jam::ViewManager::Events
         chainEvents;///< Events of the chain. The outer key is the event name, and the inner key is the event ID. The constructor adds the `write` event under `terminalInput`. It passes its bytes to `addInput()`.
 
@@ -237,7 +237,7 @@ private:
     /**
      * @brief Adds the text editor getter keyed by the winsize type, and the `previewComponent` getter keyed by the images type.
      *
-     * The text editor getter flushes the Model lane, triggers the async update when synchronized output is off, gives the swap, the live slots lane and the Model, and runs applyPendingInput().
+     * The text editor getter flushes the Model lane, triggers the async update when synchronized output is off, gives the swap, the live slots lane and the Model, and runs setPendingInput().
      * The `previewComponent` getter gives the swap and the Model.
      */
     void registerUserInterfaceGetters();
@@ -246,7 +246,7 @@ private:
     void registerChainEvents();
 
     /**
-     * @brief Writes the bytes that fit the input lane, appends the rest to `pendingInput`, then runs applyPendingInput().
+     * @brief Writes the bytes that fit the input lane, appends the rest to `pendingInput`, then runs setPendingInput().
      *
      * The bytes enter the lane directly only when `pendingInput` is empty, so that the order of the bytes is kept.
      *
@@ -260,7 +260,7 @@ private:
      *
      * `addInput()` and the text editor getter run this call.
      */
-    void applyPendingInput();
+    void setPendingInput();
 
     /** @brief Returns the history capacity that the `historyCapacity` component of the model holds. */
     int getHistoryCapacity() const;
@@ -271,10 +271,10 @@ private:
     /**
      * @brief Prepares the buffer, the swap and the decoder for a window size, and submits the TTY window size.
      *
-     * The call runs handleUpdateNow() three times. The first run precedes applyWinsize(), the second run follows applyWinsize(), and the third run follows the call to swap.setCapacity().
+     * The call runs handleUpdateNow() three times. The first run precedes setWinsize(), the second run follows setWinsize(), and the third run follows the call to swap.setCapacity().
      * Each run queues the async update and waits for it. The update writes the pending history rows to the swap, and the swap write reports the boundaries of the swap.
-     * Between the first and the second run, the decoder applies the window size to the buffer through applyWinsize().
-     * On the normal screen, applyWinsize() scrolls the buffer up by the rows that the cursor exceeds the last row of the new winsize, and it moves the cursor up by the same count.
+     * Between the first and the second run, the decoder applies the window size to the buffer through setWinsize().
+     * On the normal screen, setWinsize() scrolls the buffer up by the rows that the cursor exceeds the last row of the new winsize, and it moves the cursor up by the same count.
      * The call then sizes the buffer for the blocks of one vblank, prepares the swap with the byte count of the buffer, resets the decoder, and sets the history capacity.
      * It then submits the TTY window size with `ttyResize.submit()`, and calls flush(), which flushes the Model lane under the message manager lock.
      *
@@ -365,7 +365,7 @@ private:
     size_t pendingInputOffset { 0 };    ///< Index of the first byte of `pendingInput` that waits for room in the input lane. The bytes before it already entered the lane.
     jam::TerminalFIFO input;///< Input lane from the view to the TTY.
     jam::TerminalFIFO commands;///< Command names from the shell to the view.
-    jam::TerminalFIFO gridEvents;///< @brief Carries the grid events from handleAsyncUpdate() to applyGridEvents().
+    jam::TerminalFIFO gridEvents;///< @brief Carries the grid events from handleAsyncUpdate() to setGridEvents().
     jam::TerminalFIFO images;///< Lane of the image records from the decoder to the swap. The decoder writes it, and writePendingData() consumes it through the swap.
     juce::AbstractFifo liveSlots { jam::TerminalSwap::numLiveSlots };///< Lane of the live slots. The decoder fills a slot through the swap, and the text editor getter hands the lane to the reader, which takes a ready slot.
     const std::array<juce::Identifier, 2> gridEventTypes { Id::gridStart, Id::removedGridStart };    ///< The two identifiers select the list update of each index. The position of each identifier is the index that its event writes to `gridEvents`. Index 0 appends a grid start. Index 1 removes the grid start at a line.

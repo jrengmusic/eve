@@ -1213,6 +1213,40 @@ Any format should ultimately be supportable; CLAP is primary.
 > transparency, focus, AU registration) and `end/PLAN-enax-command-id.md` (command ids,
 > binding, mode and zoom parameters, copy and paste).
 
+> **[AMENDED 2026-11-20 — server mode (daemon) and state transport: IMPLEMENTED, UNTESTED]**
+> END Sprint 105 (`end/carol/SPRINT-LOG.md`, `end/PLAN-one-lane-native-state.md`) builds the
+> daemon and the state transport of this section. Nobody has run them yet.
+>
+> **The daemon.** ARCHITECT: *"ONE SHAPE, ONE PATH, ONE LANE, ONE SERIALISATION, ONE SSOT. the
+> difference only the IPC server lifecycle either live and die with the app, or running on
+> bg"*; *"cmd+q close immediately, the app, the whole app. for Daemon mode, it destroy the GUI,
+> keeping process running bg. running new instance always check whether Daemon running on bg,
+> attach, create new GUI from server (this is still isomorphic to tmux)"*. The source of truth
+> is `end/SPEC.md` §1.8.
+> - The `server` row of `end/Source/config/display.md` turns the daemon on. Its default is
+>   false.
+> - A launch tests the lock `END.server` (`juce::InterProcessLock`). When the lock is free, it
+>   starts the same executable detached with `--server` (`jam::ChildProcess::startDetached`)
+>   and quits. When the lock is held, it connects its own tree to the daemon and quits. The
+>   daemon then builds a new window from its tree (`ENDApplication::launch`, `host`,
+>   `valueTreeChildAdded`).
+> - A quit in server mode destroys the window and keeps `Nexus`, the audio graph and the
+>   shells (`ENDApplication::systemRequestedQuit`).
+>
+> **State transport.** ARCHITECT: *"enax extension or IPC, CHOOSE ONE FOR ALL"* (IPC for all
+> terminal state); *"why we cant simply call setStateInfo() and getStateInfo() as is?"*.
+> - Live state: one IPC lane (`jam::ValueTreeServer` in END, `jam::ValueTreeConnection` in the
+>   plugin). It is one `juce::ValueTreeSynchroniser` over the plugin's model tree, and END
+>   attaches that tree under the pane row. END is the sole author of the size and the
+>   new-pane `cwd`.
+> - Session persistence: at shutdown, END writes each plugin's `getStateInformation` blob
+>   into the `sessions` key of `END.settings`. At launch, it restores the sessions and gives
+>   each blob back through `setStateInformation` before the graph adds the plugin.
+>
+> This replaces the CLAP-extension mechanism above for state transport. ENAX keeps the peer
+> hooks and the server port only. The lane identity read is VST2-only (`end/CLAUDE.md`, ENAX
+> Plugin Format).
+
 ---
 
 ## 5. jam Inventory — Kill / Keep / Gap

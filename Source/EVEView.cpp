@@ -67,7 +67,7 @@ void EVEView::filesDropped (const juce::StringArray& files, int, int)
     applyToTextEditors ([&text] (jam::TextEditor& editor)
     {
         editor.setMode (map::EditorMode::terminal);
-        editor.applyPaste (text);
+        editor.setPaste (text);
     });
 }
 
@@ -148,7 +148,7 @@ void EVEView::registerTerminalEvents()
     });
 
     for (const auto& id : { Id::numGridEvents, Id::firstLine })
-        terminalEvents.add (id, [this] (const juce::Identifier&, const juce::ValueTree&) { getTerminalProcessor().applyGridEvents(); });
+        terminalEvents.add (id, [this] (const juce::Identifier&, const juce::ValueTree&) { getTerminalProcessor().setGridEvents(); });
 
     terminalEvents.add (Id::clipboard, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
@@ -227,7 +227,7 @@ void EVEView::registerTerminalEvents()
             if (auto* peer { getPeer() })
                 peer->performAnyPendingRepaintsNow();
 
-            getEVEProcessor().set (Id::promptPainted, [this] { commandManager->invokeDirectly (juce::StandardApplicationCommandIDs::quit, true); });
+            getEVEProcessor().applyRule (Id::promptPainted, [this] { commandManager->invokeDirectly (juce::StandardApplicationCommandIDs::quit, true); });
         }
     });
 #endif
@@ -372,7 +372,12 @@ void EVEView::registerCallbacks()
     registry->callbacks.add (map::CommandId::getInstance()->get (map::CommandId::dismiss),
                              [] (const juce::String&, juce::Component& c)
                              {
-                                 static_cast<EVEView&> (c).getTerminalState().setProperty (Id::markdownFile, juce::String {}, nullptr);
+                                 auto& editor { static_cast<EVEView&> (c) };
+
+                                 if (editor.getTerminalState().getProperty (Id::markdownFile).toString().isNotEmpty())
+                                     editor.getTerminalState().setProperty (Id::markdownFile, juce::String {}, nullptr);
+                                 else
+                                     editor.commandManager->invokeDirectly (juce::StandardApplicationCommandIDs::quit, true);
                              });
 
     registry->callbacks.add (map::CommandId::getInstance()->get (map::CommandId::zoomIn),
@@ -428,7 +433,7 @@ void EVEView::initialiseView()
 juce::ValueTree EVEView::getViewDefaultKeys() const
 {
     auto keys { jam::TextEditor::getDefaultKeys() };
-    getEVEProcessor().set (Id::keys, [] (juce::ValueTree&) {}, keys);
+    getEVEProcessor().applyRule (Id::keys, [] (juce::ValueTree&) {}, keys);
     return keys;
 }
 
@@ -564,7 +569,7 @@ void EVEView::openFile (const juce::File& file, const juce::ValueTree& terminal)
         else
         {
             applyToTextEditors ([] (jam::TextEditor& editor) { editor.setMode (map::EditorMode::terminal); });
-            getTerminalProcessor().applyOpenCommand (value.toRawUTF8(), path.toRawUTF8());
+            getTerminalProcessor().setOpenCommand (value.toRawUTF8(), path.toRawUTF8());
         }
     }
     else

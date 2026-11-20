@@ -206,7 +206,7 @@ private:
      * @brief Returns the default keys of the text editor for the view commands.
      *
      * The keys come from jam::TextEditor::getDefaultKeys(). The call then passes them to the
-     * processor through `set (Id::keys, ...)` with an empty callback.
+     * processor through `applyRule (Id::keys, ...)` with an empty callback.
      *
      * @return The default key sheet of the text editor.
      */
@@ -383,7 +383,7 @@ private:
      * @brief Adds the handlers of the `terminal` tree properties to `terminalEvents`.
      *
      * The `numCommands` handler runs the commands of the command FIFO through invokeCommand().
-     * The `numGridEvents` handler runs applyGridEvents() of the terminal processor.
+     * The `numGridEvents` handler runs setGridEvents() of the terminal processor.
      * The `clipboard` handler copies the image record that the property names to the system clipboard.
      * The `shellExited` handler shows the `Id::failShellExited` message when the property is true, then invokes the quit command of the command manager.
      * The `zoom` handler sets the zoom of the view and lays it out again.
