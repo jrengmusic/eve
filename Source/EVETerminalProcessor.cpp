@@ -369,7 +369,7 @@ void EVETerminalProcessor::prepare()
 
     device.stop();
 
-    if (const auto winsize { getWinsize() }; winsize.isValid() and state.state.getProperty (Id::cwd).toString().isNotEmpty())
+    if (const auto winsize { getWinsize() }; winsize.isValid())
     {
         if (tty == nullptr)
         {
@@ -410,8 +410,6 @@ void EVETerminalProcessor::releaseResources()
     device.stop();
     cancelPendingUpdate();
     device.close();
-    ttyResize.close();
-    tty.reset();
 }
 
 void EVETerminalProcessor::audioDeviceIOCallbackWithContext (const float* const*, int, float* const*, int, int, const juce::AudioIODeviceCallbackContext&)

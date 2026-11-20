@@ -335,9 +335,12 @@ always UNIDIRECTIONAL, always SSOT, no copy, no shadow state"*.
   SERIALISATION, SSOT"*; *"when END load EVE, EVE's tree attached to END, now it's END's tree.
   END can listen and do whatever, EVE always synced. that's the contract"*; *"EVE only always
   being told, that's why EVE expose its TextEditor state as a Model parameter"*.
-- **Shell start.** EVE opens its shell when the winsize is valid and `cwd` is not empty
-  (`EVETerminalProcessor::prepare`). In the constructor, EVE writes its own start directory
-  (`ShellIntegration::getStartDirectory`), and the EVE config is the only config. Under END,
+- **Shell start.** EVE opens its shell at the first valid winsize in its Model
+  (`EVETerminalProcessor::prepare`). A release of the plugin by the host does not close the
+  shell (`EVETerminalProcessor::releaseResources`). When the Model has no `cwd`, the shell
+  starts in EVE's own start directory (`ShellIntegration::getStartDirectory`, called by
+  `EVETerminalProcessor::openTTY`), and the EVE config is the only config. ARCHITECT:
+  *"no fake cwd"*; *"must be deterministic"*. Under END,
   END writes the start directory of a new pane on the lane, before the size. Under END, EVE
   writes no editor size (the ENAX rule `size`), so the first valid winsize comes from END's
   size. ARCHITECT: *"eve has its own config. nothing about that

@@ -1,6 +1,5 @@
 #include "EVEView.h"
 #include "EVEProcessor.h"
-#include "ShellIntegration.h"
 
 EVEProcessor::EVEProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -38,8 +37,6 @@ EVEProcessor::EVEProcessor()
     }, terminal);
 
     model.state.setProperty (Id::id, jam::UUID {}.value, nullptr);
-
-    terminal.setProperty (Id::cwd, juce::URL { ShellIntegration::getStartDirectory() }.toString (false), nullptr);
 
     applyRule (Id::server, [] (jam::ValueTreeConnection&) {}, connection);
 
@@ -218,7 +215,7 @@ void EVEProcessor::valueTreePropertyChanged (juce::ValueTree&, const juce::Ident
         launchPrompt.reset();
 #endif
 
-    if (property == Id::winsize or property == Id::cwd)
+    if (property == Id::winsize)
         terminalProcessor.prepare();
 
     static const std::array hostRows { Id::title, Id::foregroundProcess, Id::cwd, Id::zoom, Id::shellExited, Id::markdownFile };

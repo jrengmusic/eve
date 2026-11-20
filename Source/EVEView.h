@@ -176,7 +176,12 @@ private:
     /** @brief Builds the registry with the buttons, the view components, and the callbacks. */
     void initialiseRegistry() override;
 
-    /** @brief Builds the view from the markdown view layout and the getters and events of the terminal processor, then adds the view. */
+    /**
+     * @brief Builds the view from the markdown view layout and the getters and events of the terminal processor, then adds the view.
+     *
+     * The bounds come from jam::ViewEditor::getViewBounds, applied to the `width` and `height` rows of the terminal tree and the `zoom` row.
+     * resized() uses the same function. The view is built with that explicit size.
+     */
     void initialiseView() override;
 
     /**

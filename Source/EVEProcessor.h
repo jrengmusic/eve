@@ -20,8 +20,10 @@ public:
     ~EVEProcessor() override;
 
     /**
-     * @brief Tells the terminal processor to prepare, which starts its clock.
+     * @brief Tells the terminal processor to prepare. It stops its clock, then opens the TTY when none exists and the window size is valid.
      *
+     * The clock starts only when the window size is valid and a TTY exists after that open attempt. Without a valid window size, the clock stays stopped.
+     * A failed TTY open leaves no TTY, so the clock stays stopped.
      * The terminal chain does not use the sample rate and the block size.
      *
      * @param sampleRate       Sample rate of the host. The call does not use it.
@@ -29,7 +31,11 @@ public:
      */
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
 
-    /** @brief Tells the terminal processor to stop its clock. */
+    /**
+     * @brief Tells the terminal processor to release its resources. It stops the clock, cancels the pending update, then closes the clock.
+     *
+     * The TTY stays open. releaseResources() does not close it.
+     */
     void releaseResources() override;
 
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -93,7 +99,7 @@ private:
     /**
      * @brief Passes a changed model row to the host display or to the terminal chain.
      *
-     * The rows `winsize` and `cwd` call `terminalProcessor.prepare()`.
+     * The row `winsize` calls `terminalProcessor.prepare()`.
      * The rows `title`, `foregroundProcess`, `cwd`, `zoom`, `shellExited` and `markdownFile` call `updateHostDisplay()` with the
      * parameter info and the non-parameter state flagged as changed.
      * With `JAM_USING_PROFILER` set, the `numPrompts` row resets `launchPrompt`.

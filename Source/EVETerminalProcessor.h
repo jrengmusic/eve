@@ -45,24 +45,31 @@ public:
      */
     EVETerminalProcessor (juce::AudioProcessor& processorToUse, jam::AudioModel& modelToUse);
 
-    /** @brief Destroys the members. The destructor does not call `releaseResources()`, which `EVEProcessor::releaseResources()` calls. */
+    /**
+     * @brief Destroys the members in the reverse order of their declaration.
+     *
+     * `ttyResize` and `tty` are declared after `device`, so they are destroyed before `device`.
+     * The destructor does not call `releaseResources()`. The TTY destructor closes its session.
+     */
     ~EVETerminalProcessor() override;
 
     /**
-     * @brief Stops the clock, then opens the TTY and the clock when the window size is valid and the terminal cwd is not empty.
+     * @brief Stops the clock, then opens the TTY and the clock when the window size is valid.
      *
+     * The call runs on the message thread, which the function asserts.
      * The sample rate is 48000 Hz.
      * The call opens the TTY when `tty` is empty, with one vblank as its longest readiness period.
      * When the call opens the TTY, it then opens the window size work on the device context.
      * The clock opens and starts only when `tty` holds a TTY. It takes the buffer size of that TTY, from `getDefaultBufferSize()`.
-     * Without a valid window size, or with an empty `cwd` row in `state`, no TTY opens and the clock stays stopped.
+     * Without a valid window size, no TTY opens and the clock stays stopped.
      */
     void prepare();
 
     /**
-     * @brief Stops the clock, cancels the pending update, then closes the clock, the window size work and the TTY.
+     * @brief Stops the clock, cancels the pending update, then closes the clock.
      *
-     * The pending update writes the swap, and it can request a process. It does not run after the clock closes.
+     * The pending update writes the swap and can request a process. The cancel runs before the clock closes.
+     * The TTY and the window size work stay open until this object is destroyed.
      */
     void releaseResources();
 
@@ -286,7 +293,7 @@ private:
     /**
      * @brief Opens the TTY on the serial context of the device.
      *
-     * In a profile standalone build, the shell and its arguments come from the `profiler` table of the manifest. The folder is the folder of the manifest file. The call stores the file URL of that folder in the `cwd` row of `state`, and the program in the `shell` row. The call opens the TTY without a check. A failed open stores 1 in the `shellExited` property of `state`, and leaves `tty` empty.
+     * In a profile standalone build, the shell and its arguments come from the `profiler` table of the manifest. The folder is the folder of the manifest file. The call stores the file URL of that folder in the `cwd` row of `state`, and the program in the `shell` row. The call opens the TTY and checks the result. A failed open stores 1 in the `shellExited` property of `state`, and leaves `tty` empty.
      * In other builds, the call creates a new TTY and opens it. `prepare()` calls it only when `tty` is empty. It takes the program from the first token of getShell(), without its quotes. The other tokens are the arguments.
      * In other builds, the call writes the integration scripts with ShellIntegration::addShellScripts(). Each open appends ShellIntegration::getShellArguments() to the arguments, and it passes ShellIntegration::getShellEnvironment() as the environment.
      * In other builds, the shell starts in the directory of the `cwd` row of `state` when that row holds a file URL. Otherwise it starts in ShellIntegration::getStartDirectory(). The call then stores the file URL of the start directory in the `cwd` row.
@@ -379,8 +386,8 @@ private:
         jam::VirtualDeviceType::virtualDeviceTypeName,
         jam::VirtualDeviceType::virtualDeviceTypeName
     };///< Clock of the chain. This object is its callback.
-    std::unique_ptr<jam::TerminalTTY> tty;///< Pseudo terminal of the shell. It is empty until openTTY() opens a session, and it is empty again when the open fails. releaseResources() resets it, and each TTY destructor closes its session.
-    jam::AsyncUpdater::Work ttyResize;///< Work of the session that sets the TTY window size on the device context. prepare() opens it on the device context when the TTY opens, and submits it for each window size. Its callback reads the winsize row of state.
+    std::unique_ptr<jam::TerminalTTY> tty;///< Pseudo terminal of the shell. It is empty until openTTY() opens a session, and it is empty again when the open fails. It is destroyed with this object, and its destructor closes the session.
+    jam::AsyncUpdater::Work ttyResize;///< Work that sets the TTY window size on the device context. prepare() opens it when the TTY opens, and it stays open until this object is destroyed. The private prepare(winsize, historyCapacity) submits it. Its callback reads the winsize row of state.
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (EVETerminalProcessor)

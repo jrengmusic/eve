@@ -115,10 +115,10 @@ elseif(WIN32)
 -Wno-shadow;-Wno-unused-parameter;-Wno-float-equal;-Wno-sign-conversion;-Wno-switch-enum;-Wno-implicit-float-conversion;/wd4005;/wd4804
     )
     set(CAST_RELEASE_COMPILE_FLAGS
-/clang:-O3
+/clang:-O3;/Zi
     )
     set(CAST_RELEASE_LINK_FLAGS
-/OPT:REF;/OPT:ICF
+/OPT:REF;/OPT:ICF;/debug
     )
     set(CAST_DEBUG_COMPILE_FLAGS
     )

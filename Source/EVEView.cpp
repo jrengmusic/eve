@@ -425,8 +425,11 @@ void EVEView::registerCallbacks()
 void EVEView::initialiseView()
 {
     auto& terminalProcessor { getTerminalProcessor() };
+    const auto terminal { getTerminalState() };
+    const auto zoom { static_cast<float> (terminal.getProperty (Id::zoom)) };
+    const auto viewBounds { jam::ViewEditor::getViewBounds (model, { static_cast<int> (terminal.getProperty (Id::width)), static_cast<int> (terminal.getProperty (Id::height)) }, zoom) };
 
-    view = jam::ViewEditor::create<jam::MarkdownDocument> (model, *theme, terminalProcessor.userInterfaceGetters, terminalProcessor.chainEvents, files::viewLayout);
+    view = jam::ViewEditor::create<jam::MarkdownDocument> (model, *theme, terminalProcessor.userInterfaceGetters, terminalProcessor.chainEvents, files::viewLayout, viewBounds.getWidth(), viewBounds.getHeight());
     addAndMakeVisible (view.get());
 }
 
