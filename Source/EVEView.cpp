@@ -106,8 +106,11 @@ void EVEView::resizeEnd()
 
     auto terminal { getTerminalState() };
 
-    terminal.setProperty (Id::width, getWidth(), nullptr);
-    terminal.setProperty (Id::height, getHeight(), nullptr);
+    getEVEProcessor().applyRule (Id::size, [this] (juce::ValueTree& tree)
+    {
+        tree.setProperty (Id::width, getWidth(), nullptr);
+        tree.setProperty (Id::height, getHeight(), nullptr);
+    }, terminal);
 }
 
 void EVEView::setResizing (bool newIsResizing)
@@ -186,14 +189,6 @@ void EVEView::registerTerminalEvents()
     terminalEvents.add (Id::height, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
     {
         setSize (getWidth(), static_cast<int> (terminal.getProperty (Id::height)));
-    });
-
-    terminalEvents.add (Id::focus, [this] (const juce::Identifier&, const juce::ValueTree& terminal)
-    {
-        if (static_cast<bool> (terminal.getProperty (Id::focus)))
-            grabKeyboardFocus();
-        else
-            giveAwayKeyboardFocus();
     });
 
     terminalEvents.add (Id::markdownFile, [this] (const juce::Identifier&, const juce::ValueTree& terminal)

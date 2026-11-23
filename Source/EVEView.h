@@ -85,7 +85,6 @@ private:
      * @brief Grabs the keyboard focus when the view is showing and the `focus` row of the terminal tree is true.
      *
      * JUCE calls this function when the window that holds the editor is shown. A new editor takes the focus that the `focus` row already holds. The row does not change.
-     * A row that is set to an equal value sends no change event. The `focus` handler of `registerTerminalEvents()` therefore does not run for a new editor.
      *
      * JUCE also calls this function before the view is showing. A component that is not showing cannot take the keyboard focus, so the call tests `isShowing()` first.
      * The call writes nothing to the model. It does nothing when the `focus` row is false.
@@ -128,7 +127,9 @@ private:
     /**
      * @brief Ends the resize. It clears the resizing mark of the text editors.
      *
-     * It writes the width and the height of the view to the `width` and `height` rows of the terminal tree.
+     * It applies the size rule of the processor to the terminal tree. The rule runs in place of the callback when the host
+     * registers one. Under END, the host registers an empty rule for the size, so the host alone writes the size. Without a
+     * registered rule, the callback writes the width and the height of the view to the `width` and `height` rows of the terminal tree.
      * It stops the coalesce timer. The timer also runs this call as the final stop of a frame change from outside the window.
      */
     void resizeEnd() override;
@@ -158,7 +159,7 @@ private:
      *
      * A change of a property of the `terminal` tree runs the handler of `terminalEvents` for that property, when a handler exists.
      * The handlers cover `Id::numCommands`, `Id::numGridEvents`, `Id::clipboard`, `Id::shellExited`, `Id::shellNotFound`, `Id::zoom`, `Id::width`, `Id::height`,
-     * `Id::focus`, `Id::markdownFile`, and, when `JAM_USING_PROFILER` is set, `Id::numPrompts`.
+     * `Id::firstLine`, `Id::markdownFile`, and, when `JAM_USING_PROFILER` is set, `Id::numPrompts`.
      *
      * The base class gets every change.
      *
@@ -388,13 +389,12 @@ private:
      * @brief Adds the handlers of the `terminal` tree properties to `terminalEvents`.
      *
      * The `numCommands` handler runs the commands of the command FIFO through invokeCommand().
-     * The `numGridEvents` handler runs setGridEvents() of the terminal processor.
+     * The `numGridEvents` and `firstLine` handlers run setGridEvents() of the terminal processor.
      * The `clipboard` handler copies the image record that the property names to the system clipboard.
      * The `shellExited` handler shows the `Id::failShellExited` message when the property is true, then invokes the quit command of the command manager.
      * The `zoom` handler sets the zoom of the view and lays it out again.
      * The `width` handler sets the width of the view and keeps its height.
      * The `height` handler sets the height of the view and keeps its width.
-     * The `focus` handler grabs the keyboard focus when the property is true, and gives it away when the property is false.
      * The `markdownFile` handler clears the ephemeral components and their styles. It then adds the markdown component
      * of the file when the property is not empty, and otherwise removes the `mode` property of the markdown state.
      * When `JAM_USING_PROFILER` is set, the `numPrompts` handler repaints the view when the count is 1, and it sets the `Id::promptPainted` callback of the processor.
