@@ -84,6 +84,8 @@ private:
     /**
      * @brief Applies each complete packed size in the size ring to the window size of the master.
      *
+     * The call applies each complete packed size record to the master via `ioctl`.
+     * When the call consumes at least one record and `shell > 0`, it sends `SIGWINCH` (`windowChangeSignal`) to `shell`.
      * A partial record stays in the ring for the next call.
      */
     void applySizes();

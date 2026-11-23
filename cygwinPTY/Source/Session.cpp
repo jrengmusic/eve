@@ -164,6 +164,7 @@ Winsize Session::getWinsize (std::int64_t packed)
 void Session::applySizes()
 {
     static constexpr int setWindowSize { ('T' << 8) | 2 };
+    static constexpr int windowChangeSignal { 28 };
 
     sizes.applyPendingData ([this] (const char* data, int size)
     {
@@ -176,6 +177,9 @@ void Session::applySizes()
             const auto winsize { getWinsize (packed) };
             runtime.ioctl (master, setWindowSize, &winsize);
         }
+
+        if (consumed > 0 and shell > 0)
+            runtime.kill (shell, windowChangeSignal);
 
         return consumed;
     });

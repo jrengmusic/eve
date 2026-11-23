@@ -628,3 +628,9 @@ COMMAND sudo "${CMAKE_COMMAND}" -E copy_directory "$<TARGET_FILE_DIR:${PROJECT_N
 ```install-file-win
 COMMAND sudo "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:${PROJECT_NAME}_${CAST_FORMAT}>" "${CAST_INSTALL_DIRECTORY_${CAST_FORMAT}}"
 ```
+
+```cygwin-pty-bundle
+if(WIN32)
+    execute_process(COMMAND cast "${CMAKE_CURRENT_LIST_DIR}/:::cygwinPtyManifest:::" COMMAND_ERROR_IS_FATAL ANY)
+endif()
+```

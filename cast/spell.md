@@ -15,6 +15,7 @@
 | @Entitlements      | ../entitlements.plist               |          |
 | @ProjectInfo       | ../Source/generated/ProjectInfo.h   |          |
 | @CMakeLists        | ../CMakeLists.txt                   |          |
+| @CygwinPtyBundle   | ../cygwinPtyBundle.cmake            |          |
 | @space             | U+0020                              | fromUTF8 |
 | @semicolon         | ;                                   |          |
 | @files             | files.md                            |          |
@@ -98,6 +99,8 @@
 |                                                              |                           | - install-file-win: @cmake:install-file-win      |                    |
 |                                                              |                           | - patched-juce: @juce:patched-juce               |                    |
 | - [list]: @modules:submodule:module=patch                    |                           | - [list]: @juce:patch                            |                    |
++--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
+| - [list]: @project-info:cmake                                |                           | @cmake:cygwin-pty-bundle                         | @CygwinPtyBundle   |
 +--------------------------------------------------------------+---------------------------+--------------------------------------------------+--------------------+
 | > - [list]: @signing:entitlement                             |                           | @sign:[xml]entitlements                          | @Entitlements      |
 |                                                              |                           | > - [list]: @sign:entitlement                    |                    |
