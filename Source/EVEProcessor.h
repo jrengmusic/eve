@@ -108,9 +108,9 @@ private:
      * @param tree      Tree that changed. Not used.
      * @param property  Property that changed.
      */
-    void valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
+    void
+    valueTreePropertyChanged (juce::ValueTree& tree, const juce::Identifier& property) override;
 
-    jam::debug::Log::Scope logScope { jam::File::getDebugLog() };
     Generated generated;
 
 #if JAM_USING_PROFILER
@@ -120,12 +120,19 @@ private:
     std::optional<jam::Profiler::Zone> processorLayout { std::in_place, Id::processorLayout };
 #endif
 
+#if JUCE_DEBUG
+    jam::debug::Log::Scope logScope { jam::File::getDebugLog() };
+#endif
+
     jam::PluginEditorLayout layout {
         jam::PluginEditorLayout::create<jam::SettingsDocument<jam::ConfigDocument>> (
             BinaryData::fetcher,
             files::viewLayout,
             files::viewLayout,
-            [this] (const auto& fallback) { applyRule (Id::engine, fallback); })
+            [this] (const auto& fallback)
+            {
+                applyRule (Id::engine, fallback);
+            })
     };
 
     jam::ParameterManager parameterManager {
@@ -137,7 +144,8 @@ private:
 
     jam::AudioModel model { parameterManager,
                             *this,
-                            jam::ParameterLayout::get (*jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout })) };
+                            jam::ParameterLayout::get (*jam::MarkdownDocument::getOrCreate (
+                                juce::Identifier { files::parametersLayout })) };
 
     jam::SharedInstance<jam::StyleManager> styleManager;
 

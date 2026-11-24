@@ -4,8 +4,8 @@
 EVEProcessor::EVEProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
     : AudioProcessor (BusesProperties()
-#if not JucePlugin_IsMidiEffect
-#if not JucePlugin_IsSynth
+#if ! JucePlugin_IsMidiEffect
+#if ! JucePlugin_IsSynth
                           .withInput ("Input", juce::AudioChannelSet::stereo(), true)
 #endif
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
@@ -28,17 +28,26 @@ EVEProcessor::EVEProcessor()
 
     jassert (terminal.isValid());
 
-    applyRule (Id::size, [] (juce::ValueTree& tree)
-    {
-        const auto [width, height] { jam::ViewManager::getUISize<jam::MarkdownDocument> (juce::Identifier { files::viewLayout }) };
+    applyRule (
+        Id::size,
+        [] (juce::ValueTree& tree)
+        {
+            const auto [width, height] { jam::ViewManager::getUISize<jam::MarkdownDocument> (
+                juce::Identifier { files::viewLayout }) };
 
-        tree.setProperty (Id::width, width, nullptr);
-        tree.setProperty (Id::height, height, nullptr);
-    }, terminal);
+            tree.setProperty (Id::width, width, nullptr);
+            tree.setProperty (Id::height, height, nullptr);
+        },
+        terminal);
 
     model.state.setProperty (Id::id, jam::UUID {}.value, nullptr);
 
-    applyRule (Id::server, [] (jam::ValueTreeConnection&) {}, connection);
+    applyRule (
+        Id::server,
+        [] (jam::ValueTreeConnection&)
+        {
+        },
+        connection);
 
     model.state.addListener (&connection);
     model.state.addListener (this);
@@ -144,7 +153,7 @@ bool EVEProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 
 bool EVEProcessor::supportsDoublePrecisionProcessing() const { return true; }
 
-template <typename SampleType>
+template<typename SampleType>
 void EVEProcessor::process (juce::AudioBuffer<SampleType>& buffer)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -181,7 +190,8 @@ void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     terminalProcessor.flush();
 
-    const auto& document { *jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }) };
+    const auto& document { *jam::MarkdownDocument::getOrCreate (
+        juce::Identifier { files::parametersLayout }) };
     auto state { model.copyState() };
     auto terminal { state.getChildWithName (jam::Format::toType (Id::terminal)) };
 
@@ -191,7 +201,8 @@ void EVEProcessor::getStateInformation (juce::MemoryBlock& destData)
         if (document.hasTableValue (*row, Id::runtime))
             terminal.removeProperty (row->id, nullptr);
 
-    terminal.removeChild (terminal.getChildWithName (jam::Format::toType (Id::gridStarts)), nullptr);
+    terminal.removeChild (
+        terminal.getChildWithName (jam::Format::toType (Id::gridStarts)), nullptr);
 
     juce::MemoryOutputStream stream { destData, false };
     state.writeToStream (stream);
@@ -218,10 +229,12 @@ void EVEProcessor::valueTreePropertyChanged (juce::ValueTree&, const juce::Ident
     if (property == Id::winsize)
         terminalProcessor.prepare();
 
-    static const std::array hostRows { Id::title, Id::foregroundProcess, Id::cwd, Id::zoom, Id::shellExited, Id::markdownFile };
+    static const std::array hostRows { Id::title, Id::foregroundProcess, Id::cwd,
+                                       Id::zoom,  Id::shellExited,       Id::markdownFile };
 
     if (std::find (hostRows.begin(), hostRows.end(), property) != hostRows.end())
-        updateHostDisplay (ChangeDetails {}.withParameterInfoChanged (true).withNonParameterStateChanged (true));
+        updateHostDisplay (
+            ChangeDetails {}.withParameterInfoChanged (true).withNonParameterStateChanged (true));
 }
 
 EVETerminalProcessor& EVEProcessor::getTerminalProcessor() noexcept { return terminalProcessor; }
