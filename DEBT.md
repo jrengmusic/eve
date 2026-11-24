@@ -8,22 +8,8 @@
 
 ---
 
-## DEBT-20261117T223545
-
-**Observation:** In EVE on Windows, zsh runs over the cygwinPTY backend. ARCHITECT's seq test: "active prompt still prints before seq finished".
-**Divergence:** The zsh prompt prints while seq still runs.
-**Expectation:** The prompt prints only after seq has finished.
-
----
 
 
-## DEBT-20261115T221459
-
-**Observation:** END objectives 3 and 4 were not worked in the EVE sprint. ARCHITECT: "then fix end, load eve. each instance load and close at END is FUCKING UNBEARABLY SLOW"; "end focus and keyboard management is fucking garbage, cant type … ON MAC THIS IS WORKING". END hosts EVE on Windows as VST2. The jam patch juce-plugin-window-focus-hook.patch forwards native focus only inside #if JUCE_MAC (juce_VSTPluginFormat.cpp:75-91, :630-643); the Windows branch has no SetFocus (juce_VSTPluginFormat.cpp:424-443). END EditorView makes no focus call.
-**Divergence:** ARCHITECT: "this sprint only covers eve side, we still have debt for END side for next sprint".
-**Expectation:** On Windows, END loads and closes each EVE instance fast (measured with scout, END benchmark/pane-windows.md), and keyboard focus reaches EVE under END, as on macOS.
-
----
 
 
 ## DEBT-20261105T000000

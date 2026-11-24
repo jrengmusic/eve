@@ -36,6 +36,86 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Rendering and live rows — colour emoji on Windows, cast output in UTF-8, backgrounds from the cells, the live block waits only for the closed line of OSC 133 D ✅
+
+**Date:** 2026-11-24
+**Duration:** 03:55 (05:51 to 09:46 +0700)
+**Plan:** `PLAN-rendering-and-live-rows.md` (Steps 0 to 8)
+**Scope (ARCHITECT):** five defects. **[1]** Emoji render monochrome on Windows. **[2]** A `cast` build prints gibberish on Windows. **[3]** The Claude Code plan dialog is stuck when it is higher than the viewport. **[4]** Block backgrounds move on scroll, with holes and trails. *"either quoted user prompt, or diff (red/green) should not stop at text length. but always full winsize width"*. **[5]** Claude Code `/tui classic` goes blank. Then *"END is in scope"*, *"NO AUDIT, until runtime proven fixed"*, `/audit`, `/log`.
+
+### Agents Participated
+- COUNSELOR — the root-cause reads, the plan, the read of each Engineer change, the filter of the audit findings, the check of the doxygen pass and its text corrections, this log.
+- Pathfinder — inventories, git evidence, the doxygen pass.
+- Engineer — the code of the plan steps, the runtime fixes and the audit fixes.
+- Auditor (opus) — one run: 9 findings.
+
+### Files Modified (38 total)
+
+jam (31):
+- `jam_core/text/jam_AttributedString.cpp:353` — `getCodepoint` gives a space for a `contentCodepoint` atom with codepoint 0 that is not a spacer tail. U+0000 no longer reaches the line break rules.
+- `jam_core/text/jam_AttributedChar.{h,cpp}` (`.cpp:3436`) — new `hasBackground`.
+- `jam_graphics/fonts/jam_GlyphArrangement.{h,cpp}` — new `getBackground`, `addBackgrounds` (`.cpp:586-654`), `setEntryAdvances` (`.cpp:131`). `getDrawRuns` builds the background runs before the glyph runs and takes `right`. `addGlyph` and `Run::matches` hold no background colour. `addBackground` is deleted. The glyphs of one multi-glyph cluster share the advances of its cells.
+- `jam_graphics/fonts/jam_GlyphRasterizer.{h,cpp}` (`.cpp:383-414`, `:495-517`) — new `getImageLayer`: COLR layers become one ARGB image layer. `rasterizeEdgeTable` sends it through the one emoji path.
+- `jam_graphics/jam_graphics.cpp:1`, `:7` — `#define JUCE_GRAPHICS_INCLUDE_RENDERING_HELPERS 1`, which `EdgeTableFillers` needs.
+- `jam_graphics/fonts/jam_TerminalGlyph.h:341`, `:353` — the up and left arms of `drawLines` reach the corner pixel.
+- `jam_style/jam_StyleCustom.{h,cpp}`, `jam_terminal/style/jam_StyleTerminal.{h,cpp}` — new virtual `setRowSpans` with an empty base. The terminal style makes the rows cover every cell.
+- `jam_gui/widgets/jam_TextBlock.{h,cpp}` — `setTextRows` calls `setRowSpans`. `addRuns` takes the right edge and gives it to the rows of a line with `Id::isFilled`.
+- `jam_gui/widgets/jam_TextEditor.{h,cpp}` (`.cpp:1626-1627`) — `hasLive` waits only for `Id::closedLine`.
+- `jam_terminal/buffers/jam_TerminalBuffer.{h,cpp}` — per-slot `rowWidths` and `continuedRows`, `endClosedRow`, `isFilled`, `isContinued`. `writeRow` and `getNumBytes` carry `isFilled`. `prepare` gives the new width to a kept row that is not full.
+- `jam_terminal/document/jam_AnsiDocument.{h,cpp}` — `addSegments` takes the tokens from `ReflowDocument::getCellSegments`, with the first segment at cell 0. New `isFilePath`, used by `addRangeLink`. `addWrappedLine` takes `Id::isFilled` of its last row.
+- `jam_terminal/document/jam_TerminalHistory.{h,cpp}` — reads `isFilled`. The live root holds `Id::closedLine`.
+- `jam_terminal/document/jam_TerminalSwap.{h,cpp}` (`.cpp:158`, `:168`) — a row that is not continued closes its line. A row is a wrapped row only when the line before it is not closed.
+- `jam_markdown_graphics/graphics/jam_MarkdownGraphics.cpp:474`, `jam_mermaid_diagram/diagram/jam_MermaidGraphics.cpp:774` — pass `0.0f` for `right`.
+- `cast/terminal.md:70`, `generated/jam_Terminal.{h,cpp}` — the row `isFilled`; the generated files come from `cast`.
+- Doxygen of the headers above.
+
+eve (5):
+- `cast/cmake.cast:634`, `cygwinPtyBundle.cmake:18` — `ENCODING UTF-8` on the `cast` call. The second file is generated.
+- `test/glyphs.sh` — `get_glyph` writes UTF-8 bytes, because zsh on cygwin cuts `\U` to 16 bits. `print_codepoints` counts columns.
+- `Source/windows/eve-cygwinPTY v0.0.1 Windows.zip` — build output.
+- `PLAN-rendering-and-live-rows.md` — new, the locked plan.
+
+end (2):
+- `cast/cmake.cast:564`, `pluginBundle.cmake:19` — `ENCODING UTF-8` on the `cast` call. The second file is generated.
+
+`end/.project` is also modified in the tree (+337 lines). No plan step names it.
+
+### Alignment Check
+- [x] BLESSED principles followed — each new row value has one owner, `TerminalBuffer`, and the lifetime of its slot. Text, background, caret and selection read the same row spans. One emoji path.
+- [x] NAMES.md adhered — every new name joins a family of the plan's inventory, or a sibling predicate.
+- [x] MANIFESTO.md principles applied — no new struct, no new atomic, no allocation on the clock. The frame tells the reader one number.
+- [ ] Not built after the audit fixes and the doxygen pass.
+- [ ] The doxygen index is not regenerated (`<leader>bd` in jam).
+
+### Problems Solved
+- **[1] Monochrome emoji.** `rasterizeEdgeTable` accepted only an image layer. Segoe UI Emoji gives COLR `ColourLayer` items. ARCHITECT's screenshots show colour.
+- **[2] Gibberish.** `cmake -P` decoded the child output as the console code page. `ENCODING UTF-8` keeps the bytes. ARCHITECT: *"cast output clean"*.
+- **[3] [5] Hidden live block.** The live frame named `numHistoryRows`, but history reads only closed lines and the last stored line stays open. One scrolled row hid the live block until OSC 133 D. The frame now names the closed line of D. Not proven in a real Claude Code session.
+- **[4] Backgrounds.** A background existed only for a glyph, and an erased cell gives no glyph. Each run painted its backgrounds just before its own glyphs. The backgrounds now come from the cells and paint first. The rows cover every cell. A background that reached the edge fills the content width. ARCHITECT: *"no issue with bg colour so far"*.
+- **Emoji clusters.** Segoe UI Emoji shapes the family ZWJ sequence to 3 glyphs and a flag to 2. Each glyph took its own advance. The glyphs now share the cells of the cluster (`SPEC.md:833-834`).
+- **Assert in END inside EVE.** A path with leading separators and no host reached `juce::File` (`juce_File.cpp:162`). `isFilePath` gives no file link for it on Windows. ARCHITECT: *"1. clean"*.
+- **Audit (9).** Eight fixed, one fixed in part. The `C:/../x` test of finding 5 is rejected: it removes the links of `D:/a/../b`, and `//../x` still asserts.
+- **Mistakes owned.** The doxygen run had too many symbols and ran to the 15-minute watchdog. Four of its texts did not agree with the code; they are corrected.
+
+### State for Continuation
+- Build EVE and END first. Verify the diff and the quoted prompt on scroll and resize, a long wrapped line in history, the `printf` emoji line, and `test/glyphs.sh`.
+- **[3] [5]** Verify a real Claude Code plan dialog that is higher than the window, in `/tui classic` and in fullscreen. The replay of `raw.bin` does not prove it (ARCHITECT: *"i dont think it relevant to actual session"*).
+- **[4]** Verify the history backgrounds after a resize on macOS.
+- Known limit, from ruling M2 (*"Writer publishes closed end"*): while a wrapped line or a grid is open at the scroll edge, its rows show in neither history nor live until it closes. Read `jam_TerminalSwap.cpp:158-169`.
+- Known limit: the text `C:/../x` still reaches the Debug assert of `juce::File`. Read `isFilePath` in `jam_AnsiDocument.cpp`.
+- The doxygen block of `drawLines` (`jam_TerminalGlyph.h:330`) was the last item of the stopped pass. `TextBlock::addGraphics`, `setTextRows` and `addRow` have no block (`jam_TextBlock.h:56`, `:82`, `:109`).
+- The END commit of this sprint is `c79470b` (2026-11-24 09:49 +0700). Read `git status` for jam and eve.
+- The plan did not put the `DEBT.md` entries in its scope (CAROL.md Documentation). COUNSELOR's first form of this entry listed no debt as paid. ARCHITECT corrected it.
+
+### Debts Paid
+- `DEBT-20261117T223545` — the prompt no longer prints before `seq` finishes. ARCHITECT: *"no issue with active prompt race with seq anymore, that have been paid."* (END Sprint 110). This sprint rewrote that gate. The live block waits for the row that D closed (`jam_TerminalBuffer.cpp:364-365`, `jam_TextEditor.cpp:1625-1627`), and D scrolls every row above the cursor into history (`jam_TerminalProcessor.cpp:1224-1227`).
+- `DEBT-20261115T221459` — END load, close, focus and keyboard on Windows. ARCHITECT: *"focused issues fixed"* (END Sprint 110) and *"the only debt untested is image"*. No scout run after 2026-11-13 measured load or close.
+
+### Debts Deferred
+- `DEBT-20261105T000000` — image preview, untested on Windows. ARCHITECT: *"the only debt untested is image, that's also untested on latest build on mac"*.
+
+---
+
 ## Sprint: macOS launch abort — a line with no Id::heights uses the cell height ✅
 
 **Date:** 2026-11-19
@@ -268,327 +348,3 @@
 
 ---
 
-## Handoff to COUNSELOR: Windows console throughput — undo the dedicated server context
-
-**From:** COUNSELOR
-**Date:** 2026-11-17
-**Status:** Ready for Implementation
-
-### Read First
-- `PLAN-windows-console-throughput.md`, section "Undo: remove the dedicated server context". It is the only record of the pre-sprint console code, because git does not track the console files.
-- `PLAN-windows-console-throughput.md`, Context and Steps 2-5. The `old :N` cites of the undo point into these.
-- `jam_TerminalSwap.cpp:50-109` and `jam_TextEditor.cpp:1476-1530`. They hold the two lanes behind the prompt symptom.
-
-### Context
-- Goal: Windows `seq` throughput through the in-process ConDrv server, with a message thread that never chokes.
-- The sprint moved the console server onto its own `jam::AsyncUpdater` context. Client writes complete when the payload is in the `sequence` ring.
-- ARCHITECT's Step 9 test result: *"current state still slow, active prompt still prints before the whole seq finished arrived at history"*, and *"it didnt give significant differences in user experience"*.
-- ARCHITECT then ordered the undo document, the doxygen fix, and this handoff.
-
-### Completed
-- Steps 0-8 of the PLAN are done. Step 9 ran by ARCHITECT, with the result above.
-- Measurement, 10k, rev 3, 19:37: epoch 2.226 s (`benchmark/seq-10k-windows-server-time-report.md:10`). Before the sprint, 17:20: 6.62 s.
-- The benchmark runs `zsh -c "/usr/bin/seq 1 10000"` (`benchmark/seq-10k-windows-server-time.md:24`). Its epoch also holds `standalone initialise` 0.612 s (`report:90`) and `standalone shutdown` 0.255 s (`report:120`). No run measured an interactive `seq 1 1000000`.
-- Prompt symptom, read: the live block and the history blocks are separate jobs.
-  - `TerminalSwap::setLiveLines` writes one latest-wins slot (`jam_TerminalSwap.cpp:50-71`).
-  - `writeFromTerminalBuffer` writes history lines (`:78-109`).
-  - `TextEditor::applyJobs` applies a finished `LiveJob` without regard to `HistoryJob` (`jam_TextEditor.cpp:1519-1529`).
-  - The sprint did not change these files.
-- Doxygen: the `present` block of `jam_VulkanComposition_windows.h:43-56` is rewritten to the code. It documents `fenceValue`, and the stale host-wait text is gone (`jam_VulkanComposition_windows.cpp:99`, `jam_VulkanGraphics.cpp:490-495`, `:530`). JAM doxygen regenerated with exit 0 and no warnings. After that run, COUNSELOR changed "current back buffer" to "buffer 0", per `GetBuffer (0, …)` at `.cpp:102`.
-- Undo document written: PLAN section "Undo", steps U5 to U1.
-
-### Remaining
-1. COUNSELOR: on ARCHITECT's go, delegate the undo to @Engineer in the order U5, U4, U3, U2, U1. Paste each U step verbatim into its prompt.
-2. COUNSELOR: after each U step, build with the scout toolchain rows: `scout D:/Poems/dev/eve/benchmark/seq-10k-windows-server-time.md`.
-3. COUNSELOR: after the undo, regenerate the JAM doxygen and fix each block that names a deleted member.
-4. Not verified: audit Bug 4 (a stall after a partial accept). The undo removes the code it covers.
-5. Not measured: the cause of "still slow" in an interactive `seq 1 1000000`. A scout manifest for that run does not exist.
-6. Not verified: the cause of the prompt before the history. The lane read above is a read, not a run.
-
-### Key Decisions
-- *"0 rules. non-negotiable. NO COPY, NO ALLOC, NO TEMP CONTAINERS, NO SHADOW STATE, only exception copy is cross thread."*
-- *"message thread could lock, async, even spawn parallel job. but MUST NEVER BLOCKED, CHOKED, NEVER"*
-- *"use CriticalSection or MessageManagerLock NEVER HANDROLL"*
-- *"jam always priority over juce"*
-- *"CONTRACT: - juce::Value ALWAYS message thread only - other thread use atomic for the exact parameter."*
-- *"NO SIDECAR. NEVER FUCKING SUGGEST CONTRACT VIOLATION."*
-- *"DONT FUCKING USE NUMBERS AS CONSTRAINTS"*
-- *"TextEditor contract should NOT be changed."*
-- *"this is not rendering problem, this is traffic problem."*
-- *"the crossplatform layers must holds as is"*
-- *"always read the contract before you even asked"*
-- *"documents comprehensively how to undo the whole circus of dedicated thread, because it didnt give significant differences in user experience"*
-
-### Files Modified
-- `D:\Poems\dev\jam\jam_terminal\processor\jam_TerminalFIFO.h` — `writeFromDevice` is public (Step 1).
-- `D:\Poems\dev\jam\jam_terminal\tty\native\jam_TerminalConsole_windows.{h,cpp}` — private `AsyncUpdater` base, `handleAsyncUpdate`, `isServerOpen`, `numInterrupts`, writes complete into the ring, doxygen (Steps 2-5, 8).
-- `D:\Poems\dev\jam\jam_terminal\tty\native\jam_TerminalConsoleOutput_windows.{h,cpp}` — `TerminalFIFO sequence`, `read` copies published bytes, doxygen (Steps 3, 4, 8).
-- `D:\Poems\dev\jam\jam_terminal\tty\native\jam_TerminalConsoleInput_windows.{h,cpp}` — `clientQueue`, `addClientInput`, `writeComplete`, `echoOffset`, `applyEcho`, one-ring `applyBytes`, doxygen (Steps 5, 8).
-- `D:\Poems\dev\jam\jam_core\document\jam_Document.h` — doxygen of the move constructor and `operator=` (Step 8). The move fix in `jam_Document.cpp:260-279` came before the sprint. Keep it.
-- `D:\Poems\dev\jam\jam_vulkan\context\native\jam_VulkanComposition_windows.h` — `present` doxygen.
-- `D:\Poems\dev\eve\PLAN-windows-console-throughput.md` — Step 5 revisions, tables, and the Undo section.
-
-### Open Questions
-- Whether to run the undo: ARCHITECT decides.
-- What to measure next for "still slow" and for the prompt before the history: ARCHITECT decides.
-
-### Next Steps
-- Start at Remaining 1 when ARCHITECT says go on the undo.
-
-## Sprint: EVE on Windows at Native Parity — Shell Stdio Is the Pseudoconsole, the Clear Covers the Clip, the TTY Read Takes Every Ready Byte, the Host Is the Sole Author of State and Size ✅
-
-**Date:** 2026-11-15 to 2026-11-16
-**Duration:** one session. Start 2026-11-15T00:40Z (transcript line 7). The end time is not recorded.
-**Scope (ARCHITECT):** the objectives in order: *"fix eve first, fix the rendering"*; *"eve standalone close must also instant and CLEAN"*; then END. Rulings: *"no fucking new semantics. no new pattern. no fucking plugin state poking layer bullshit. no manual state management. no hack. no workaround. no patch. no fixing symptoms. no handroll anything. make NO FUCKING MISTAKE. OBEY THE PROTOCOL. DESIGN BY CONTRACT"*; *"rendering is one SSOT always, divergence only at native OS"*; *"deep dive research and proof runtime, no understanding gaps should be filled in with inference"*; *"fix it. design by contract"*; *"this sprint only covers eve side, we still have debt for END side for next sprint"*; *"what i mean by EVE side including JAM"*. Plans: `PLAN-eve-plugin-contract.md`, `PLAN-windows-native-parity.md`.
-
-### Agents Participated
-- COUNSELOR — the reads; the ODE log reads and the log-point iterations; the validation of every edit; the filter of 18 audit findings; the SPEC and `parameters.md` amendments; this log.
-- Engineer (sonnet) — the plan steps; the ODE instrumentation and its removal; the Windows TTY read fix; the audit fixes; the END debt entry.
-- Pathfinder (haiku) — discovery; git evidence; the ConPTY version and VtIo history reads; the zsh startup chain and the highlighter source; the doxygen pass (23 blocks).
-- Librarian (haiku) — the msys2-runtime 3.6.12 console write path.
-- Auditor (opus) — one run over EVE `cfe8b34`..working tree and JAM `e27ebb084`..working tree, 18 findings.
-
-### Files Modified
-- `eve/Source/EVEProcessor.cpp` — `getStateInformation` writes the model less the rows that `parameters.md` marks `runtime` (`hasTableValue`, row key `row->id`) and less `gridStarts`; `setStateInformation` has one path; a `winsize` change calls `terminalProcessor.prepare()`; the `width`/`height` defaults come from `jam::ViewManager::getUISize<jam::MarkdownDocument>`.
-- `eve/Source/EVETerminalProcessor.{h,cpp}` — `restart` and `winsizeAttachment` deleted; `prepare()` is stop, open, start; `releaseResources` also closes the TTY; `clearHistory` ends with `prepare()` (plan Step 1); `prepare (winsize, …)` passes `events` to the decoder reset and ends with `flush()` under the message-manager lock (`jam_Model.h:15`); `applySidecar` writes only when the file is absent (ARCHITECT: *"only write to disk when not exist"*).
-- `eve/Source/EVEView.cpp:102-111` — `resizeEnd` writes `width` and `height` with no host-type branch, the principle of commit `0ea0fb4` (ARCHITECT: *"already deterministically solved in the past commit. probably wrong implementation but the principle HOLDS"*).
-- `eve/Source/EVEStandaloneApp.cpp` — the editor is asserted at construction; the destructor, `resizeStart` and `resizeEnd` have no guard (`EVEView.cpp:14` sets the constrainer). `focusGained` keeps its guard: `clearContentComponent` (`:19`) moves the focus to the window while EVEView is destroyed, and `getEditor()` then returns nullptr.
-- `jam/user-modules-info.md:270` — the `jam_core` row for `debug/jam_Log.cpp`; configure generates the include block of `jam_core.cpp` from it.
-- `eve/Source/layout/parameters.md`, `eve/cast/identifiers.md`, `eve/Source/generated/Identifiers.*` — the `runtime` column and id (ARCHITECT: *"Filter at save"*, *"Column in ## model"*, *"runtime"*); the `width`/`height` descriptions.
-- `eve/SPEC.md` — Resize item 6, Tree, the clock-start rule.
-- `eve/.gitignore` — `*.ode`. `eve/EVE Standalone mac.ode` deleted (committed in `1be7133`).
-- `eve/benchmark/typing-windows.{md,sh}` and the scout reports.
-- `jam/jam_terminal/tty/native/jam_TerminalTTY_windows.{h,cpp}` — `STARTF_USESTDHANDLES` in `spawnProcess` (Microsoft Terminal `ConptyConnection.cpp:34-36`); `read` copies every ready view until none is ready or `buf` is full (owner contract `jam_TerminalTTY.h:116-125`).
-- `jam/jam_vulkan/engine/jam_VulkanGraphicsEngine.{h,cpp}` — the Windows clear is `dirtyBounds` × `scaleFactor`, the rect of the clip, as on macOS; the unused `physicalWidth`/`physicalHeight` removed.
-- `jam/jam_core/native/jam_AsyncOutputStream{.h,_windows.cpp}` — no `ConnectNamedPipe` (ARCHITECT: *"Stream reads only"*); the overlapped is reset after a failed `ReadFile`, so EOF is reported.
-- `jam/jam_terminal/processor/jam_TerminalProcessor.{h,cpp}` — `reset` takes `events` and ends with `applyEvents`.
-- `jam/jam_core/debug/jam_Log.{h,cpp}`, `jam/jam_core/jam_core.cpp:8` — `write` stamps each line with the millisecond time and the thread id (ARCHITECT chose *"write stamps every line"*); the non-template bodies moved to the new `jam_Log.cpp`.
-- Doxygen pass: `EVEProcessor.h`, `EVETerminalProcessor.h`, `EVEView.h`, `jam_TerminalProcessor.h`, `jam_TerminalTTY_windows.h`, `jam_AsyncOutputStream.h`, `jam_Log.h`, `jam_VulkanGraphicsEngine.{h,cpp}`, `jam_CpuLowLevelGraphicsContext.h`.
-
-### Alignment Check
-- [x] BLESSED principles followed — divergence only in the Windows native files; one read contract for both platforms; one setup-change path.
-- [x] NAMES.md adhered — the one new term is `runtime`, ratified by ARCHITECT.
-- [x] MANIFESTO.md principles applied.
-- [ ] Not built after the audit fixes and the `jam_Log` split. ARCHITECT's last build tested the TTY read fix: *"fixed."*
-- [ ] Zero doxygen warnings unconfirmed; no index was regenerated.
-
-### Problems Solved
-- **Shell output never reached the decoder.** `spawnProcess` set no `STARTF_USESTDHANDLES`, so zsh kept EVE's stdout.
-- **Caret trail.** The Windows clear was scaled by `logicalScaleY` (0.8005) and the clip by `scaleFactor` (1.25); rows 46 and 67 kept the old caret.
-- **Typing twitch, proven by the ODE log.** `ready 1 53`: EVE read the BS alone, published the partial frame, and the clock waited 18.9 ms while 53 bytes sat in the pipe. msys2 writes each escape sequence in its own `WriteConsoleW` (`console.cc:3956-3961`, `:182-186`); OpenConsole flushes once per call (`VtIo.cpp:458-469`, identical in 1.25 and HEAD); the macOS log shows one chunk per key. The Windows read now drains every ready view. ARCHITECT reported *"fixed."* on a Debug build that still held the ODE log points. After their removal ARCHITECT reported *"twitchy visual bug resurface"*. The read fix covers only bytes already in the pipe; a key whose first piece completes the read alone (`ready 1 0`) still publishes a partial frame and then waits one clock period. NOT SOLVED.
-- **Measured outside EVE and JAM.** JAM's input `WriteFile` completes at once (`write 1 1 1 true`). The ~30 ms before a highlighted redraw is inside msys zsh with `zsh-syntax-highlighting` 0.8.1-dev (`C:\Users\jreng\.zshrc:110`), which forks `builtin type -w` per key for an unknown word (`main-highlighter.zsh:209-214`). A plain echo takes 2-5 ms; macOS takes 1-6 ms for the same bytes.
-- **Audit, resolved:** F2, F4, F6, F7, F11, F13, F14, F15, F16. **Rejected with the read:** F1 and F8 (ARCHITECT rulings), F3 (`jam_TerminalProcessor.cpp:88`, `:94` republish each tick), F5 (`jam_TextEditor.cpp:1378` writes the tree; `Model::flush` writes only stored values), F9 (permitted copy 2: the OVERLAPPED buffer stays in kernel use), F10 (no host path read), F12 (clear and clip share the context scale), F17 (measurement evidence; scout output), F18 (two copies, not more than twice). Doxygen-pass findings rejected: reference members (the clause names pointers), the repeated gate write (no clause).
-- **Mistakes owned.** I added a second `Log::Scope` beside `EVEProcessor.h:108`. I said the bytes enter the pipe 20 ms apart; the log point was at the read, and I withdrew it. I said the input delay was outside EVE before the write log point existed; I withdrew it and then proved it. I wrote "not EVE's code" for JAM-owned behaviour. **Failures after the audit:** (1) I accepted audit F13 and removed the `focusGained` guard; standalone exit crashed at `EVEStandaloneApp.cpp:27` (null editor during `clearContentComponent`). The guard is restored. (2) I put the `jam_Log.cpp` include into the generated block of `jam_core.cpp` by hand; configure dropped it and the link failed. The row is now in `user-modules-info.md`. (3) I logged the twitch as fixed from a run with the ODE log points still active, after I had stated that `ready 1 0` keys are not covered. The twitch is back. (4) I asked ARCHITECT two F11 questions that the past commit `0ea0fb4` answered.
-
-### State for Continuation
-- Build EVE Debug and Release with `cast`. Check first at compile: the `jam_Log.h`/`jam_Log.cpp` split (`jam_core.cpp:8`); `EVEProcessor.cpp:27` (`getUISize<jam::MarkdownDocument>` with a structured binding); `EVEProcessor.cpp:180-181` (`row->id`).
-- Runtime checks: standalone exit no longer crashes (`EVEStandaloneApp.cpp:26-27`); a standalone resize survives a relaunch (`EVEView.cpp:102-111`); `clearHistory`; close is instant and clean.
-- OPEN: the typing twitch on Windows. Measure, without file I/O on the reader thread, the time from the first ConPTY piece of a key to the last; the cause is the publish of the first piece followed by `clock.wait()` (`jam_TerminalTTY_windows.cpp:667-672`).
-- Nothing from this sprint is committed (ARCHITECT: *"nothing is committed."*); `git status` lists both trees.
-- Processes left from the killed debugger runs (OpenConsole 19712, 15440; zsh 8484, 22848, 3456): why a ConPTY child outlives a killed EVE is not read.
-- Run `<leader>bd` in jam and `ninja doxygen` in eve; confirm zero warnings. JUCE's handling of a nullptr from `externalContextFactory` is not read; the `createContext` doc no longer claims it.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261115T221459` — END: load and close of each EVE instance, and focus and keyboard on Windows (ARCHITECT: *"we still have debt for END side for next sprint"*).
-- `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
-
----
-
-## Sprint: Build Against the jam Document Contract ✅
-
-**Date:** 2026-11-14
-**Duration:** part of one session. `jam/carol/SPRINT-LOG.md` Sprint 187 is the primary record.
-
-### Files Modified
-- `Source/EVEProcessor.h:135` — `jam::ParameterLayout::get (*jam::MarkdownDocument::getOrCreate (…))`.
-- `Source/EVEView.cpp` — `*jam::HtmlDocument::getOrCreate (…)` (`:348`); `markdown->setDocument (std::move (*document))` (`:612`).
-- `Source/EVETerminalProcessor.cpp` — caller of the pointer-returning parse.
-- `project-info.md`, `CMakeLists.txt` — the `jam_data_structures` description drops "JSON conversion".
-
-### Alignment Check
-- [x] BLESSED principles followed
-- [x] NAMES.md adhered
-- [x] MANIFESTO.md principles applied
-
-### Problems Solved
-- EVE did not compile against `getOrCreate` returning `const T*` and `parse` returning `std::unique_ptr`. END with EVE builds.
-
-### State for Continuation
-- Runtime not tested this session.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- None
-
-## Sprint: Windows Terminal — Native Path Form, Shell Setting with Fallback, ConPTY Exit by Pipe EOF, History Reader Shares the Writer's Maps, Audit Sweep ✅
-
-**Date:** 2026-11-12
-**Duration:** two sessions, joined by a context compaction. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"let's continue with eve"*; *"fix the cause not the symptoms, fix the design, design by contract. unidirectional data flow"*; *"`native` implementation always at the very first INPUT to read and very last OUTPUT"*; *"whatever juce implemented as `native` dont fight it"*; shell row "One row, empty = platform", *"why not let user declare explicitly? `<program> <args>`"*, fallback "PowerShell, then cmd", message "shell not found:", *"still running without fail"*; *"why magic strings? just use Identifier lexicon"*; *"windows is wrong, that's a fact. mac already tested and measured end to end"*; *"no hack, no patch, no shortcut"*; *"no juce patch"*; history seam "Reader uses readWrite"; *"history works. terminal functional."*; `/audit until /log no gate`. Plans: `PLAN-shell-seam.md` (Steps 0-7), `PLAN-history-windows.md` (Steps 0-2). Both deleted at completion.
-
-### Agents Participated
-- COUNSELOR — the reads of the path flow, the swap ownership, the JUCE map share modes, the ConPTY exit, the POSIX TTY and the state save path; both plans; the validation of every Engineer return; the filter of 17 audit findings and the Pathfinder findings; this log.
-- Engineer (sonnet) — the shell seam steps; the reader map mode; the EVE audit fixes; the JAM diagnostics removal; the Windows TTY RAII, resize and read fixes; two follow-ups; the plan deletion.
-- Pathfinder (haiku) — the swap ownership read; whatdbg traces; the doxygen pass and its follow-up.
-- Auditor (opus) — one run, 17 findings plus diagnostics and drift.
-
-### Files Modified
-- `eve/Source/shell/{eve,zsh_integration.zsh,bash_integration.bash}` — under MSYS2 the shells send `cygpath -m` paths (`_eve_path`, `_eve_cwd`); the first input carries the native form.
-- `jam/jam_core/text/jam_Format.{h,cpp}` — `toNativePath` deleted; `jam/jam_gui/widgets/jam_PreviewComponent.cpp:357` builds `juce::File` from the path as given.
-- `eve/Source/layout/default-eve.md:217` — `shell` setting; the settings table description column widened to 80. `eve/Source/layout/parameters.md:39-42` — model rows `shell` (the program that runs) and `shellNotFound`. `eve/cast/identifiers.md` — `shellNotFound`, `failShellNotFound`, `shellVariable`, `defaultShell`, `defaultShellWindows`, `powershellProgram`, `commandPromptProgram`.
-- `eve/Source/EVETerminalProcessor.{h,cpp}` — `getDefaultShell`, `getShell` from the setting; `openTTY` (`.cpp:428-461`) splits once, starts in `cwd` only when it is an absolute path, tries `powershell.exe` then `cmd.exe` on Windows, stores `shell`, `shellNotFound` (empty when the configured program runs) and `shellExited`; the profiler branch stores `shell` too; `applyOpenCommand` and `getQuotedPaths` quote for the `shell` row. `eve/Source/EVEView.cpp:165-171` — `shellNotFound` event shows `shell not found: <program>`.
-- `eve/Source/ShellIntegration.{h,cpp}` — `addShellScripts`, `getShellEnvironment`, `getShellArguments` read the integration setting themselves; `isShellIntegrated` private.
-- `jam/jam_terminal/tty/native/jam_TerminalTTY_windows.{h,cpp}` — `processWait` closes the pseudo console on process exit, so the session ends by pipe EOF as on POSIX; `resizeWork` runs the resize on the one-thread pool; the four handles are `std::unique_ptr<void, decltype (&CloseHandle)>`; helpers return values (no out-parameters); the program is quoted on the command line; `read()` returns -1 on any non-pending error and with no session; `childPid` and `safeCloseHandle` deleted; pessimistic `funcs` guards removed.
-- `jam/jam_terminal/document/jam_TerminalHistory.cpp:125`, `:289`, `jam_TerminalImageRecord.h:99`, `:104` — reader maps use `readWrite`.
-- `jam/jam_terminal/{buffers/jam_TerminalBuffer.cpp,document/jam_TerminalSwap.cpp,processor/jam_TerminalProcessor.cpp}`, `jam/jam_gui/widgets/jam_TextEditor.cpp` — ODE diagnostics removed.
-- `eve/SPEC.md` — Feature 1 shell setting; failure table rows (Windows fallback; macOS has no fallback); Feature 4 path form.
-- Doxygen synced: `EVETerminalProcessor.h`, `ShellIntegration.h`, `jam_TerminalImageRecord.h`, `jam_TerminalTTY_windows.{h,cpp}`.
-
-### Alignment Check
-- [x] BLESSED principles followed — one path form owner per shell at the first input; one session-end path (EOF) on both platforms; resize and close serialized on the owner pool; RAII for every handle.
-- [x] NAMES.md adhered — `shellNotFound` / `failShellNotFound` join `shellExited` / `failShellExited`; `processWait`, `resizeWork` join `readWait`; `pendingWinsize` joins the `pending*` family.
-- [x] MANIFESTO.md principles applied.
-- [ ] Not built after the audit fixes. No agent ran `cast` or a build after Step 6 of the shell plan.
-- [ ] Doxygen not regenerated: EVE has no `doxygen` target in `Builds/Debug`; JAM regenerates in nvim.
-
-### Problems Solved
-- **`cwd` asserted at `juce_File.cpp:162`.** MSYS2 sent `/c/Users/x`. The shell now sends the native form; no reader converts.
-- **No history on Windows.** JUCE keeps the map handle on Windows (`juce_Files_windows.cpp:515`); a `readOnly` open does not share write (`:510`), so every history read failed (208 of 208). The reader maps `readWrite`, which shares write. ARCHITECT confirmed: *"history works."*
-- **`exit` asserted, then did not exit.** ConPTY keeps the pipe open after the shell exits. `processWait` closes the pseudo console, which flushes the last output and breaks the pipe.
-- **Audit, resolved:** F1 (quoting keyed on the whole setting), F2 (macOS fallback unreachable: `login` starts the shell, `jam_TerminalTTY_posix.cpp:101-129`), F3, F4, F5, F7, F8, F10, F11, F12, F13, F14 (non-absolute `cwd`), F15, F16, F17, the diagnostics, the `default-eve.md:217` wording; Pathfinder F1, F3-F7.
-- **Audit, rejected with the read:** F6 Q1 — the `isOpen` guard keeps a second open from overwriting the `shell` row; F6 Q3 — MANIFESTO S abstracts logic that appears "more than twice", and the settings root appears twice; F9 — the runtime log shows `processExit`, the last bytes, then `readEOF` with the bundled ConPTY; the TTY "drift" — ARCHITECT approved the `processWait` design with `/go`; "two names for one shell" — `"powershell"` and `"powershell.exe"` are different values.
-- **Mistakes owned.** I proposed `toNativePath` in the readers before the cause. I offered a JUCE patch, then a new type, then `readWrite`, each before I read the ownership contract. I put a macOS fallback in the plan that the platform cannot reach.
-
-### State for Continuation
-- Build with `cast cast/spell.md --debug` in eve; the Windows TTY changes (RAII, out-parameter removal, `resizeWork`) are not compiled yet.
-- Runtime checks on Windows: history after commands; `exit` closes the app (ARCHITECT saw a delay of a few seconds after `readEOF`; the cause is not located); a resize while the shell runs; a `shell` setting with a quoted path that holds spaces; a missing program shows `shell not found:` and PowerShell runs; `eve preview` under MSYS2.
-- macOS: build and run once; the shell setting and the `shell` row are new there too.
-- `cwd` restore: the shell starts in the saved `cwd` of the last session (`EVETerminalProcessor.cpp:437-438`), by design (`EVETerminalProcessor.h` openTTY block). ARCHITECT asked why macOS does not show it; not answered by evidence yet.
-- `jam_TerminalTTY_windows.h` `open` `@param environment` says a variable replaces an inherited one; `buildEnvironmentBlock` appends after the parent block. The Windows rule for a duplicate name is not verified.
-- `jam_TerminalTTY_windows.cpp:371` pipe timeout literal is 100 s; its old comment said 1 s.
-- LSP returned empty results on JAM files; load the JAM project in nvim before the next LSP check. Run `<leader>bd` in jam.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261105T000000` — Windows runtime test (unchanged; `toNativePath` in its text is deleted).
-
----
-
-## Sprint: Keycap and Grapheme Clusters — Clusters Join Across Reads, Keycap in Two Cells with the Digit in the Box, a Cluster Never Narrows, Link Label at the Character, Half-Thickness Underline, Cluster Test Script ✅
-
-**Date:** 2026-11-11
-**Duration:** two sessions, joined by a context compaction. The start and end times are not recorded.
-**Scope (ARCHITECT):** *"we dont need to adhere to other terminal, we need to conform to Unicode SPEC"*; *"why dont we treat this like ligatures? use 2 cell then fit, number inside box"*; *"number inside box. correct."*; option A for the join of an Extend codepoint ("A", then "/go"); *"i dont understand, all options are garbage"*; *"if non-deterministic unexpected behaviour must be `fixed` with contract violations then your understanding is wrong, or the whole design is wrong"*; *"489 passed, 0 failed"*; *"no audit."*; *"update the doxygen when necessary."*; *"/log"*. The underline thickness and the open-mode link label were earlier requests in the first session.
-
-### Agents Participated
-- COUNSELOR — the reads of the decoder, the glyph path and the Unicode data; the root cause of the split cluster; the root cause of the width rule; the validation of every Engineer return; the test script fixes; the read-back of the doxygen pass; this log.
-- Engineer (sonnet) — `applyExtension` and the processor split; the keycap width, constraint and enclosure; the first version of `test/clusters.sh`.
-- Librarian (haiku) — the Unicode 17.0.0 core specification: rule P6, D54, D56, section 23.4.
-- Pathfinder (haiku) — the git status read; the doxygen pass on five headers.
-- Auditor — not run. ARCHITECT: *"no audit."*
-
-### Files Modified (11 total)
-- `jam/jam_core/text/jam_AttributedChar.{h,cpp}` — new `applyExtension` (`.cpp:3339-3370`): replays the cluster through the grapheme segmentation step and appends the following codepoints that continue the cell. `getWidth (cluster)` (`.cpp:3319-3332`): U+20E3 gives two columns first; the U+FE0E branch that made a cluster narrow is deleted, so a codepoint that joins a cluster can only widen it.
-- `jam/jam_core/text/jam_AttributedString.h` — doxygen only: the width class comes from the whole cluster (`:66`, `:184`).
-- `jam/jam_terminal/processor/jam_TerminalProcessor.{h,cpp}` — `addTextRun` first calls `addExtension`, then writes the remaining clusters (`.cpp:503-511`). New `addCluster` (`:513-538`), `addExtension` (`:540-568`), `getPrecedingColumn` (`:570-579`), `getCluster` (`:581-592`). Each cluster reads its own row from the buffer.
-- `jam/jam_graphics/fonts/jam_GlyphConstraintTable.cpp:24-32` — `case 0x20e3`: fit, centre, centre, `maxCellSpan 2`.
-- `jam/jam_graphics/fonts/jam_GlyphArrangement.{h,cpp}` — static `isEnclosing`, `isEnclosed`, `applyEnclosure` (`.cpp:100-129`), called from `addEntry` (`:182-183`): the box takes the cell span of the atom and the base sits in the middle. `getDecorations`: `underlineScale { 0.5f }` (`:587`, `:597`). Doxygen of `addEntry` and `getDecorations` synced.
-- `jam/jam_gui/widgets/jam_TextEditor.{h,cpp}` — new `getLinkLabelColumn` (`.cpp:1821-1834`); the label callback receives that column (`.h:717`). Doxygen of `getLinkLabelColumn`, `applyLinkLabel` and `paintLinkLabels` synced to the bodies.
-- `eve/test/clusters.sh` — new, untracked. It measures the cursor position with the CPR query and compares a whole write with a write split at every byte. Sections: absolute widths, split equals whole (start of line, one and two columns before the right edge, insert mode), cursor moves between the writes, and a rendering view.
-
-### Alignment Check
-- [x] BLESSED principles followed — the fix of the width rule removes the cause of the non-deterministic result; no pending state, no timer.
-- [x] NAMES.md adhered — each new name joins the `add`, `get`, `apply` families.
-- [x] MANIFESTO.md principles applied
-- [x] Validated by ARCHITECT's build and run: `test/clusters.sh` gives 489 passed, 0 failed.
-- [ ] No audit. ARCHITECT: *"no audit."*
-- [ ] Zero doxygen warnings not confirmed. Regeneration is ARCHITECT's (`<leader>bd` in jam).
-
-### Problems Solved
-- **A cluster split across two reads.** `AnsiDocument::getTextToken` ends a text token at the bytes that are available (`jam_AnsiDocument.cpp:47-69`). `addTextRun` then restarted the segmentation, which broke UAX #29 rule GB9 (an Extend codepoint joins the cluster before it). The processor now extends the cluster before the cursor first.
-- **Keycap.** Unicode rule P6 says an enclosing mark surrounds its base. The cluster `digit FE0F 20E3` takes two cells, the box fits the span, and the digit sits inside the box (ARCHITECT: *"number inside box. correct."*).
-- **The same bytes gave a different result when the read split.** The only rule that made a cluster narrower was U+FE0E (`jam_AttributedChar.cpp`, old line 3331). A wide base at the last column wrapped before its selector arrived, and the narrowing could not undo the wrap. The spec has no text that makes U+FE0E shrink a cell: `tr51.txt:1744-1745` says only that emoji have about the same advance width as CJK ideographs. The rule is deleted. A cluster width can now only grow, and growth is a forward wrap.
-- **Test script.** Terminal echo of the CPR replies corrupted the measure (`stty -echo`, restored in the `EXIT` trap). The per-byte `printf` calls of `write_hex` made three false failures (one `printf` for all bytes now). zsh arithmetic needs `&&`, not `and`.
-- **Mistakes owned.** I offered three patch options for the narrowing before I read the width rule. ARCHITECT's ruling that all options were garbage was correct, and the root cause was in `getWidth`. I also first read the byte 1 to 3 failures as a decoder fault; the cause was the script.
-
-### State for Continuation
-- ARCHITECT runs `<leader>bd` in jam and confirms zero warnings; the doxygen pass changed five headers and did not regenerate the index.
-- Open, no ruling: when a keycap has a background colour or an underline, the shifted digit spreads half a cell past the atom. `addBackground` (`jam_GlyphArrangement.cpp:576-582`) and the underline rectangles use `entry.originX` and `entry.advance`. A fix needs one new `Entry` field.
-- Visible change to check: `😀 FE0E` now takes two cells (`test/clusters.sh:235` expects 2). `❤ FE0E` keeps one cell because U+2764 is narrow without the selector.
-- LSP results on framework files can be empty: `findReferences` of `applyExtension` and `addExtension` returned only the declaration. ARCHITECT loads the JAM project in nvim before the next LSP check.
-- `jam_GlyphConstraintTable.cpp:1-5` holds a file-level doxygen block. The pass did not touch it.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261105T000000` — Windows runtime test (unchanged).
-
----
-
-## Sprint: Published Lines and Live Rows — One Row One Line, Reader Joins at Build, Clear Only at a Prompt, Ctrl+L to the Shell, TerminalHistory and TerminalEncoder ✅
-
-**Date:** 2026-11-10
-**Duration:** two sessions, joined by a context compaction. The start and end times are not recorded.
-**Plan:** `PLAN-published-lines-and-live-rows.md` (11 steps).
-**Scope (ARCHITECT):** the crash `END-2026-11-10-182526.ips` (`jam::AttributedString::setAtom` ← `AnsiDocument::addGrids`, address `0x3fffffff8`); *"Reader joins at build"*; *"stray variables for state machine are not allowed. if it was state machine must be Model's parameter, hence message thread could listen, other thread could use atomic"*; *"Clear only at a prompt"*; *"Remove the clear command"*; *"our architecture is NOT `typical` terminal topology. we preserved history faithfully. our rendering layer is COMPLETELY decoupled. audio architecture discipline always lock free on terminal (audio thread)"*; *"DESIGN BY CONTRACT"*. Audit rulings: *"No cut"*; *"No, drop them"*; fontId *"No change"*; the names *"TerminalHistory"* and *"TerminalEncoder"*; AnsiDocument *"Keep in AnsiDocument"*; help pages: *"my point is cast, scout, ggwp HELP page should be identical"*, then *"ggwp clears too"*.
-
-### Agents Participated
-- COUNSELOR — the reads behind the plan; the DCF filter of 19 audit findings; the `isLinkChanged` fix; the doxygen read-back and corrections in `jam_TerminalSwap.h` and `EVETerminalProcessor.h`; `SPEC.md`; this log.
-- Engineer (sonnet) — Steps 1 to 7; the audit fixes; the TerminalHistory and TerminalEncoder splits; the ggwp clear.
-- Auditor (opus) — one sweep, 19 findings.
-- Pathfinder (haiku) — the inventories; the TextEditor inventory; the doxygen pass in five runs (the first run stopped at the watchdog).
-
-### Files Modified
-- `jam/cast/terminal.md` — `@id isWrapped`.
-- `jam/jam_terminal/buffers/jam_TerminalBuffer.{h,cpp}` — the binary `writeRow` writes `isWrapped` last; `getNumBytes` counts it; new `getNumBytes() const` sizes the widest row of both grids; `prepare` keeps every row whole, releases the images of dropped rows on both grids, and no longer clears the frame; `clearAlternate` deleted; the VT encoder moved out.
-- `jam/jam_terminal/buffers/jam_TerminalEncoder.{h,cpp}` — new `struct TerminalEncoder`: `writeRow` (VT), `writeEraseScreen`, and the private `writeStyle`, `writeColour`, `writeLink`, `writeLinks`, `writeCodepoint`.
-- `jam/jam_terminal/document/jam_TerminalSwap.{h,cpp}` — the writer stores one row as one line and never seeks back; a wrapped row with no placement gets no cell starts; `getNumReadRows` and `numReadRows` deleted; `prepare (int newSegmentBytes)`; `applyToLiveData`; the readers moved out.
-- `jam/jam_terminal/document/jam_TerminalHistory.{h,cpp}` — new reader: `addLines`, `addLiveLines`, the wrapped head and tail, the grid head and tail, `isGridOpen`, `addImageLines`, the link cache.
-- `jam/jam_terminal/document/jam_AnsiDocument.{h,cpp}` — `addWrappedLines`, `addWrappedLine`.
-- `jam/jam_terminal/processor/jam_TerminalProcessor.{h,cpp}` — `reset` blanks a changed grid only at an active prompt and keeps the cursor otherwise; `applyWinsize`.
-- `jam/jam_terminal/jam_terminal.{h,cpp}` — includes of the two new objects.
-- `jam/jam_core/concurrency/jam_AsyncUpdater.{h,cpp}` — `handleUpdateNow`.
-- `jam/jam_gui/widgets/jam_TextEditor.{h,cpp}` — `TerminalHistory terminalHistory`; `isOpenChanged` compares with the swap end line; `addFileLinks` writes the recording block to the root only when the last line belongs to it; `isLinkChanged` has two terms.
-- `eve/cast/identifiers.md`, `eve/Source/layout/default-eve.md` — the `clear` command and its key row deleted.
-- `eve/Source/layout/parameters.md` — the `previousGridStart` row was added in Step 1 and removed by audit finding 2; net no change.
-- `eve/Source/EVEView.{h,cpp}`, `eve/Source/EVETerminalProcessor.{h,cpp}` — the `clear` command removed; `prepare` drains the history, runs `applyWinsize`, drains again, then sizes the swap with `terminalBuffer.getNumBytes()`; four trigger pairs became `handleUpdateNow`.
-- `eve/CLAUDE.md` — `clear,` removed from the callback list.
-- `eve/SPEC.md` — `[AMENDED 2026-11-10]` items: no `clear` command, `ctrl+l` to the program, one row one line with the join at build, clear only at a prompt, no cut, alternate rows dropped; stale swap citations corrected.
-- `scout/Source/Main.cpp:272`, `cast/Source/main.cpp:1633` — `jam::TerminalEncoder::writeEraseScreen`.
-- `ggwp/Source/Main.cpp` — the scout clear block and `isTerminalOutput`, so the three help pages start the same.
-
-### Alignment Check
-- [x] BLESSED principles followed — no stored line changes after its publish; the reader reads only the atomics `firstLine` and `endLine`; no code on the clock tick.
-- [x] NAMES.md adhered — every new name joins a family named in the plan, or ARCHITECT named it.
-- [x] MANIFESTO.md principles applied.
-- [ ] Not validated by a compile. No agent ran `cast` or a build.
-- [ ] Zero doxygen warnings not confirmed. clangd timed out for most calls this session.
-
-### Problems Solved
-- **The crash path.** The writer edited a published line in place for a wrapped row, and the reader read `previousGridStart` and `numReadRows` as plain members. Both read paths could give a line whose cells and `gridStart` disagree; `getGutter` then stayed at `INT_MAX` (`jam_AnsiDocument.cpp:447-455`). Each row is now one immutable line; the reader joins wrapped lines at build.
-- **The frame had three authors.** The `clear` command and a grid change erased the frame. Now only a grid change at an active prompt blanks it; Ctrl+L reaches the shell.
-- **Audit (19).** Resolved: 1 (chunked wrapped tail), 2, 3, 5, 18 (Model row removed, `isGridOpen`), 4, 12 (`numReadRows` deleted), 6 and 9 (rulings), 7 (released images), 8 (`getNumBytes() const`), 11 (`reset` simplified), 13 (`TerminalHistory`), 14 (`TerminalEncoder`; `isLinkChanged` at `jam_TextEditor.cpp:1169`), 15 (`handleUpdateNow`), 19 (doxygen and SPEC). Rejected with the read: 10 (the decoder never writes `fontId`), 16 (nothing reads `Id::isWrapped` after the join), 17 (no clause covers the parameter order).
-- **Mistakes owned.** I proposed a four-object TextEditor split from a file-size count. The only line-level violation was `:1168`, and the split needed `friend` or public data members. I sent one doxygen run with about 40 blocks; it hit the watchdog. Engineer edited a doxygen block before the audit; the pass rewrote it.
-
-### State for Continuation
-- Run `cast cast/spell.md --debug` in `jam` and `eve` (`Id::isWrapped` in; `Id::previousGridStart` and `CommandId::clear` out). Then build `jam`, `eve`, `end`, `scout`, `cast`, `ggwp`.
-- Verification list: `PLAN-published-lines-and-live-rows.md` § Verification, items 2 to 8.
-- Run `<leader>bd` (jam) and `ninja doxygen` (eve, end); confirm zero warnings.
-- Open, no ruling: the prompt wraps by one or two cells on a new pane. A whatdbg trace of `jam_TextEditor.cpp:1375` and `EVETerminalProcessor.cpp:458` gives the two winsize values.
-- Fact noted: `addReleasedImage` asserts capacity and drops a record when full (`jam_TerminalBuffer.cpp:338-344`); the `prepare` release loop runs before `prepareRows` sizes it again.
-
-### Debts Paid
-- `DEBT-20261108T145906` — Ctrl+L destroys the Claude Code active prompt on the normal screen. Ctrl+L now goes to the program, and no command erases the frame.
-
-### Debts Deferred
-- `DEBT-20261105T000000` — Windows runtime test (unchanged).
-
----

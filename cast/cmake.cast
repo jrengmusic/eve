@@ -631,6 +631,6 @@ COMMAND sudo "${CMAKE_COMMAND}" -E copy "$<TARGET_FILE:${PROJECT_NAME}_${CAST_FO
 
 ```cygwin-pty-bundle
 if(WIN32)
-    execute_process(COMMAND cast "${CMAKE_CURRENT_LIST_DIR}/:::cygwinPtyManifest:::" COMMAND_ERROR_IS_FATAL ANY)
+    execute_process(COMMAND cast "${CMAKE_CURRENT_LIST_DIR}/:::cygwinPtyManifest:::" ENCODING UTF-8 COMMAND_ERROR_IS_FATAL ANY)
 endif()
 ```

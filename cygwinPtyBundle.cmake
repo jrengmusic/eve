@@ -15,5 +15,5 @@
 ******************************************************************************]]
 
 if(WIN32)
-    execute_process(COMMAND cast "${CMAKE_CURRENT_LIST_DIR}/cygwinPTY/cast/spell.md" COMMAND_ERROR_IS_FATAL ANY)
+    execute_process(COMMAND cast "${CMAKE_CURRENT_LIST_DIR}/cygwinPTY/cast/spell.md" ENCODING UTF-8 COMMAND_ERROR_IS_FATAL ANY)
 endif()

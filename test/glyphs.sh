@@ -17,6 +17,33 @@ add_chunk()
     pending=()
 }
 
+get_glyph()
+{
+    local code=$(( 16#$1 )) escape byte
+    local -a bytes
+
+    if (( code < 0x80 ))
+    then
+        bytes=($code)
+    elif (( code < 0x800 ))
+    then
+        bytes=($(( 0xC0 | code >> 6 )) $(( 0x80 | code & 0x3F )))
+    elif (( code < 0x10000 ))
+    then
+        bytes=($(( 0xE0 | code >> 12 )) $(( 0x80 | code >> 6 & 0x3F )) $(( 0x80 | code & 0x3F )))
+    else
+        bytes=($(( 0xF0 | code >> 18 )) $(( 0x80 | code >> 12 & 0x3F )) $(( 0x80 | code >> 6 & 0x3F )) $(( 0x80 | code & 0x3F )))
+    fi
+
+    for byte in $bytes
+    do
+        printf -v byte '\\x%02x' $byte
+        escape+=$byte
+    done
+
+    printf -v REPLY "$escape"
+}
+
 print_title()
 {
     add_text "" "=== $1 ===" "$2"
@@ -39,7 +66,8 @@ print_row()
 
         for code in ${=sequence}
         do
-            printf -v glyph "\\U${(l:8::0:)code}"
+            get_glyph $code
+            glyph=$REPLY
             glyphs+="$glyph"
         done
 
@@ -56,7 +84,8 @@ print_size_row()
 
     for code in "$@"
     do
-        printf -v glyph "\\U${(l:8::0:)code}"
+        get_glyph $code
+        glyph=$REPLY
 
         if (( ${(m)#line} + 9 > columns ))
         then
@@ -72,24 +101,28 @@ print_size_row()
 
 print_codepoints()
 {
-    local line="" code glyph
+    local line="" code glyph used=0
 
     for code in "$@"
     do
-        printf -v glyph "\\U${(l:8::0:)code}"
+        get_glyph $code
+        glyph=$REPLY
 
-        if (( ${(m)#line} + 3 > columns ))
+        if (( used + 3 > columns ))
         then
             add_chunk "$line"
             line=""
+            used=0
         fi
 
         if [[ -z "$line" ]]
         then
             line="${code}:"
+            used=$(( ${#code} + 1 ))
         fi
 
         line+=" $glyph"
+        (( used += 3 ))
     done
 
     add_chunk "$line"
