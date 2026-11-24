@@ -45,22 +45,24 @@ among ours.
    - **The TTY backend clocks the device in the PTY's rhythm.** Each readiness
      event is one tick; its payload is the tick's numSamples: on macOS the bytes
      the PTY holds, on Windows the bytes that `PeekNamedPipe` reports queued in
-     the pipe. Nothing waits on the clock's context. After the tick, a
-     one-shot timer on the clock's context ends the listening window of
-     `jam::TerminalClock` and re-arms readiness after the clock's period; the
-     period follows the measured traffic rate and never exceeds one vblank, so
-     the reads follow the PTY's rhythm (863.5 bytes per read on `seq`,
-     `jam/carol/SPRINT-LOG.md:550`). Windows ticks in the PTY rhythm the same
-     way as macOS, through one shared readiness type, `jam::AsyncOutputStream`
-     in `jam_terminal`, with a macOS half and a Windows half. On Windows the
-     one-shot timer is a thread-pool timer on the clock's context, and the
-     re-arm is a zero-byte overlapped read. ARCHITECT: *"One shared JAM
-     type"*; *"move AsyncOutputStream to Terminal"*; *"nothing should wait"*;
-     *"so no time ever lost"*; *"One vblank"*;
-     *"the rhythm synchronization IS THE ABSTRACTION to implement"*; *"buffer
-     size should be STILL dictated by hardware == how fast native tty can
-     deliver"*; *"why no TerminalClock? i just wanted to ensure nothing is
-     hardcoded, nothing is manual state management, fully event driven"*.
+     the pipe. The processor tick (`EVETerminalProcessor::process()`) never
+     waits, locks, or allocates. `jam::AsyncOutputStream` in `jam_terminal` is
+     the OS driver seam and paces the inter-tick period of `jam::TerminalClock`
+     with each OS's native mechanism: `juce::WaitableEvent` on macOS (for XNU's
+     1024-byte `TTYCLSIZE`, matching 863.5 bytes per read on `seq`,
+     `jam/carol/SPRINT-LOG.md:550`), and a one-shot thread-pool timer
+     (`SetThreadpoolTimer`) on Windows (for Cygwin's 128 KiB pipe) with a
+     zero-byte overlapped read as re-arm. Both halves re-arm directly when the
+     period is `0`, then end the listening window with `clock.listen()`. The
+     period follows the measured traffic rate and never exceeds one vblank.
+     ARCHITECT: *"One shared JAM type"*; *"move AsyncOutputStream to
+     Terminal"*; *"the full throttle only when it RUNS … audio thread STILL LOCK
+     FREE, processBlock never blocked as PROCESSOR"*; *"so no time ever lost"*;
+     *"One vblank"*; *"the rhythm synchronization IS THE ABSTRACTION to
+     implement"*; *"buffer size should be STILL dictated by hardware == how fast
+     native tty can deliver"*; *"why no TerminalClock? i just wanted to ensure
+     nothing is hardcoded, nothing is manual state management, fully event
+     driven"*.
    - **The clock is the chain's own.** `EVETerminalProcessor` owns its clock,
      `jam::VirtualDevice`, and is the clock's `juce::AudioIODeviceCallback`.
      The tick (`audioDeviceIOCallbackWithContext`) runs the chain. Above the

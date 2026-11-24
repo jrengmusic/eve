@@ -366,6 +366,7 @@ private:
     jam::Model
         state;///< Terminal Model. Its tree is the `terminal` child of the model state. The events store the terminal state into it, and the flush writes it to the tree.
     const juce::Identifier terminalTag { jam::Format::toType (Id::terminal) };///< Identifier of the `terminal` tree, built at construction.
+    std::optional<std::reference_wrapper<const std::atomic<int64_t>>> background;   ///< Caches the atomic reference to the `Id::background` parameter from construction for lock-free reads in `process()`.
     jam::TerminalProcessor::Events
         events;///< Event setters that copy the terminal state to the Model lane, keyed by event ID.
     std::string pendingInput;    ///< Input bytes that wait for room in the input lane.

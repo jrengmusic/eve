@@ -23,6 +23,9 @@ EVETerminalProcessor::EVETerminalProcessor (juce::AudioProcessor& processorToUse
 {
     state.stopTimer();
     jam::ModelLayout::addParameters (state, *jam::MarkdownDocument::getOrCreate (juce::Identifier { files::parametersLayout }));
+    auto* const backgroundParameter { state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::background) };
+    jassert (backgroundParameter != nullptr);
+    background.emplace (backgroundParameter->getRawValue());
     registerEvents();
     registerUserInterfaceGetters();
     registerChainEvents();
@@ -114,7 +117,12 @@ std::unique_ptr<jam::TerminalTTY> EVETerminalProcessor::createTTY (const juce::S
 void EVETerminalProcessor::registerEvents()
 {
     for (const auto& id : { Id::applicationCursor, Id::bracketedPaste, Id::mouseSgr, Id::cursorVisible, Id::alternateScreen, Id::isRecording, Id::shellExited, Id::syncOutput, Id::autoWrap, Id::originMode, Id::insertMode, Id::isWrapPending, Id::mouseTracking, Id::cursorShape, Id::keyboardFlags, Id::cursor, Id::numPrompts, Id::activeLink, Id::keyboardFlagsInactive, Id::numKeyboardModesNormal, Id::numKeyboardModesAlternate, Id::savedCursorNormal, Id::savedCursorAlternate })
-        events.add<int> (id, [this] (const juce::Identifier& key, int value) { state.storeValue (terminalTag, key, value); });
+    {
+        jassert (state.getParameter<jam::Parameter<int>> (terminalTag, id) != nullptr);
+        auto& parameter { *state.getParameter<jam::Parameter<int>> (terminalTag, id) };
+
+        events.add<int> (id, [&parameter] (const juce::Identifier&, int value) { parameter.store (value); });
+    }
 
     events.add<const char*, int> (Id::command, [this] (const juce::Identifier&, const char* name, int size)
                                   {
@@ -577,9 +585,9 @@ void EVETerminalProcessor::process() noexcept
     {
         input.writePendingData (*tty);
 
-        const auto background { state.getParameter<jam::Parameter<int64_t>> (terminalTag, Id::background)->getValue() };
+        const auto backgroundColour { static_cast<juce::uint32> (background->get().load (std::memory_order_relaxed)) };
 
-        while (terminalProcessor.process (*tty, terminalBuffer, swap, images, liveSlots, *jam::Colours::getInstance(), static_cast<juce::uint32> (background), events)) {}
+        while (terminalProcessor.process (*tty, terminalBuffer, swap, images, liveSlots, *jam::Colours::getInstance(), backgroundColour, events)) {}
     }
 }
 

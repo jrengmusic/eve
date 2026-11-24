@@ -36,6 +36,68 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Cross-platform terminal throughput, zero-rule compliance, and prompt sync ✅
+
+**Date:** 2026-11-24 to 2026-11-25
+**Duration:** Multi-session (ended 06:22 +0700)
+**Scope (ARCHITECT):** Restore macOS `seq` throughput without breaking post-Windows cross-platform conformance or prompt sync. Non-negotiable rulings: *"0 rules: 0 alloc, 0 copy, 0 temp containers, 0 mutations, 0 new struct, 0 new pattern, 0 foreign semantics"*, *"juce::String usage beyond juce native API args, are forbidden"*, *"0 manual state management, 0 manual boolean, ALL MUST BE FULLY EVENT DRIVEN"*, *"if you still handrolled anything not using framework API OOTB, you will ALWAYS FAILED"*, *"identify code smells"*, *"fix all audit findings"*, *"comprehensive doxygen pass"*, *"/log"*.
+
+### Agents Participated
+- COUNSELOR — forensics synthesis, Design by Contract filtering of all Engineer, Auditor, and Pathfinder returns, `cast` Release builds, interactive `ZDOTDIR` benchmark verification, `macOS 27.2.1` `/truth` analysis, this log.
+- Pathfinder — `bff685632` vs `HEAD` vs working-tree diffs, `scout` Live/Replay/Sample runs, bare `pty.openpty()`/`/dev/null`/`pipe` syscall benchmarks, comprehensive post-audit doxygen pass across 8 headers.
+- Engineer — cross-platform hot-path rewrites, 0-rule and OOTB `juce::OutputStream` cleanups, tail-first synced history in `TextEditor`, all 7 validated audit fixes.
+- Auditor (opus / inherit) — one full sweep across all 10 sprint-modified areas: 10 findings reported (7 validated and resolved, 3 PLAN-drift claims rejected as superseded by session rulings).
+
+### Files Modified (17 sprint files)
+
+jam (15):
+- `jam_core/text/jam_AttributedString.{h,cpp}` (`.cpp:280-284, 407-419, 461-462, 539-578`) — added range-for in `set(int, std::string_view, AttributedChar)`, zero-copy OOTB `writePlainAtoms()` via `juce::OutputStream`, file-scope `linkBytes`/`linkRunBytes`, and `AttributedString::skip()`.
+- `jam_core/utilities/jam_Hash.h:53-56` — pointer-address `Wyhash::hashInt` for interned `juce::Identifier`.
+- `jam_terminal/buffers/jam_TerminalBuffer.{h,cpp}` (`.cpp:97-120, 447-481`) — added `getNumReadyRows()` (reused by `read()`), OOTB `juce::OutputStream` `writeRow()`, and `skipRowPayload()`.
+- `jam_terminal/document/jam_AnsiDocument.{h,cpp}` (`.cpp:215-260, 331-410`) — added zero-alloc `setCellStarts()`, zero-alloc `isFilePath(std::string_view)` using `Chars::doubleDot`, `hasWebScheme()` using `Chars::httpAutolinkPrefix`/`httpsAutolinkPrefix`, `getTrimmedUrlRange()` using `Chars::nonAsciiStart`, and `Strings::fromView()` at JUCE API boundaries.
+- `jam_terminal/document/jam_TerminalHistory.{h,cpp}` (`.cpp:8-86, 129-265`) — removed `previousLines` arrays and scratch `AnsiDocument` via `previousSibling` walk and `TerminalBuffer::skipRowPayload()`.
+- `jam_terminal/document/jam_TerminalSwap.{h,cpp}` (`.cpp:75-275`) — batched `getNumWritableLines()` / `setStoredLine()` / `writeLines()` / `writeGridLine()`, fixed `OSC 133;C` fast-path condition, swapped preallocated `currentStarts`, and wrote index entries via `std::memcpy`.
+- `jam_terminal/processor/jam_TerminalProcessor.cpp:78-95, 513-529, 857-873` — gated redundant `syncOutput` events without manual booleans, replaced raw `remaining[...]` with `.at()`.
+- `jam_gui/widgets/jam_TextEditor.cpp:28, 1387-1411, 1449, 1578-1655, 1672-1726` — removed `viewport.setBufferedToImage(true)` and `BlockJob` name alloc, restored `hasLive()` verbatim to `HEAD`, added terminal-mode-gated tail-first `HistoryJob` jump with zero-flash `addBlock()` clear and scroll-preserving head backfill.
+- `jam_vulkan/context/jam_VulkanGraphics.{h,cpp}` (`.h:65-68`, `.cpp:32-39`) — raised `primitiveRecordCapacity` to `16384` and scoped `bindlessRecordLimit { 1024 }` inside `getBindlessTextureCapacity()`.
+- Doxygen updated across `jam_AttributedString.h`, `jam_Hash.h`, `jam_TerminalBuffer.h`, `jam_AnsiDocument.h`, `jam_TerminalHistory.h`, `jam_TerminalSwap.h`, `jam_VulkanGraphics.h`.
+
+eve (2):
+- `Source/EVETerminalProcessor.{h,cpp}` (`.h:369`, `.cpp:26-28, 117-125, 588`) — cached direct `Parameter<int>&` bindings in `registerEvents()` and `background` atomic reference for lock-free reads in `process()`.
+- Doxygen added for `EVETerminalProcessor::background`.
+
+### Alignment Check
+- [x] BLESSED principles followed — 0 alloc, 0 staging copy, 0 temp containers, 0 manual booleans, OOTB `jam` and `juce` APIs, single owner-boundary invariants.
+- [x] NAMES.md adhered — existing framework families reused (`setCellStarts`, `skipRowPayload`, `getNumReadyRows`, `writeLines`, `writeGridLine`).
+- [x] MANIFESTO.md principles applied — post-Windows single-file `TerminalSwapFile` and platform TTY/clock drivers stay intact; all improvements live in shared cross-platform C++.
+- [x] Final Release build (`cast cast/spell.md --no-sign`) compiles and links cleanly (exit 0, Standalone/VST/VST3/AU + macOS zip).
+- [x] Doxygen warning check across all 8 modified headers reports zero doc/param warnings (`WARN_AS_ERROR=YES`).
+- [ ] Full library/project doxygen XML/HTML index regeneration (`<leader>bd` in nvim) not run.
+
+### Problems Solved
+- **Active prompt race eliminated.** Restored `TextEditor::hasLive()` (`getHistoryEnd() >= closedLine`) and paired it with mode-gated tail-first `HistoryJob` loading and zero-flash `addBlock()` clear (`jam_TextEditor.cpp:1389-1390, 1589, 1650-1655`).
+- **Hot-path engine throughput improved cross-platform.** Replay 1M (`seq-1m-mac-redesign-replay-report.md`): `terminal process` `125.7 ms` (`−19.0%`), `swap history lines` `164.5 ms` (`−21.6%`), `swap live lines` `0.30 ms` (`−79.9%`), `editor file links` `0.14 ms` (`−43.3%`), `user` `820.3 ms` (`−8.4%`), `dropped` `0`. Live 10M (`seq-10m-mac-redesign-report.md`): `terminal process` `−43.2%`, `swap history lines` `−32.1%`, `vulkan end frame` `−52.6%`.
+- **Interactive Release verification (ARCHITECT, `macOS 27.2.1`):**
+  - EVE: `1M` `0.902 s` (`98% cpu`), `10M` `8.764 s` (`99% cpu`), `100M` `1:25.78` (`17.59s user`, `67.96s system`, `99% cpu`) — down from `1:47.23`.
+  - Ghostty: `100M` `1:37.90` (`79.93s system`); kitty: `100M` `1:39.15` (`81.55s system`). EVE leads Ghostty by `12.12 s` and kitty by `13.37 s`.
+- **Root cause of `+33 s` macOS regression proven.** `macOS 27.2.1 (26B131)` (`xnu-13432.41.4~25`, installed `2026-11-23`) raised `devfs` character-device `write()` kernel latency to `619.4 ns/call` even on `/dev/null` (vs `277.6 ns/call` on `pipe` and `353.3 ns/call` for a full EVE PTY `write()` on `macOS Tahoe 26.5`). Across 100M line-buffered `seq` writes, that adds `~33 s` of kernel `system` time to every terminal emulator.
+- **Audit sweep (10 reported).** All 7 validated findings fixed and verified (including a `High` bug in `TextEditor::addJobs()` missing `getMode() == map::EditorMode::terminal` on tail-jump). 3 PLAN-drift claims rejected because ARCHITECT's 0-rule and prompt-sync rulings superseded those earlier PLAN steps.
+
+### State for Continuation
+- Pre-existing unrelated working-tree changes remain untouched in `jam` (`jam_File.*`, `jam_RegExp*`, `jam_Format.*`, `jam_data_structures/*`, `jam_terminal.{h,cpp,mm}`, `jam_TerminalFIFO*`, `jam_TerminalTTY_posix.cpp`, `user-modules-info.md`, `patch/juce-posix-event-hook.patch`) and `eve` (`CMakeLists.txt`, `SPEC.md`).
+- Untracked scratch `PLAN-*.md` and `benchmark/seq-*` files remain in `eve/` (not deleted without ARCHITECT instruction).
+- Verify `isFilePath(std::string_view)` (`jam_AnsiDocument.cpp:331-344`) on Windows in the next Windows build.
+- Two pre-existing Case-3 observations flagged by Engineer outside audit scope: `EVETerminalProcessor.cpp:252` (`if (auto* profiler ...)` implicit pointer check) and `jam_AttributedString.cpp:503` (`juce::String::fromUTF8` in `readText`).
+- Nothing from this sprint is committed.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
+
+---
+
 ## Sprint: Rendering and live rows — colour emoji on Windows, cast output in UTF-8, backgrounds from the cells, the live block waits only for the closed line of OSC 133 D ✅
 
 **Date:** 2026-11-24
@@ -275,74 +337,6 @@ end (2):
 ### Debts Deferred
 - `DEBT-20261117T223541` — seq on the cygwin pty paged and choked after a fast start. ARCHITECT reported *"seq works"*; the paging was not re-observed or measured after the copy fix, so the entry stays.
 - `DEBT-20261117T223545` — the active prompt printed before seq finished. Not re-observed; the entry stays.
-- `DEBT-20261115T221459` — END: load and close of each EVE instance, and focus and keyboard on Windows (unchanged).
-- `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
-
----
-
-## Sprint: Cygwin PTY — zsh on Windows runs over an msys2 pty through eve-cygwinPTY, ConDrv stays for pwsh and cmd ✅
-
-**Date:** 2026-11-17 to 2026-11-18
-**Duration:** one session, across a context compaction. The start and end times are not recorded.
-**Scope (ARCHITECT):** `PLAN-cygwin-pty.md`. Rulings: *"msys-2.0.dll and cygwin1.dll must be explicitly written at eve.md, we shipped default path assuming user install it, and at default path. user can still override. but still internal fallback, when those arent available just like zsh, we run powershell by default"*; *"config dll just follow verbatim established pattern. eve.md is crosplatform single dot config. windows lane are harmless for mac."*; helper name *"eve-cygwinPTY.exe"*; helper home *"Sub-project in eve/"*; *"make it identical then. we have working pattern, why deviates"* (the EVE to END pack and offload pattern); *"dont change this machine toolchain. encapsulate"*; *"UNIDIRECTIONAL data flow, fully event driven"*; *"/audit, doxygen pass, then /log"*. ARCHITECT's run result: *"works, from empirical observations only this is faster than conpty."*
-
-### Agents Participated
-- COUNSELOR — the reads of the msys2 runtime source and of JAM; the plan; the validation of every Engineer return; the filter of the audit findings; the whatdbg trace specs; the read of each doxygen block against the code; this log.
-- Engineer — the plan steps 1 to 8; the audit fixes (10 findings applied, builds exit 0, no warnings).
-- Pathfinder — the whatdbg traces; the git evidence; the doxygen pass in four runs (new headers, the Console, Output and Input headers, and the TTY, helper and EVE headers).
-- Auditor — one run over the sprint.
-
-### Files Modified
-- `jam_terminal/tty/native/jam_TerminalCygwinTTY_windows.{h,cpp}` (new) — `TerminalCygwinTTY` implements `TerminalTTY` over three named pipes (input, output, size) with overlapped I/O. `open` starts the helper with `"<runtime>" <size pipe handle> <packed start size> "<shell>" <args>` (`.cpp:78`). `read` is `TerminalFIFO::read (output.get(), buf, maxBytes)` (`.cpp:121-124`). `write` starts one overlapped `WriteFile` and checks it with `GetOverlappedResult (..., FALSE)`, so the tick never waits (`.cpp:126-158`). `setWinsize` writes the packed 64-bit size (`.cpp:160-168`).
-- `jam_terminal/processor/jam_TerminalFIFO.h`, `processor/native/jam_TerminalFIFO_windows.cpp:50-72` — public static `read (Handle, char*, int)`: peek the pipe, then read only the available bytes.
-- `jam_terminal/tty/native/jam_TerminalConsole_windows.{h,cpp}` — static `createProcess` (`.cpp:184-229`), shared by `spawnProcess` (`.cpp:346`) and `TerminalCygwinTTY::open`. The dedicated server context is undone (U5 to U1 of `PLAN-windows-console-throughput.md`), and `isServerOpen` is gone.
-- `jam_terminal/tty/native/jam_TerminalConsoleOutput_windows.{h,cpp}`, `jam_TerminalConsoleInput_windows.{h,cpp}` — the same undo: `std::string sequence`, one `queue`, no `clientQueue`, no `numInterrupts`.
-- `jam_terminal/jam_terminal.h` — the include of the new backend.
-- `eve/cygwinPTY/` (new sub-project): `project-info.md`, `cast/{spell.md,cmake.cast}` (`/ENTRY:cygwinPTYCRTStartup`, `cast/cmake.cast:188-190`), `Source/Main.cpp`, `Source/Runtime.{h,cpp}`, `Source/Session.{h,cpp}`. `Runtime` loads the runtime DLL with `juce::DynamicLibrary`, calls `msys_dll_init` or `cygwin_dll_init`, and binds 16 functions by name. `Session` opens the pty with the start size, makes the slave the controlling terminal, starts the shell with `spawnv` between `dup` and `dup2` of fd 0 to 2, ignores `SIGTTIN` and `SIGTTOU`, puts the shell in its own process group and makes it the foreground group, relays stdio and the size pipe, and on shell exit calls `setpgid (0, shell)` and `setsid` (`Session.cpp:43-72`, `:148-152`).
-- `eve/Source/EVETerminalProcessor.{h,cpp}` — `createTTY (program, directory)` and `getRuntime (program)`: a program with a configured runtime DLL in its folder gets `TerminalCygwinTTY`, any other program gets `TerminalWindowsTTY` (`.cpp:61-122`). `openTTY` builds the TTY of the program it opens (`.cpp:428`, `:460`). The conpty sidecar code is deleted.
-- `eve/Source/ShellIntegration.{h,cpp}` — `getOrCreateCygwinPty`: finds the zip resource, unpacks it with `juce::ZipFile`, keeps a stamp of `CAST_CYGWIN_PTY_HASH` (`.cpp:51-91`).
-- `eve/cast/identifiers.md`, `eve/Source/layout/default-eve.md:219,:221`, `eve/Source/generated/Identifiers.*` — `msysRuntime`, `cygwinRuntime`, `defaultMsysRuntime`, `defaultCygwinRuntime`, and the two settings rows.
-- `eve/cast/files.md`, `eve/cast/cmake.cast:346-372`, `eve/Source/generated/Files.*`, `eve/cast/spell.md`, `eve/project-info.md` — the pack and offload pattern of END: the helper's cast packs the zip into `Source/windows`, EVE's cast globs it, filters by platform, and hashes it.
-- `eve/PLAN-cygwin-pty.md` — the locked plan, with each correction found at run time.
-- `eve/DEBT.md` — two entries (see Debts Deferred).
-- Doxygen pass: `jam_TerminalCygwinTTY_windows.h`, `jam_TerminalFIFO.h`, `jam_TerminalConsole_windows.h`, `jam_TerminalConsoleOutput_windows.h`, `jam_TerminalConsoleInput_windows.h`, `jam_TerminalTTY_windows.h`, `EVETerminalProcessor.h`, `ShellIntegration.h`, `cygwinPTY/Source/Runtime.h`, `cygwinPTY/Source/Session.h`. The working tree also holds uncommitted work of earlier sprints; `git status` lists both trees.
-
-### Alignment Check
-- [x] BLESSED principles followed — one backend object per platform behind `TerminalTTY`; the tick never waits; the helper owns the runtime, the pty and the shell.
-- [x] NAMES.md adhered — every name comes from the plan and its families.
-- [x] MANIFESTO.md principles applied.
-- [ ] Not built after the doxygen pass. The pass changed comments only.
-- [ ] The project doxygen regeneration did not run. `ninja doxygen` in `Builds/Debug` fails: `unknown target 'doxygen'`. JAM `<leader>bd` did not run. The zero-warning result comes from scratch runs with the project Doxyfile template, in the session scratchpad.
-- [ ] Open rulings: see State for Continuation items 1 to 3.
-
-### Problems Solved
-- **zsh runs over the msys2 pty.** The runtime loads inside the helper, where `main` is the helper's. EVE and its host never load it. ARCHITECT: *"works, from empirical observations only this is faster than conpty."*
-- **Resize without a stall.** `TIOCSWINSZ` on a master whose group is not the foreground group waits 60000 ms for a self-signal (`pty.cc:2526-2537`, `sigproc.cc:29`, `:844-847`). `Session::openShell` sets the shell group and the foreground group before the relays open.
-- **Master read and write failing with `EIO`.** `bg_check` (`pty.cc:2464`, `:2238`) with an orphaned group. `SIGTTIN` and `SIGTTOU` are ignored after the spawn.
-- **Shutdown chain.** The shell exit calls `releaseTerminal`, the master read ends, the helper exits. EOF of the helper stdin hangs up the shell.
-- **Helper delivery.** The first form embedded no helper in a Release build. ARCHITECT ruled *"make it identical then. we have working pattern, why deviates"*. The form now mirrors END (`end/cast/cmake.cast:370-397`, `Nexus::getOrCreatePlugin`).
-- **Audit.** Ten findings applied; each was read against the code before the fix. F1 and the copy note were not applied (see State for Continuation item 1).
-- **Doxygen pass.** New blocks on every symbol above. Stale blocks corrected from the code: `numInterrupts`, `clientQueue`, `addClientInput`, `isServerOpen`, the `handleAsyncUpdate` of the Console, and the render and read split of the Console output. Scratch validation with the project Doxyfile template: 0 warnings for the ten headers.
-- **Mistakes owned.** I stopped the first doxygen run at the 15-minute watchdog before it reported, and re-asked for the report. I read the `Winsize` brief against code and found a layout claim that no header supports; the block was corrected to the code. The sentence limit of 20 words was missed once; it was corrected.
-
-### State for Continuation
-- Open ruling 1, for ARCHITECT: `Session.cpp:187-193` reads the master into `buffer`, then `stdio.write` copies it into the ring. MANIFESTO E lists *"A copy per hop"* as forbidden. `PLAN-cygwin-pty.md` BLESSED D says bytes cross each boundary once. Both citations hold; neither is asserted.
-- Open ruling 2, for ARCHITECT: `jam_TerminalTTY.h:102` says `close` terminates the child process if it is still alive. `TerminalCygwinTTY::close` (`jam_TerminalCygwinTTY_windows.cpp:96-119`) closes the handles and does not terminate the helper. `PLAN-cygwin-pty.md` Step 4.6 says the helper ends on EOF of its stdin.
-- Open ruling 3, for ARCHITECT: `jam_TerminalTTY.h:88-89` says the environment replaces the parent block. `buildEnvironmentBlock` (`jam_TerminalConsole_windows.cpp:155-161`) appends the variables after the parent block.
-- Verify first: the cast pack from the helper into `Source/windows` runs after each helper build. An earlier read found that a Release build also installs the VST and VST3 files. This was not read again in this span.
-- Verify at runtime (ARCHITECT): `^C`, job control, resize, pwsh and cmd, and the fallback to powershell when the runtime file is absent (`PLAN-cygwin-pty.md` Step 9).
-- Verify first, a Debug launch under whatdbg crashes before the helper path runs. Trace `trace-eve-order.out.txt`: `process` (`EVETerminalProcessor.cpp:555`) runs on a pool thread before `openTTY` (`:546`, `:460`). The call reaches `TerminalConsole::read` (`jam_TerminalConsole_windows.cpp:628`) on the TTY of the member initializer (`EVETerminalProcessor.h:357`), whose `getOutputMode` is empty because `open` never ran (`jam_TerminalTTY_windows.cpp:50`). `prepare` calls `openTTY` only when `winsize.isValid()` (`EVETerminalProcessor.cpp:410`). Not read: why ARCHITECT's own launches run `openTTY` first. `git` has no history for `jam_TerminalConsole_windows.cpp` (untracked).
-- Observations from the doxygen pass, not validated against a clause: `TerminalConsoleInput::writeLine` consumes the line before the payload write, so a failed write loses the line (`jam_TerminalConsoleInput_windows.cpp:246-260`); `writeScrollLines` writes `CSI 0 L` for a zero distance, which no current caller reaches (`jam_TerminalConsoleOutput_windows.cpp:191-202`); `writeClearScreen` has no call site found, and the LSP gave no references.
-- LSP on JAM files returns no symbols. Load the project in nvim, so `.clangd` points at the `JUCE_WINDOWS` project, before the next `findReferences`.
-- `CLAUDE.md` of EVE names `ninja doxygen`. The target does not exist in `Builds/Debug`.
-- Nothing from this sprint is committed.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261117T223541` — seq on the cygwin pty starts line by line, then pages and chokes (ARCHITECT: *"add to DEBT as issues need to be resolved next sprint"*; the Windows lane needs the clock of macOS, driven by the pty speed).
-- `DEBT-20261117T223545` — the active prompt prints before seq finishes.
 - `DEBT-20261115T221459` — END: load and close of each EVE instance, and focus and keyboard on Windows (unchanged).
 - `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
 
