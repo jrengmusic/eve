@@ -36,6 +36,65 @@
 
 ## SPRINT HISTORY
 
+## Sprint: Em dash covers the next cell — a fallback glyph keeps its em and takes a horizontal scale to its cell ✅
+
+**Date:** 2026-11-25 to 2026-11-26
+**Duration:** one session. The start time is not recorded.
+**Scope (ARCHITECT):** *"just found defects with em dash rendering with our TerminalGraphics"*; *"fix the renderer. after that add RFC to ~/Documents/Poems/dev/fonts/ to add U+2014, U+2013 and U+2026 for all weight Display and Display Mono, and rebuild using ggwp"*; *"add test script to @test/ to check your em dash rendering fixes"*; *"i havent build any font yet. without Display's own dashes, the fallback must be correct first"*; `/audit doxygen pass /log`.
+
+### Agents Participated
+- COUNSELOR — root cause, briefs with exact code, the read of each change, the RFC, the test script, SPEC.md, the doxygen text, this log.
+- Pathfinder — font facts, screenshot crops, the CoreText fallback face, the `Run` consumers, the doxygen pass and its corrections.
+- Engineer — the renderer edits and the four audit fixes in code. One Engineer passed the 15-minute watchdog in a `ling` query after its edits were complete; I stopped it and read every line.
+- Librarian — the width of U+2014 in a terminal (one cell).
+- Auditor — one sweep: 6 findings, 6 validated, 6 resolved.
+
+### Files Modified
+jam:
+- `jam_graphics/fonts/jam_GlyphArrangement.{h,cpp}` — new private `getHorizontalScale` (`.cpp:160-173`): a fallback glyph whose own advance is more than its cell takes the scale that makes its advance equal to the cell. `addGlyph` sets it on the run font (`:718`, `:729`). `Run::matches` compares it (`:772-773`). `findClusterGlyph` shapes the cluster against the face of its base as the last step (`:469-479`). `Run::fontSize` is gone, `Run::font` holds the one copy. A background run holds no glyph fields (`:662-663`).
+- `jam_graphics/fonts/jam_GlyphRasterizer.{h,cpp}` — new `Key::isCellBoxUsed` (`.cpp:41-46`), the one place of the cell-box condition. `Key::getGlyphKey` takes `horizontalScale` (`:48-56`). One duplicate assert is gone.
+- `jam_graphics/context/jam_CpuLowLevelGraphicsContext.h:280`, `jam_vulkan/context/jam_VulkanLowLevelGraphicsContext.cpp:1410` — pass the horizontal scale of the current font to the key, as the PDF context already does (`jam_PdfLowLevelGraphicsContext.cpp:553`).
+- `jam_graphics/svg/jam_SvgFormat.cpp:170` — reads the height from `Run::font`.
+- Doxygen: `jam_GlyphArrangement.h`, `jam_GlyphRasterizer.h`, `jam_GlyphAtlas.h`, `jam_CpuLowLevelGraphicsContext.h`, `jam_VulkanLowLevelGraphicsContext.h`; the banner at `jam_GlyphArrangement.cpp:446-449`.
+
+eve:
+- `test/dashes.sh` (new) — sections 1 to 5 draw U+2014, U+2013 and U+2026. Section 6 draws fallback controls: U+2015, U+2030, U+2031, U+2116 (Menlo, natural size) and U+0B9C, U+0BB3, U+0BA3 (wider than the cell, so they use the scale).
+- `SPEC.md:836-839` — the horizontal-scale rule.
+
+fonts:
+- `/Users/jreng/Documents/Poems/dev/fonts/RFC-dash-ellipsis-glyphs.md` (new) — the three glyphs for six sheets, 0 open questions.
+
+### Alignment Check
+- [x] BLESSED principles followed — one cell-box condition, one copy of the run height, no guard added.
+- [x] NAMES.md adhered — `isCellBoxUsed` joins `isSlantSynthesised`; `getHorizontalScale` takes the JUCE name.
+- [x] MANIFESTO.md principles applied — the scale uses `getAdvance`, the owner API.
+- [x] Doxygen warning check on the five edited headers: 0 warnings. The base config sets `EXTRACT_ALL`, so the check does not report undocumented members.
+- [ ] The audit fixes are not compiled. ARCHITECT builds.
+- [ ] Full doxygen regeneration (`<leader>bd`) not run.
+
+### Problems Solved
+- **Em dash 1.5 cells wide.** Display Mono has no U+2014. `findBundledFallback` gives NotoSansSymbols2, whose U+2014 advance is 1.0 em, and the cell is 0.613 em rounded up (`jam_GlyphRasterizer.cpp` `getMetrics`). Nothing limited the glyph to its cell.
+- **Three versions.** The first scaled the font size (thin, low dash; against SPEC.md:833). The second scaled the ink edge (no right margin on U+2014 and U+2026). The third scales the advance, so both margins shrink equally. ARCHITECT ran the third on 2026-11-25 23:33; my read of that run found no fault.
+- **Audit findings, all resolved:** (1) a cluster whose base and mark come from a fallback face drew the mark in the next cell; (2) SPEC missed the rule; (3) `Run::fontSize` duplicated the height of `Run::font`; (4) a background run computed fields that nothing reads; (5) one invariant asserted twice; (6) dead labels in `test/dashes.sh`.
+- **Mistakes owned.** The RFC first had 7 open questions that reads answered. I told ARCHITECT that U+2015, U+2030, U+2031 and U+2116 were condensed; they come from Menlo at natural size. I gave scale values from the unrounded cell. I read the 8% gap of those four as the U+2014 margin fault.
+
+### State for Continuation
+- Build jam and EVE, then run `test/dashes.sh`, `test/clusters.sh` and `test/glyphs.sh`. The U+0B9C, U+0BB3 and U+0BA3 rows and every audit fix have not run. A compile error on `Run::fontSize` in another jam consumer (end, caroline, whelmed) shows a reader to move to `font.getHeight()`.
+- Limit of finding 1: a cluster that stays two glyphs on its fallback face still draws each codepoint alone. Example: U+0915 U+094D in `test/clusters.sh`. `getClusterGlyph` accepts only one glyph (`jam_GlyphArrangement.cpp:439`).
+- U+2013 from the fallback starts at the left of its cell, because its advance (0.5 em) is less than the cell. Display's own glyph replaces it.
+- The fonts are not built. All `Display*.ttf` date from 4 and 7 Nov. After the ggwp build, copy the six fonts to `Source/fonts` and rebuild EVE. `/Users/jreng/Documents/Poems/dev/fonts/PLAN-dash-ellipsis-glyphs.md` exists and is not from this session.
+- Not proven: a typeface with no font data keeps the HarfBuzz empty font (`jam_Typeface.h:105`), whose advance is not the glyph's. No face that reaches it was found.
+- `ling` gave empty results for jam files. The `Run` consumer list came from the doxygen XML and file reads.
+- Nothing from this sprint is committed.
+
+### Debts Paid
+- None
+
+### Debts Deferred
+- `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
+
+---
+
 ## Sprint: Cross-platform terminal throughput, zero-rule compliance, and prompt sync ✅
 
 **Date:** 2026-11-24 to 2026-11-25
@@ -284,60 +343,6 @@ end (2):
 ### Debts Deferred
 - `DEBT-20261117T223545` — the prompt printed before seq finished. Not re-observed; the entry stays.
 - `DEBT-20261115T221459` — END load, close, focus and keyboard on Windows (unchanged).
-- `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
-
----
-
-## Sprint: Cygwin PTY close-out — one copy per boundary, the child environment replaces inherited variables, the tick never reads a TTY that is not open ✅
-
-**Date:** 2026-11-18
-**Duration:** part of one session. The start and end times are not recorded.
-**Scope (ARCHITECT):** the open items of the sprint "Cygwin PTY" below: *"resolve now"*; the crash stack with *"pre-audit no crash."*; the run results *"debug no crash. seq, ^C, resize works"*, *"cmd, pwsh works"* and *"works."* (job control); and *"write me shell script @test\"*.
-
-### Agents Participated
-- COUNSELOR — the reads of the owner APIs; the three fix specs with their exact code; the read of each Engineer change against the brief; the transcript read that located the audit-fix brief; this log.
-- Engineer — the three fixes, the two cast builds, and `test/jobcontrol.sh`.
-- Pathfinder — git evidence; the doxygen follow-up; a transcript search that I stopped at the 15-minute watchdog because its scope was too wide.
-
-### Files Modified
-- `jam/jam_terminal/processor/jam_TerminalFIFO.h:180-208` — `writeFromDevice` is public again, text and body unchanged. A device read lands in the free space of the ring.
-- `jam/jam_terminal/display/jam_StdioServer.h:61-79` — new public `writeFromDevice`: it gives the free space of the output ring to a device callback, then flushes to the standard output.
-- `eve/cygwinPTY/Source/Session.{h,cpp}` — the `buffer` member is gone. `run()` reads the master through `stdio.writeFromDevice` (`Session.cpp:187-198`). The master byte no longer crosses a staging buffer.
-- `jam/jam_terminal/tty/native/jam_TerminalConsole_windows.cpp:130-171` — `buildEnvironmentBlock` builds the overrides (`TERM`, `TERM_PROGRAM`, the caller's variables) in a `juce::StringPairArray`, which ignores the case of keys, and drops each inherited variable with the same name. This is the contract at `jam_TerminalTTY.h:88-89`.
-- `eve/Source/EVETerminalProcessor.cpp:551-564` — `process()` runs the chain only while `tty->isOpen()`.
-- `eve/test/jobcontrol.sh` (new, 117 lines) — checks the process group of a background job, `SIGSTOP` and `SIGCONT`, the `fg` handoff, and the suspend of a background read. It prints the `^Z`, `bg`, `fg`, `^C` steps for the keyboard.
-- Doxygen: `jam_StdioServer.h`, `jam_TerminalFIFO.h`, `jam_TerminalConsole_windows.h`, `jam_TerminalCygwinTTY_windows.h`, `Session.h`, `EVETerminalProcessor.h`.
-
-### Alignment Check
-- [x] BLESSED principles followed — MANIFESTO E, "A copy per hop" is forbidden: the master read is one OS-boundary copy into the ring, and the ring write to the pipe is the second boundary.
-- [x] NAMES.md adhered — `writeFromDevice` joins the family of `TerminalFIFO::writeFromDevice` and `writeFromTerminalTTY`.
-- [x] MANIFESTO.md principles applied.
-- [ ] The project doxygen regeneration did not run. `ninja doxygen` in `Builds/Debug` fails with `unknown target 'doxygen'`. JAM `<leader>bd` did not run. Scratch runs with the project Doxyfile template report 0 warnings for the edited headers.
-
-### Problems Solved
-- **Extra copy in the helper.** `Session::run` read the master into `buffer`, then `StdioServer::write` copied it into the ring. The read goes straight into the ring now.
-- **Inherited variable won over the integration variable.** The Windows block appended the new variable after the parent block, so the parent value stayed first. The new variable replaces it.
-- **`close` against the owner contract.** `jam_TerminalTTY.h:102` says `close` terminates the shell. `TerminalCygwinTTY::close` closes the input pipe. The helper reads end of stream, sends SIGHUP to the shell (`Session.cpp:113-116`, `:143-146`), and exits when the shell output ends. The block states this chain. No code changed.
-- **Debug launch crash.** `process` ran before `openTTY` and called `TerminalConsole::read` on a console that `open` never wired. The guard makes the tick safe whenever the TTY is not open. ARCHITECT: *"debug no crash."*
-- **Run results.** ARCHITECT: *"seq, ^C, resize works"*, *"cmd, pwsh works"*, and *"works."* for the job-control script.
-- **Mistakes owned.** My first Engineer call carried a model that the definition does not name; the hook denied it, and I sent the call again with `haiku`. My first transcript search for the audit-phase change had too wide a scope and ran past the watchdog; I stopped it and read the audit-fix brief directly.
-
-### State for Continuation
-- Not proven: why the crash showed only after the audit. The audit-fix brief (transcript line 7906) touched `jam_TerminalCygwinTTY_windows.cpp`, `Main.cpp`, `Runtime.{h,cpp}`, `Session.{h,cpp}`, `EVETerminalProcessor.cpp` line 84, and `default-eve.md` rows 219 and 221. None of these is on the crash path (`jam_TerminalTTY_windows.cpp:100`, `jam_TerminalConsole_windows.cpp:628`). `prepare` opens the TTY only when `winsize.isValid()` (`EVETerminalProcessor.cpp:410`).
-- Behaviour of the copy loop: `Session::run` ends when a read returns 0 or less. A full output ring also returns 0 (`jam_TerminalFIFO.h:203-205`). That happens only after a failed write to the standard output. `writeFromDevice` does not clamp the callback result to `maxBytes` (`jam_TerminalFIFO.h:205`); `runtime.read` returns at most `maxBytes`.
-- Not tested: the fallback to powershell when the runtime file is absent (`PLAN-cygwin-pty.md` Step 7.3).
-- The EVE build packs `end/Source/plugins/EVE v0.0.1 Windows.zip`, a path outside the EVE tree. This is the EVE to END pipeline.
-- The observations of the earlier entry stay open and unchanged: `writeLine` loses a line on a failed payload write, `writeScrollLines` writes `CSI 0 L` for a zero distance, `writeClearScreen` has no call site found.
-- `CLAUDE.md` of EVE names `ninja doxygen`. The target does not exist.
-- Nothing from this sprint is committed.
-
-### Debts Paid
-- None
-
-### Debts Deferred
-- `DEBT-20261117T223541` — seq on the cygwin pty paged and choked after a fast start. ARCHITECT reported *"seq works"*; the paging was not re-observed or measured after the copy fix, so the entry stays.
-- `DEBT-20261117T223545` — the active prompt printed before seq finished. Not re-observed; the entry stays.
-- `DEBT-20261115T221459` — END: load and close of each EVE instance, and focus and keyboard on Windows (unchanged).
 - `DEBT-20261105T000000` — Windows runtime test of the image preview (unchanged).
 
 ---

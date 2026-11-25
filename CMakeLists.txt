@@ -160,6 +160,7 @@ set(CAST_JUCE_PATCHES
 "${CAST_USER_MODULE_PATH}/patch/juce-posix-file-hook.patch"                 # POSIX file, link, folder, home and CPU-count functions on macOS when JUCE_USE_FOUNDATION=0: juce_Files_mac.mm, juce_Strings_mac.mm, juce_SystemStats_mac.mm, juce_core.h; read-only maps of MemoryMappedFile that give no fault when JUCE_USE_RESILIENT_MAPPING=1: juce_SharedCode_posix.h
 "${CAST_USER_MODULE_PATH}/patch/juce-sha256-hook.patch"                     # SHA-256 on the ARMv8 hash instructions.
 "${CAST_USER_MODULE_PATH}/patch/juce-posix-event-hook.patch"                # JUCE's POSIX message loop on macOS when JUCE_USE_FOUNDATION=0 and juce_gui_basics is not linked: juce_events.h, juce_events.cpp, juce_MessageManager.cpp, juce_ApplicationBase.cpp, juce_ScopedLowPowerModeDisabler.cpp, juce_Memory.h, juce_SharedCode_posix.h
+"${CAST_USER_MODULE_PATH}/patch/juce-child-process-hook.patch"              # ChildProcessManager singleton defined in its .cpp, so that a translation unit that includes juce_events.h has no initializer: juce_ChildProcessManager.h, juce_ChildProcessManager.cpp
 )
 
 if(WIN32)

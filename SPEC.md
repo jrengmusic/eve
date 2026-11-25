@@ -833,7 +833,11 @@ behaviour must be identical. we only swap the Component"*.
   logic. a wrong SSOT abstraction"*. A fallback glyph takes the em of the run face,
   and a Noto text symbol fits its cell through the `GlyphConstraint` table. ARCHITECT:
   *"icons/mono emoji scaling is off"*; *"why not just fit and obey its codepoints
-  width"*. A cluster with U+FE0F takes two cells, a cluster with U+FE0E takes one, and
+  width"*. A fallback glyph that has no cell box, and whose own advance is more than
+  its cell, takes the horizontal scale that makes its advance equal to the cell
+  (`GlyphArrangement::getHorizontalScale`). A proportional atom takes no scale.
+  ARCHITECT: *"without Display's own dashes, the fallback must be correct first"*.
+  A cluster with U+FE0F takes two cells, a cluster with U+FE0E takes one, and
   a mark draws on its base. ARCHITECT: *"emoji should be wide, not narrow cell"*. On
   macOS a system face takes its glyph outline from CoreText, on the screen and in a
   PDF. ARCHITECT: *"we delegate what native OS supplies"*)
